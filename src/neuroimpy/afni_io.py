@@ -23,15 +23,20 @@ def _parse_float_attribute(lines: List[str]) -> List[float]:
 
 
 def _parse_string_attribute(lines: List[str]) -> List[str]:
-    # AFNI string attributes are tilde-delimited: ~val1~val2~...
-    text = "\n".join(lines)
-    parts = text.split("~")
-    values: List[str] = []
-    for part in parts[1:]:
-        if part == "":
-            continue
-        values.append(part)
-    return values
+    # AFNI string attributes are typically tilde-delimited: ~val1~val2~...
+    # but some inputs may provide a single bare token (e.g. MSB_FIRST).
+    text = "\n".join(lines).strip()
+    if not text:
+        return []
+
+    if text.startswith("~") and text.endswith("~"):
+        text = text[1:-1]
+
+    values = [part for part in text.split("~") if part != ""]
+    if values:
+        return values
+
+    return [text]
 
 
 def _parse_element(block: List[str]) -> Dict[str, Any]:

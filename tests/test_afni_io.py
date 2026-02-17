@@ -94,6 +94,17 @@ def test_read_meta_info_afni(tmp_path):
     np.testing.assert_array_equal(np.asarray(meta.slope), np.asarray([1.0, 2.0]))
 
 
+def test_read_meta_info_afni_msb_first_without_tildes(tmp_path):
+    data = np.arange(4 * 3 * 2 * 2, dtype=np.float32).reshape((4, 3, 2, 2), order="F")
+    head = _write_afni_pair(tmp_path, "mini_no_tilde+orig", data, float_facs=[1.0, 2.0])
+
+    text = head.read_text(encoding="utf-8")
+    head.write_text(text.replace("~LSB_FIRST~", "MSB_FIRST"), encoding="utf-8")
+
+    meta = read_meta_info(head)
+    assert meta.endian == "big"
+
+
 def test_read_header_afni(tmp_path):
     data = np.ones((4, 3, 2), dtype=np.float32)
     head = _write_afni_pair(tmp_path, "header_only+orig", data)
