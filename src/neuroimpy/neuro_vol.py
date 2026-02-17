@@ -367,6 +367,11 @@ class NeuroVol(ABC):
         if na_rm:
             return np.nanmean(values)
         return np.mean(values)
+
+    # Compatibility aliases from neuroim2 naming
+    def vol_mean(self, na_rm: bool = False) -> float:
+        """Alias for mean() for neuroim2 API compatibility."""
+        return self.mean(na_rm=na_rm)
     
     def min(self, na_rm: bool = False) -> float:
         """Minimum value.
@@ -379,6 +384,10 @@ class NeuroVol(ABC):
         if na_rm:
             return np.nanmin(values)
         return np.min(values)
+
+    def which_min(self):
+        """Return linear index of minimum value (F-order indexing)."""
+        return int(np.argmin(self.values()))
     
     def max(self, na_rm: bool = False) -> float:
         """Maximum value.
@@ -391,6 +400,17 @@ class NeuroVol(ABC):
         if na_rm:
             return np.nanmax(values)
         return np.max(values)
+
+    def which_max(self):
+        """Return linear index of maximum value (F-order indexing)."""
+        return int(np.argmax(self.values()))
+
+    def vol_sd(self, na_rm: bool = False) -> float:
+        """Alias for standard deviation for neuroim2 compatibility."""
+        values = self.values()
+        if na_rm:
+            return np.nanstd(values)
+        return float(np.std(values))
     
     def range(self, na_rm: bool = False) -> Tuple[float, float]:
         """Range of values.

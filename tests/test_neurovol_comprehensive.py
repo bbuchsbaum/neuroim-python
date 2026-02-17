@@ -411,15 +411,29 @@ class TestNeuroVolMethods:
         expected = np.mean(self.dat)
         assert np.isclose(self.vol.mean(), expected)
     
+    def test_vol_mean_alias(self):
+        """Test vol_mean() compatibility alias."""
+        assert np.isclose(self.vol.vol_mean(), np.mean(self.dat))
+
     def test_vol_sd(self):
         """Test std() method."""
         expected = np.std(self.dat)
         assert np.isclose(np.std(self.vol.data), expected)
-    
+
+    def test_vol_sd_alias(self):
+        """Test vol_sd() compatibility alias."""
+        assert np.isclose(self.vol.vol_sd(), np.std(self.dat))
+
     def test_min_max(self):
         """Test min/max methods."""
         assert self.vol.min() == np.min(self.dat)
         assert self.vol.max() == np.max(self.dat)
+
+    def test_which_min_max_aliases(self):
+        """Test which_min()/which_max() compatibility aliases."""
+        flat_data = self.vol.data.ravel(order="F")
+        assert self.vol.which_min() == int(np.argmin(flat_data))
+        assert self.vol.which_max() == int(np.argmax(flat_data))
     
     def test_which_min_max(self):
         """Test finding min/max indices."""
