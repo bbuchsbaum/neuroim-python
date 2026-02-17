@@ -319,7 +319,8 @@ class ROIVolWindow(ROIVol):
     coords : np.ndarray
         Matrix with 3 columns representing (i,j,k) coordinates
     parent_index : int
-        1D index of the center voxel in parent space (1-based in R, 0-based here)
+        Opaque 1D index of the center voxel in parent space
+        using the parent space indexing convention.
     center_index : int
         Location in coordinate matrix of center voxel (1-based in R, 0-based here)
         

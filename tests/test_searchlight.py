@@ -66,7 +66,10 @@ class TestSearchlight:
         assert isinstance(sl, LazyList)
         assert len(sl) == 64  # Number of nonzero voxels
         # Each center must be nonzero by construction.
-        assert all(self.mask.data.ravel()[sl[i].parent_index] for i in range(len(sl)))
+        assert all(
+            self.mask.data[tuple(self.space.index_to_grid(np.array([sl[i].parent_index]))[0])]
+            for i in range(len(sl))
+        )
     
     def test_searchlight_large_radius(self):
         """Test searchlight with large radius."""
@@ -234,8 +237,8 @@ class TestRandomSearchlight:
             assert sl.center_index == expected_center
             
             # Check that center is within mask
-            center_idx = sl.parent_index
-            assert self.mask.data.ravel()[center_idx]
+            center_idx = self.space.index_to_grid(np.array([sl.parent_index]))[0]
+            assert self.mask.data[tuple(center_idx)]
 
     def test_random_searchlight_respects_nonzero(self):
         """random_searchlight should keep zeros when nonzero=False."""

@@ -13,6 +13,11 @@ from .searchlight import searchlight_iterator
 from .clustered_neuro_vol import ClusteredNeuroVol
 
 
+def _coords_from_parent_index(space, parent_index: int) -> tuple[int, ...]:
+    """Return coordinate tuple for an opaque parent index."""
+    return tuple(space.index_to_grid(np.array([parent_index], dtype=int))[0].astype(int))
+
+
 def searchlight(mask: Union[NeuroVol, LogicalNeuroVol], 
                 radius: float,
                 method,
@@ -78,7 +83,7 @@ def searchlight(mask: Union[NeuroVol, LogicalNeuroVol],
         else:
             # For NeuroVol, extract values
             sl_indices = mask.space.grid_to_index(sl.coords)
-            sl_data = data.data.ravel()[sl_indices]
+            sl_data = data.data.ravel(order="F")[sl_indices]
         
         # Apply method
         if sl_data.size > 0:
@@ -95,12 +100,12 @@ def searchlight(mask: Union[NeuroVol, LogicalNeuroVol],
         )
         # Store results
         for center_idx, result in results:
-            result_data.ravel()[center_idx] = result
+            result_data[_coords_from_parent_index(mask.space, center_idx)] = result
     else:
         # Sequential processing
         for sl in searchlights:
             center_idx, result = process_searchlight(sl)
-            result_data.ravel()[center_idx] = result
+            result_data[_coords_from_parent_index(mask.space, center_idx)] = result
     
     # Handle combiner (for now just return the result)
     # In R, combiner might aggregate across multiple results
@@ -172,7 +177,8 @@ def resampled_searchlight(
             ts = vec.series(coords)  # shape (n_time, n_voxels)
             resampled = ts[idx, :] if ts.ndim == 2 else ts[idx]
             accum += fun(resampled)
-        result_data.ravel()[sl.parent_index] = accum / n_resamples
+        center_idx = _coords_from_parent_index(mask.space, sl.parent_index)
+        result_data[center_idx] = accum / n_resamples
 
     return DenseNeuroVol(result_data, mask.space)
 

@@ -59,8 +59,8 @@ class TestResampledSearchlight:
             mask=mask, seed=42,
         )
         # Voxels inside the mask should be finite
-        mask_indices = np.where(mask.data.ravel())[0]
-        result_vals = result.data.ravel()[mask_indices]
+        mask_coords = np.argwhere(mask.data)
+        result_vals = result.data[tuple(mask_coords.T)]
         # At least some should be non-NaN (nonzero mask voxels that are
         # also centres)
         assert np.any(np.isfinite(result_vals))
@@ -109,8 +109,8 @@ class TestResampledSearchlight:
             vec, radius=4, fun=lambda x: 42.0, n_resamples=5,
             mask=mask, seed=0,
         )
-        mask_indices = np.where(mask.data.ravel())[0]
-        vals = result.data.ravel()[mask_indices]
+        mask_coords = np.argwhere(mask.data)
+        vals = result.data[tuple(mask_coords.T)]
         finite_vals = vals[np.isfinite(vals)]
         if len(finite_vals) > 0:
             np.testing.assert_allclose(finite_vals, 42.0)
