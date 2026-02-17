@@ -1,0 +1,5 @@
+{
+  "source_repo": "~/code/neuroim2/golden_tests",
+  "target_language": "Python",
+  "description": "Python port of the R neuroim2 package"
+}
