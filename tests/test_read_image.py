@@ -228,6 +228,16 @@ class TestReadImage:
         assert result.shape == (4, 3, 2)
         np.testing.assert_allclose(result.data, data, atol=1e-6)
 
+    def test_afni_4d_singleton_time_dimension_returns_vol(self, tmp_path):
+        data = np.arange(4 * 3 * 2 * 1, dtype=np.float32).reshape((4, 3, 2, 1), order="F")
+        head = _write_afni_pair(tmp_path, "vol4d_singleton+orig", data)
+
+        result = read_image(head)
+
+        assert isinstance(result, DenseNeuroVol)
+        assert result.shape == (4, 3, 2)
+        np.testing.assert_allclose(result.data, data[..., 0], atol=1e-6)
+
     def test_multiple_files_vec(self, tmp_path):
         data1 = np.random.rand(4, 3, 2).astype(np.float32)
         data2 = np.random.rand(4, 3, 2).astype(np.float32)
