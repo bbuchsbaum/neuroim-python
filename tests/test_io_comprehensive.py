@@ -165,6 +165,8 @@ class TestReadWriteVol:
 
         with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp_binary:
             tmp_path_binary = tmp_binary.name
+        with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp_ubyte:
+            tmp_path_ubyte = tmp_ubyte.name
 
         try:
             write_vol(vol, tmp_path_short, data_type="SHORT")
@@ -178,10 +180,15 @@ class TestReadWriteVol:
             write_vol(vol, tmp_path_binary, data_type="BINARY")
             binary_img = nib.load(tmp_path_binary)
             assert binary_img.header.get_data_dtype() == np.dtype(np.uint8)
+
+            write_vol(vol, tmp_path_ubyte, data_type="UBYTE")
+            ubyte_img = nib.load(tmp_path_ubyte)
+            assert ubyte_img.header.get_data_dtype() == np.dtype(np.uint8)
         finally:
             os.unlink(tmp_path_short)
             os.unlink(tmp_path_int)
             os.unlink(tmp_path_binary)
+            os.unlink(tmp_path_ubyte)
 
     def test_write_vol_defaults_to_float_type(self):
         """Test no data_type uses default float output."""
@@ -505,6 +512,8 @@ class TestReadWriteVec:
 
         with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp_binary:
             tmp_path_binary = tmp_binary.name
+        with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp_ubyte:
+            tmp_path_ubyte = tmp_ubyte.name
 
         try:
             write_vec(vec, tmp_path_short, data_type="SHORT")
@@ -518,10 +527,15 @@ class TestReadWriteVec:
             write_vec(vec, tmp_path_binary, data_type="BINARY")
             binary_img = nib.load(tmp_path_binary)
             assert binary_img.header.get_data_dtype() == np.dtype(np.uint8)
+
+            write_vec(vec, tmp_path_ubyte, data_type="UBYTE")
+            ubyte_img = nib.load(tmp_path_ubyte)
+            assert ubyte_img.header.get_data_dtype() == np.dtype(np.uint8)
         finally:
             os.unlink(tmp_path_short)
             os.unlink(tmp_path_int)
             os.unlink(tmp_path_binary)
+            os.unlink(tmp_path_ubyte)
 
     def test_write_vec_defaults_to_float_type(self):
         """Test no data_type uses default float output."""

@@ -363,6 +363,7 @@ class TestNIfTIHeader:
             ("INT16", 4),
             ("UINT8", 2),
             ("BINARY", 2),
+            ("UBYTE", 2),
         ]:
             header = as_nifti_header(vol, "test.nii", data_type=dtype_str)
             assert header['datatype'] == expected_code

@@ -12,6 +12,7 @@ from .neuro_vol import NeuroVol
 # NIfTI data type codes
 NIFTI_TYPE_CODES = {
     'BINARY': 2,  # Alias for UINT8
+    'UBYTE': 2,  # Alias for UINT8
     'UINT8': 2,
     'INT16': 4,
     'INT32': 8,

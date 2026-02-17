@@ -152,6 +152,7 @@ class FileMetaInfo(MetaInfo):
             "FLOAT64": np.float64,
             "FLOAT": np.float32,
             "DOUBLE": np.float64,
+            "UBYTE": np.uint8,
             "BYTE": np.uint8,
             "BINARY": np.uint8,
             "SHORT": np.int16,
