@@ -1,4 +1,4 @@
-# PyNeuroim
+# neuroimpy
 
 A modern Python library for neuroimaging data analysis, providing efficient data structures and algorithms for working with 3D, 4D, and 5D+ brain imaging data.
 
@@ -217,12 +217,12 @@ mypy src/
 
 ## Citation
 
-If you use PyNeuroim in your research, please cite:
+If you use neuroimpy in your research, please cite:
 
 ```bibtex
 @software{neuroimpy,
   author = {Buchsbaum, Brad},
-  title = {PyNeuroim: Python Neuroimaging Library},
+  title = {neuroimpy: Python Neuroimaging Library},
   year = {2024},
   url = {https://github.com/bbuchsbaum/neuroimpy}
 }
@@ -230,7 +230,7 @@ If you use PyNeuroim in your research, please cite:
 
 ## Related Projects
 
-- [neuroim2](https://github.com/bbuchsbaum/neuroim2) - R package (PyNeuroim is designed for compatibility)
+- [neuroim2](https://github.com/bbuchsbaum/neuroim2) - R package (neuroimpy is designed for compatibility)
 - [NiBabel](https://nipy.org/nibabel/) - Neuroimaging file I/O
 - [Nilearn](https://nilearn.github.io/) - Machine learning for neuroimaging
 - [MNE-Python](https://mne.tools/) - MEG/EEG analysis
@@ -241,4 +241,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-PyNeuroim is inspired by and designed to be compatible with the R neuroim2 package. Special thanks to the neuroimaging community for feedback and contributions.
+neuroimpy is inspired by and designed to be compatible with the R neuroim2 package. Special thanks to the neuroimaging community for feedback and contributions.
