@@ -1,0 +1,952 @@
+"""NeuroVol classes for 3D neuroimaging data.
+
+Direct translation of R's neuroim2 NeuroVol classes.
+"""
+
+from abc import ABC, abstractmethod
+from typing import Union, Tuple, Optional, List, Dict
+import numpy as np
+from scipy import sparse
+
+from .neuro_space import NeuroSpace
+
+
+class NeuroVol(ABC):
+    """Abstract base class for volumetric neuroimaging data.
+    
+    Direct translation of R's NeuroVol class.
+    
+    Parameters
+    ----------
+    space : NeuroSpace
+        The spatial metadata for the volume
+        
+    R Equivalent
+    ------------
+    neuroim2::NeuroVol
+    """
+    
+    def __init__(self, space: NeuroSpace):
+        if not isinstance(space, NeuroSpace):
+            raise TypeError("space must be a NeuroSpace object")
+        self.space = space
+    
+    # Abstract methods that subclasses must implement
+    @abstractmethod
+    def __getitem__(self, key):
+        """Extract values using various indexing methods."""
+        pass
+    
+    @abstractmethod
+    def __setitem__(self, key, value):
+        """Set values using various indexing methods."""
+        pass
+    
+    @abstractmethod
+    def values(self) -> np.ndarray:
+        """Get underlying data values.
+        
+        R Equivalent
+        ------------
+        neuroim2::values
+        """
+        pass
+    
+    @abstractmethod
+    def as_dense(self) -> 'DenseNeuroVol':
+        """Convert to dense representation.
+        
+        R Equivalent
+        ------------
+        neuroim2::as.dense
+        """
+        pass
+    
+    @abstractmethod
+    def as_sparse(self, mask=None) -> 'SparseNeuroVol':
+        """Convert to sparse representation.
+        
+        R Equivalent
+        ------------
+        neuroim2::as.sparse
+        """
+        pass
+    
+    @abstractmethod
+    def as_logical(self) -> 'LogicalNeuroVol':
+        """Convert to logical/binary representation.
+        
+        R Equivalent
+        ------------
+        neuroim2::as.logical
+        """
+        pass
+    
+    # Properties from NeuroSpace
+    @property
+    def dim(self) -> np.ndarray:
+        """Dimensions of the volume.
+        
+        R Equivalent
+        ------------
+        neuroim2::dim
+        """
+        return self.space.dim
+    
+    @property
+    def shape(self) -> Tuple[int, int, int]:
+        """Shape of the volume (Python style)."""
+        return tuple(self.space.dim)
+    
+    @property
+    def ndim(self) -> int:
+        """Number of dimensions.
+        
+        R Equivalent
+        ------------
+        neuroim2::ndim
+        """
+        return self.space.ndim
+    
+    @property
+    def spacing(self) -> np.ndarray:
+        """Voxel dimensions.
+        
+        R Equivalent
+        ------------
+        neuroim2::spacing
+        """
+        return self.space.spacing
+    
+    @property
+    def origin(self) -> np.ndarray:
+        """Origin coordinates.
+        
+        R Equivalent
+        ------------
+        neuroim2::origin
+        """
+        return self.space.origin
+    
+    @property
+    def axes(self):
+        """Axis information.
+        
+        R Equivalent
+        ------------
+        neuroim2::axes
+        """
+        return self.space.axes
+    
+    @property
+    def trans(self) -> np.ndarray:
+        """Transformation matrix.
+        
+        R Equivalent
+        ------------
+        neuroim2::trans
+        """
+        return self.space.trans
+    
+    def bounds(self) -> np.ndarray:
+        """Spatial bounds of the volume.
+        
+        R Equivalent
+        ------------
+        neuroim2::bounds
+        """
+        return self.space.bounds()
+    
+    # Coordinate transformation methods (delegate to space)
+    def coord_to_grid(self, coords: np.ndarray) -> np.ndarray:
+        """Convert world coordinates to grid indices.
+        
+        R Equivalent
+        ------------
+        neuroim2::coord_to_grid
+        """
+        return self.space.coord_to_grid(coords)
+    
+    def grid_to_coord(self, grid: np.ndarray) -> np.ndarray:
+        """Convert grid indices to world coordinates.
+        
+        R Equivalent
+        ------------
+        neuroim2::grid_to_coord
+        """
+        return self.space.grid_to_coord(grid)
+    
+    def coord_to_index(self, coords: np.ndarray) -> np.ndarray:
+        """Convert world coordinates to linear indices.
+        
+        R Equivalent
+        ------------
+        neuroim2::coord_to_index
+        """
+        return self.space.coord_to_index(coords)
+    
+    def index_to_coord(self, indices: Union[int, np.ndarray]) -> np.ndarray:
+        """Convert linear indices to world coordinates.
+        
+        R Equivalent
+        ------------
+        neuroim2::index_to_coord
+        """
+        return self.space.index_to_coord(indices)
+    
+    def grid_to_index(self, grid: np.ndarray) -> np.ndarray:
+        """Convert grid indices to linear indices.
+        
+        R Equivalent
+        ------------
+        neuroim2::grid_to_index
+        """
+        return self.space.grid_to_index(grid)
+    
+    def index_to_grid(self, indices: Union[int, np.ndarray]) -> np.ndarray:
+        """Convert linear indices to grid indices.
+        
+        R Equivalent
+        ------------
+        neuroim2::index_to_grid
+        """
+        return self.space.index_to_grid(indices)
+    
+    def get_orthogonal_slices(self, world_point: np.ndarray, slice_types: Optional[List[str]] = None) -> Dict[str, 'NeuroSlice']:
+        """Extract orthogonal slices at a given world-space point.
+        
+        Parameters
+        ----------
+        world_point : np.ndarray
+            World-space coordinates (x, y, z) at which to extract slices
+        slice_types : List[str], optional
+            List of slice types to extract ('axial', 'sagittal', 'coronal').
+            If None, all three slice types are extracted.
+            
+        Returns
+        -------
+        Dict[str, NeuroSlice]
+            Dictionary mapping slice type names to NeuroSlice objects
+            
+        Examples
+        --------
+        >>> # Extract all orthogonal slices at center of volume
+        >>> center = vol.space.centroid()
+        >>> slices = vol.get_orthogonal_slices(center)
+        >>> 
+        >>> # Extract only axial slice
+        >>> slices = vol.get_orthogonal_slices(center, ['axial'])
+        """
+        from .orthogonal_slices import extract_orthogonal_slices
+        return extract_orthogonal_slices(self, world_point, slice_types)
+    
+    # Utility methods
+    def coords(self, real: bool = False) -> np.ndarray:
+        """Get voxel coordinates.
+        
+        Parameters
+        ----------
+        real : bool
+            If True, return world coordinates; if False, return grid coordinates
+            
+        R Equivalent
+        ------------
+        neuroim2::coords
+        """
+        # Create grid of all voxel coordinates
+        grids = np.mgrid[0:self.dim[0], 0:self.dim[1], 0:self.dim[2]]
+        grid_coords = np.column_stack([g.ravel() for g in grids])
+        
+        if real:
+            return self.grid_to_coord(grid_coords)
+        else:
+            return grid_coords
+    
+    def indices(self) -> np.ndarray:
+        """Get linear indices for all voxels.
+        
+        R Equivalent
+        ------------
+        neuroim2::indices
+        """
+        return np.arange(np.prod(self.dim))
+    
+    # Arithmetic operations
+    def __add__(self, other):
+        """Add two volumes or volume and scalar."""
+        return self._arithmetic_op(other, np.add)
+    
+    def __sub__(self, other):
+        """Subtract two volumes or volume and scalar."""
+        return self._arithmetic_op(other, np.subtract)
+    
+    def __mul__(self, other):
+        """Multiply two volumes or volume and scalar."""
+        return self._arithmetic_op(other, np.multiply)
+    
+    def __truediv__(self, other):
+        """Divide two volumes or volume and scalar."""
+        return self._arithmetic_op(other, np.divide)
+
+    def __radd__(self, other):
+        """Handle scalar/array + volume via reversed dispatch."""
+        return self._reverse_arithmetic_op(other, np.add)
+
+    def __rsub__(self, other):
+        """Handle scalar/array - volume via reversed dispatch."""
+        return self._reverse_arithmetic_op(other, np.subtract)
+
+    def __rmul__(self, other):
+        """Handle scalar/array * volume via reversed dispatch."""
+        return self._reverse_arithmetic_op(other, np.multiply)
+
+    def __rtruediv__(self, other):
+        """Handle scalar/array / volume via reversed dispatch."""
+        return self._reverse_arithmetic_op(other, np.divide)
+
+    def _reverse_arithmetic_op(self, other, op):
+        """Perform reversed arithmetic when right-hand side is this object."""
+        return self._arithmetic_op(other, lambda x, y: op(y, x))
+    
+    @abstractmethod
+    def _arithmetic_op(self, other, op):
+        """Perform arithmetic operation."""
+        pass
+    
+    # Comparison operations
+    def __gt__(self, value):
+        """Greater than comparison."""
+        return self._comparison_op(value, np.greater)
+    
+    def __lt__(self, value):
+        """Less than comparison."""
+        return self._comparison_op(value, np.less)
+    
+    def __ge__(self, value):
+        """Greater than or equal comparison."""
+        return self._comparison_op(value, np.greater_equal)
+    
+    def __le__(self, value):
+        """Less than or equal comparison."""
+        return self._comparison_op(value, np.less_equal)
+    
+    def __eq__(self, value):
+        """Equal comparison."""
+        return self._comparison_op(value, np.equal)
+    
+    def __ne__(self, value):
+        """Not equal comparison."""
+        return self._comparison_op(value, np.not_equal)
+    
+    @abstractmethod
+    def _comparison_op(self, value, op):
+        """Perform comparison operation."""
+        pass
+    
+    # Summary statistics
+    def sum(self, na_rm: bool = False) -> float:
+        """Sum of all values.
+        
+        R Equivalent
+        ------------
+        neuroim2::sum
+        """
+        values = self.values()
+        if na_rm:
+            return np.nansum(values)
+        return np.sum(values)
+    
+    def mean(self, na_rm: bool = False) -> float:
+        """Mean of all values.
+        
+        R Equivalent
+        ------------
+        neuroim2::mean
+        """
+        values = self.values()
+        if na_rm:
+            return np.nanmean(values)
+        return np.mean(values)
+    
+    def min(self, na_rm: bool = False) -> float:
+        """Minimum value.
+        
+        R Equivalent
+        ------------
+        neuroim2::min
+        """
+        values = self.values()
+        if na_rm:
+            return np.nanmin(values)
+        return np.min(values)
+    
+    def max(self, na_rm: bool = False) -> float:
+        """Maximum value.
+        
+        R Equivalent
+        ------------
+        neuroim2::max
+        """
+        values = self.values()
+        if na_rm:
+            return np.nanmax(values)
+        return np.max(values)
+    
+    def range(self, na_rm: bool = False) -> Tuple[float, float]:
+        """Range of values.
+        
+        R Equivalent
+        ------------
+        neuroim2::range
+        """
+        return (self.min(na_rm), self.max(na_rm))
+    
+    def __repr__(self):
+        """String representation matching R's show method."""
+        return (f"{self.__class__.__name__}\n"
+                f"  Type      : {self.__class__.__name__}\n"
+                f"  Dimension : {' X '.join(map(str, self.dim))}\n"
+                f"  Spacing   : {' X '.join(map(str, self.spacing))}\n"
+                f"  Origin    : {', '.join(map(str, self.origin))}\n"
+                f"  Range     : [{self.min():.3f}, {self.max():.3f}]")
+
+
+class DenseNeuroVol(NeuroVol):
+    """Dense 3D neuroimaging volume.
+    
+    Direct translation of R's DenseNeuroVol class.
+    
+    Parameters
+    ----------
+    data : array-like
+        3D array of voxel values
+    space : NeuroSpace
+        Spatial metadata
+    label : str, optional
+        Volume label
+    indices : array-like, optional
+        If provided, only these indices will be filled with data
+        
+    R Equivalent
+    ------------
+    neuroim2::DenseNeuroVol
+    """
+    
+    def __init__(self, data, space: NeuroSpace, label: str = "", indices=None):
+        super().__init__(space)
+        
+        # Handle different input types
+        if indices is not None:
+            # Create volume and fill only specified indices
+            self.data = np.zeros(self.shape, order='F')
+            self.data.ravel(order='F')[indices] = data
+        else:
+            # Direct initialization
+            data = np.asarray(data)
+
+            # Coerce complex to real
+            if np.issubdtype(data.dtype, np.complexfloating):
+                data = data.real.astype(np.float64)
+
+            # Handle 1D data
+            if data.ndim == 1:
+                if data.size == np.prod(self.shape):
+                    self.data = data.reshape(self.shape, order='F')  # Fortran order to match R
+                else:
+                    raise ValueError(f"Data size {data.size} doesn't match space size {np.prod(self.shape)}")
+            # Handle 2D data (matrix with single row or column)
+            elif data.ndim == 2:
+                if data.shape[0] == 1 or data.shape[1] == 1:
+                    # Flatten and treat as 1D
+                    flat_data = data.ravel()
+                    if flat_data.size == np.prod(self.shape):
+                        self.data = flat_data.reshape(self.shape, order='F')
+                    else:
+                        raise ValueError(f"Data size {flat_data.size} doesn't match space size {np.prod(self.shape)}")
+                else:
+                    raise ValueError(f"2D data must have single row or column, got shape {data.shape}")
+            # Handle 3D data
+            elif data.ndim == 3:
+                if data.shape != self.shape:
+                    raise ValueError(f"Data shape {data.shape} doesn't match space shape {self.shape}")
+                self.data = data
+            else:
+                raise ValueError(f"Data must be 1D, 2D (single row/col), or 3D array, got {data.ndim}D")
+        
+        self.label = label
+    
+    def __getitem__(self, key):
+        """Extract values using various indexing methods."""
+        if isinstance(key, tuple) and len(key) == 3:
+            # Standard 3D indexing
+            return self.data[key]
+        elif isinstance(key, (list, np.ndarray)):
+            # Convert list to array if needed
+            key = np.asarray(key)
+            if key.dtype == bool:
+                # Boolean indexing
+                return self.data[key]
+            elif key.ndim == 2 and key.shape[1] == 3:
+                # Nx3 matrix of coordinates
+                return self.data[key[:, 0], key[:, 1], key[:, 2]]
+            elif key.ndim == 1:
+                # Linear indices (Fortran order)
+                return self.data.ravel(order='F')[key]
+        elif isinstance(key, (int, slice)):
+            # Single index or slice (Fortran order)
+            return self.data.ravel(order='F')[key]
+        elif isinstance(key, LogicalNeuroVol):
+            # Logical indexing
+            if key.space != self.space:
+                raise ValueError("Mask must have same space as volume")
+            return self.data[key.data]
+        else:
+            return self.data[key]
+    
+    def __setitem__(self, key, value):
+        """Set values using various indexing methods."""
+        if isinstance(key, tuple) and len(key) == 3:
+            self.data[key] = value
+        elif isinstance(key, np.ndarray):
+            if key.ndim == 2 and key.shape[1] == 3:
+                self.data[key[:, 0], key[:, 1], key[:, 2]] = value
+            elif key.ndim == 1:
+                self.data.ravel(order='F')[key] = value
+        elif isinstance(key, (int, slice)):
+            self.data.ravel(order='F')[key] = value
+        elif isinstance(key, LogicalNeuroVol):
+            if key.space != self.space:
+                raise ValueError("Mask must have same space as volume")
+            self.data[key.data] = value
+        else:
+            self.data[key] = value
+    
+    def values(self) -> np.ndarray:
+        """Get underlying data values."""
+        return self.data.ravel(order='F')  # Fortran order to match R
+    
+    def as_dense(self) -> 'DenseNeuroVol':
+        """Already dense, return self."""
+        return self
+    
+    def as_sparse(self, mask=None) -> 'SparseNeuroVol':
+        """Convert to sparse representation."""
+        if mask is None:
+            # Use non-zero values as mask
+            indices = np.nonzero(self.data.ravel(order='F'))[0]
+            values = self.data.ravel(order='F')[indices]
+        elif isinstance(mask, LogicalNeuroVol):
+            indices = np.where(mask.data.ravel(order='F'))[0]
+            values = self.data.ravel(order='F')[indices]
+        elif isinstance(mask, np.ndarray):
+            if mask.dtype == bool:
+                indices = np.where(mask.ravel(order='F'))[0]
+            else:
+                indices = mask
+            values = self.data.ravel(order='F')[indices]
+        else:
+            raise TypeError("mask must be LogicalNeuroVol, boolean array, or indices")
+        
+        return SparseNeuroVol(values, self.space, indices=indices, label=self.label)
+    
+    def as_logical(self) -> 'LogicalNeuroVol':
+        """Convert to logical representation."""
+        return LogicalNeuroVol(self.data != 0, self.space, label=self.label)
+    
+    def as_mask(self, indices=None) -> 'LogicalNeuroVol':
+        """Convert to mask.
+        
+        R Equivalent
+        ------------
+        neuroim2::as.mask
+        """
+        if indices is None:
+            return self.as_logical()
+        else:
+            mask_data = np.zeros(self.shape, dtype=bool)
+            mask_data.flat[indices] = True
+            return LogicalNeuroVol(mask_data, self.space)
+    
+    def as_array(self) -> np.ndarray:
+        """Convert to numpy array.
+        
+        R Equivalent
+        ------------
+        neuroim2::as.array
+        """
+        return self.data
+    
+    def _arithmetic_op(self, other, op):
+        """Perform arithmetic operation."""
+        if isinstance(other, (int, float, np.ndarray)):
+            return DenseNeuroVol(op(self.data, other), self.space, self.label)
+        elif isinstance(other, DenseNeuroVol):
+            if self.space != other.space:
+                raise ValueError("Volumes must have same space")
+            return DenseNeuroVol(op(self.data, other.data), self.space, self.label)
+        elif isinstance(other, SparseNeuroVol):
+            # Convert sparse to dense for operation
+            other_dense = other.as_dense()
+            return DenseNeuroVol(op(self.data, other_dense.data), self.space, self.label)
+        else:
+            return NotImplemented
+    
+    def _comparison_op(self, value, op):
+        """Perform comparison operation."""
+        if isinstance(value, (int, float, np.ndarray)):
+            return LogicalNeuroVol(op(self.data, value), self.space)
+        elif isinstance(value, DenseNeuroVol):
+            if self.space != value.space:
+                raise ValueError("Volumes must have same space")
+            return LogicalNeuroVol(op(self.data, value.data), self.space)
+        else:
+            return NotImplemented
+
+
+    def concat(self, *others: 'DenseNeuroVol') -> 'DenseNeuroVec':
+        """Concatenate multiple volumes into a DenseNeuroVec along a new time dimension.
+
+        Parameters
+        ----------
+        *others : DenseNeuroVol
+            Additional volumes to concatenate.
+
+        Returns
+        -------
+        DenseNeuroVec
+            4D vector containing all volumes stacked along the time axis.
+        """
+        from .neuro_vec import DenseNeuroVec
+        all_vols = [self] + list(others)
+        for v in all_vols[1:]:
+            if v.shape != self.shape:
+                raise ValueError("All volumes must have same spatial dimensions")
+        stacked = np.stack([v.data for v in all_vols], axis=-1)
+        vec_space = NeuroSpace((*self.shape, len(all_vols)),
+                               spacing=np.append(self.space.spacing, 1.0),
+                               origin=np.append(self.space.origin, 0.0))
+        return DenseNeuroVec(stacked, vec_space)
+
+
+class SparseNeuroVol(NeuroVol):
+    """Sparse 3D neuroimaging volume.
+    
+    Direct translation of R's SparseNeuroVol class.
+    Uses scipy.sparse for efficient storage.
+    
+    Parameters
+    ----------
+    data : array-like
+        Non-zero values
+    space : NeuroSpace
+        Spatial metadata
+    indices : array-like
+        Linear indices of non-zero values
+    label : str, optional
+        Volume label
+        
+    R Equivalent
+    ------------
+    neuroim2::SparseNeuroVol
+    """
+    
+    def __init__(self, data, space: NeuroSpace, indices=None, label: str = "", mask=None):
+        super().__init__(space)
+
+        # Handle mask parameter
+        if mask is not None and indices is None:
+            # Extract boolean array from LogicalNeuroVol if needed
+            if hasattr(mask, 'data'):
+                mask_array = mask.data
+            else:
+                mask_array = mask
+
+            # Compute indices from mask's True positions
+            # Note: We get linear indices in C-order, but need to convert them to F-order
+            # because grid_to_index uses F-order (column-major) indexing
+            c_indices = np.where(mask_array.ravel(order='C'))[0]
+
+            # Convert C-order linear indices to grid coordinates
+            shape = mask_array.shape
+            i = c_indices // (shape[1] * shape[2])
+            j = (c_indices % (shape[1] * shape[2])) // shape[2]
+            k = c_indices % shape[2]
+
+            # Convert grid coordinates to F-order linear indices
+            indices = i + j * shape[0] + k * (shape[0] * shape[1])
+        elif mask is None and indices is None:
+            raise ValueError("Either 'indices' or 'mask' must be provided")
+        elif mask is not None and indices is not None:
+            raise ValueError("Cannot provide both 'mask' and 'indices'")
+
+        data = np.asarray(data).ravel()
+        indices = np.asarray(indices).ravel()
+
+        if len(data) != len(indices):
+            raise ValueError("data and indices must have same length")
+
+        # Store as sparse vector (similar to R's sparseVector)
+        size = np.prod(self.shape)
+        self.sparse_data = sparse.csr_matrix((data, (np.zeros(len(indices)), indices)),
+                                           shape=(1, size))
+        self.label = label
+    
+    @property
+    def indices(self) -> np.ndarray:
+        """Get indices of non-zero values."""
+        return self.sparse_data.indices
+    
+    @property
+    def data(self) -> np.ndarray:
+        """Get non-zero values."""
+        return self.sparse_data.data
+    
+    def __getitem__(self, key):
+        """Extract values using various indexing methods."""
+        if isinstance(key, tuple) and len(key) == 3:
+            # Convert 3D to linear index
+            idx = self.space.grid_to_index(np.array([key]))[0]
+            return self.sparse_data[0, idx]
+        elif isinstance(key, np.ndarray):
+            if key.ndim == 2 and key.shape[1] == 3:
+                # Nx3 matrix of coordinates
+                indices = self.space.grid_to_index(key)
+                return self.sparse_data[0, indices].A.ravel()
+            elif key.ndim == 1:
+                # Linear indices
+                return self.sparse_data[0, key].A.ravel()
+        elif isinstance(key, (int, slice)):
+            return self.sparse_data[0, key]
+        else:
+            # Convert to dense for complex indexing
+            return self.as_dense()[key]
+    
+    def __setitem__(self, key, value):
+        """Set values using various indexing methods."""
+        # Note: Setting values in sparse array can be inefficient
+        if isinstance(key, tuple) and len(key) == 3:
+            idx = self.space.grid_to_index(np.array([key]))[0]
+            self.sparse_data[0, idx] = value
+        elif isinstance(key, int):
+            self.sparse_data[0, key] = value
+        elif isinstance(key, np.ndarray):
+            if key.ndim == 2 and key.shape[1] == 3:
+                # Nx3 coordinate array
+                indices = self.space.grid_to_index(key)
+                for idx, val in zip(indices, np.broadcast_to(value, len(indices))):
+                    self.sparse_data[0, idx] = val
+            elif key.ndim == 1:
+                # Linear indices
+                for idx, val in zip(key, np.broadcast_to(value, len(key))):
+                    self.sparse_data[0, idx] = val
+            elif key.dtype == bool:
+                # Boolean mask
+                linear_indices = np.where(key.ravel(order='F'))[0]
+                vals = np.broadcast_to(value, len(linear_indices))
+                for idx, val in zip(linear_indices, vals):
+                    self.sparse_data[0, idx] = val
+            else:
+                raise TypeError(f"Unsupported array index type for SparseNeuroVol: {key.dtype}")
+        elif isinstance(key, slice):
+            indices = range(*key.indices(np.prod(self.shape)))
+            vals = np.broadcast_to(value, len(indices))
+            for idx, val in zip(indices, vals):
+                self.sparse_data[0, idx] = val
+        else:
+            raise TypeError(f"Unsupported index type for SparseNeuroVol: {type(key)}")
+    
+    def values(self) -> np.ndarray:
+        """Get all values (including zeros)."""
+        return self.sparse_data.toarray().ravel()
+    
+    def as_dense(self) -> DenseNeuroVol:
+        """Convert to dense representation."""
+        dense_data = self.sparse_data.toarray().reshape(self.shape, order='F')
+        return DenseNeuroVol(dense_data, self.space, self.label)
+    
+    def as_sparse(self, mask=None) -> 'SparseNeuroVol':
+        """Already sparse, optionally apply new mask."""
+        if mask is None:
+            return self
+        else:
+            # Apply additional mask
+            dense = self.as_dense()
+            return dense.as_sparse(mask)
+    
+    def as_logical(self) -> 'LogicalNeuroVol':
+        """Convert to logical representation."""
+        return self.as_dense().as_logical()
+    
+    def as_array(self) -> np.ndarray:
+        """Convert to numpy array."""
+        return self.as_dense().data
+    
+    def as_numeric(self) -> np.ndarray:
+        """Get non-zero values only.
+        
+        R Equivalent
+        ------------
+        neuroim2::as.numeric
+        """
+        return self.data
+    
+    @property
+    def nnz(self) -> int:
+        """Number of non-zero elements."""
+        return self.sparse_data.nnz
+    
+    def _arithmetic_op(self, other, op):
+        """Perform arithmetic operation."""
+        if isinstance(other, (int, float)):
+            # Scalar operation preserves sparsity
+            new_data = op(self.data, other)
+            return SparseNeuroVol(new_data, self.space, self.indices, self.label)
+        elif isinstance(other, SparseNeuroVol):
+            # For sparse-sparse operations, we need to handle index union
+            # Convert both to dense for now
+            dense1 = self.as_dense()
+            dense2 = other.as_dense()
+            result = dense1._arithmetic_op(dense2, op)
+            return result
+        else:
+            # Convert to dense for operations with dense volumes
+            dense = self.as_dense()
+            result = dense._arithmetic_op(other, op)
+            return result
+    
+    def _comparison_op(self, value, op):
+        """Perform comparison operation."""
+        if isinstance(value, (int, float)):
+            # Create logical volume
+            dense = self.as_dense()
+            return dense._comparison_op(value, op)
+        else:
+            dense = self.as_dense()
+            return dense._comparison_op(value, op)
+
+
+class LogicalNeuroVol(DenseNeuroVol):
+    """Logical/binary 3D neuroimaging volume.
+    
+    Direct translation of R's LogicalNeuroVol class.
+    Extends DenseNeuroVol with boolean data.
+    
+    Parameters
+    ----------
+    data : array-like
+        Boolean 3D array
+    space : NeuroSpace
+        Spatial metadata
+    label : str, optional
+        Volume label
+    indices : array-like, optional
+        If provided, only these indices will be set to True
+        
+    R Equivalent
+    ------------
+    neuroim2::LogicalNeuroVol
+    """
+    
+    def __init__(self, data, space: NeuroSpace, label: str = "", indices=None):
+        if indices is not None:
+            # Create false volume and set specified indices to true
+            bool_data = np.zeros(space.dim, dtype=bool)
+            bool_data.flat[indices] = True
+            super().__init__(bool_data, space, label)
+        else:
+            # Ensure boolean type
+            data = np.asarray(data, dtype=bool)
+            super().__init__(data, space, label)
+    
+    def as_logical(self) -> 'LogicalNeuroVol':
+        """Already logical, return self."""
+        return self
+    
+    def __and__(self, other):
+        """Logical AND operation."""
+        if isinstance(other, LogicalNeuroVol):
+            if self.space != other.space:
+                raise ValueError("Volumes must have same space")
+            return LogicalNeuroVol(self.data & other.data, self.space)
+        return NotImplemented
+    
+    def __or__(self, other):
+        """Logical OR operation."""
+        if isinstance(other, LogicalNeuroVol):
+            if self.space != other.space:
+                raise ValueError("Volumes must have same space")
+            return LogicalNeuroVol(self.data | other.data, self.space)
+        return NotImplemented
+    
+    def __xor__(self, other):
+        """Logical XOR operation."""
+        if isinstance(other, LogicalNeuroVol):
+            if self.space != other.space:
+                raise ValueError("Volumes must have same space")
+            return LogicalNeuroVol(self.data ^ other.data, self.space)
+        return NotImplemented
+    
+    def __invert__(self):
+        """Logical NOT operation."""
+        return LogicalNeuroVol(~self.data, self.space)
+    
+    @property
+    def sum(self) -> int:
+        """Number of True voxels."""
+        return int(np.sum(self.data))
+    
+    def _arithmetic_op(self, other, op):
+        """Arithmetic operations on logical volumes."""
+        # Convert to numeric for arithmetic
+        numeric_data = self.data.astype(float)
+        if isinstance(other, (int, float)):
+            result = op(numeric_data, other)
+        elif isinstance(other, LogicalNeuroVol):
+            if self.space != other.space:
+                raise ValueError("Volumes must have same space")
+            result = op(numeric_data, other.data.astype(float))
+        else:
+            return super()._arithmetic_op(other, op)
+        
+        # Return as DenseNeuroVol since result may not be boolean
+        return DenseNeuroVol(result, self.space, self.label)
+
+
+# Factory function to match R's constructor style
+def neurovol(data, space: NeuroSpace, label: str = "", indices=None) -> NeuroVol:
+    """Create a NeuroVol object.
+    
+    Factory function that creates the appropriate NeuroVol subclass
+    based on the input data.
+    
+    Parameters
+    ----------
+    data : array-like
+        Volume data
+    space : NeuroSpace
+        Spatial metadata
+    label : str, optional
+        Volume label
+    indices : array-like, optional
+        For sparse volumes, the indices of non-zero values
+        
+    Returns
+    -------
+    NeuroVol
+        DenseNeuroVol, SparseNeuroVol, or LogicalNeuroVol
+        
+    R Equivalent
+    ------------
+    neuroim2::NeuroVol
+    """
+    if indices is not None:
+        # Create sparse volume
+        return SparseNeuroVol(data, space, indices, label)
+    else:
+        data = np.asarray(data)
+        if data.dtype == bool:
+            # Create logical volume
+            return LogicalNeuroVol(data, space, label)
+        else:
+            # Create dense volume
+            return DenseNeuroVol(data, space, label)
