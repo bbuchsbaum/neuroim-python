@@ -334,6 +334,11 @@ class ROIVolWindow(ROIVol):
         super().__init__(data, space, coords)
         self.parent_index = int(parent_index)
         self.center_index = int(center_index)
+
+    @property
+    def parent_grid(self) -> np.ndarray:
+        """Parent voxel grid coordinate for this window."""
+        return self.space.index_to_grid(np.array([self.parent_index], dtype=int))[0]
     
     def __repr__(self):
         """String representation."""

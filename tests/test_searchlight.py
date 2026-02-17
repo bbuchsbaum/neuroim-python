@@ -67,7 +67,7 @@ class TestSearchlight:
         assert len(sl) == 64  # Number of nonzero voxels
         # Each center must be nonzero by construction.
         assert all(
-            self.mask.data[tuple(self.space.index_to_grid(np.array([sl[i].parent_index]))[0])]
+            self.mask.data[tuple(sl[i].parent_grid)]
             for i in range(len(sl))
         )
     
@@ -180,7 +180,7 @@ class TestSearchlightCenterIndex:
 
         for i in range(0, len(sl), 7):
             roi = sl[i]
-            center_grid = self.space.index_to_grid(np.array([roi.parent_index]))[0]
+            center_grid = roi.parent_grid
             center_rows = np.where(np.all(roi.coords == center_grid, axis=1))[0]
             expected = center_rows[0] if len(center_rows) else 0
             assert roi.center_index == int(expected)
@@ -231,14 +231,13 @@ class TestRandomSearchlight:
             # Check ROIVolWindow properties
             assert isinstance(sl, ROIVolWindow)
             assert sl.parent_index is not None
-            center_grid = self.space.index_to_grid(np.array([sl.parent_index]))[0]
+            center_grid = sl.parent_grid
             center_rows = np.where(np.all(sl.coords == center_grid, axis=1))[0]
             expected_center = center_rows[0] if len(center_rows) else 0
             assert sl.center_index == expected_center
             
             # Check that center is within mask
-            center_idx = self.space.index_to_grid(np.array([sl.parent_index]))[0]
-            assert self.mask.data[tuple(center_idx)]
+            assert self.mask.data[tuple(center_grid)]
 
     def test_random_searchlight_respects_nonzero(self):
         """random_searchlight should keep zeros when nonzero=False."""
@@ -291,7 +290,7 @@ class TestBootstrapSearchlight:
         for sl in sl_list:
             assert isinstance(sl, ROIVolWindow)
             assert sl.parent_index is not None
-            center_grid = self.space.index_to_grid(np.array([sl.parent_index]))[0]
+            center_grid = sl.parent_grid
             center_rows = np.where(np.all(sl.coords == center_grid, axis=1))[0]
             expected_center = center_rows[0] if len(center_rows) else 0
             assert sl.center_index == expected_center
