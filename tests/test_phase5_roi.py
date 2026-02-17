@@ -229,6 +229,10 @@ class TestROIVolWindow:
         
         assert isinstance(roi, ROIVol)
         assert roi.parent_index == 100
+        np.testing.assert_array_equal(
+            roi.parent_grid,
+            space.index_to_grid(np.array([100], dtype=int))[0],
+        )
         assert roi.center_index == 1
         assert len(roi) == 3
 

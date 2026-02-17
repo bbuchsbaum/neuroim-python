@@ -824,14 +824,20 @@ def neurovecseq(vecs: List, label: str = "") -> NeuroVec:
     
     elif isinstance(first, DenseNeuroVec):
         # List of vectors - concatenate
-        return first.concat(*vecs[1:])
+        result = first.concat(*vecs[1:])
+        if label:
+            result.label = label
+        return result
 
     elif isinstance(first, SparseNeuroVec):
         # List of sparse vectors - concatenate with sparse semantics
-        return first.concat(*vecs[1:])
+        result = first.concat(*vecs[1:])
+        if label:
+            result.label = label
+        return result
     
     else:
-        raise TypeError("Input must be list of NeuroVol or DenseNeuroVec objects")
+        raise TypeError("Input must be list of NeuroVol, DenseNeuroVec, or SparseNeuroVec objects")
 
 
 def neurovec(data, space: NeuroSpace = None, mask=None, label: str = "") -> NeuroVec:

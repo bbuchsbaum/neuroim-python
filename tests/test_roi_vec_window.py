@@ -51,6 +51,7 @@ class TestInit:
     def test_defaults(self, space, coords, data):
         win = ROIVecWindow(space, coords, data)
         assert win.parent_index == 0
+        assert np.array_equal(win.parent_grid, np.array([0, 0, 0]))
         assert win.center_index == 0
 
 

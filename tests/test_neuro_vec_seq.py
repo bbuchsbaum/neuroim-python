@@ -9,7 +9,7 @@ import pytest
 import numpy as np
 from neuroimpy import (
     NeuroSpace, DenseNeuroVol, DenseNeuroVec, SparseNeuroVec,
-    LogicalNeuroVol, MappedNeuroVec, neurovecseq, read_vec, read_vol
+    LogicalNeuroVol, MappedNeuroVec, neurovec, neurovecseq, read_vec, read_vol
 )
 from neuroimpy.io import read_vol as io_read_vol, read_vec as io_read_vec
 import tempfile
@@ -302,3 +302,14 @@ class TestNeuroVecSeq:
         vec_seq = neurovecseq([vol1, vol2, vol3], label="test_sequence")
         
         assert vec_seq.label == "test_sequence"
+
+    def test_with_label_for_vector_lists(self, create_test_vecs):
+        """Test neurovecseq and neurovec propagate labels for vector inputs."""
+        vec1, vec2, vec3, _ = create_test_vecs
+
+        seq = neurovecseq([vec1, vec2, vec3], label="vec_sequence")
+        assert seq.label == "vec_sequence"
+
+        combo = [vec1, vec2]
+        stacked = neurovec(combo, label="neuro_vec")
+        assert stacked.label == "neuro_vec"

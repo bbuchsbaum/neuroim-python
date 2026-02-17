@@ -35,7 +35,7 @@ class TestSearchlight:
         assert isinstance(first_sl, ROIVolWindow)
         assert first_sl.space == self.space
         assert first_sl.parent_index is not None
-        center_grid = self.space.index_to_grid(np.array([first_sl.parent_index]))[0]
+        center_grid = first_sl.parent_grid
         center_row = np.where(np.all(first_sl.coords == center_grid, axis=1))[0]
         expected_center = center_row[0] if len(center_row) else 0
         assert first_sl.center_index == expected_center
