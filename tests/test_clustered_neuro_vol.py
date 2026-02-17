@@ -25,7 +25,7 @@ class TestClusteredNeuroVol:
         
         # Create coordinate grid
         indices = np.arange(16**3)
-        coords = np.array(np.unravel_index(indices, (16, 16, 16))).T
+        coords = np.array(np.unravel_index(indices, (16, 16, 16), order='F')).T
         
         # Perform k-means clustering with 10 centers
         kmeans = KMeans(n_clusters=10, random_state=42)
@@ -76,7 +76,7 @@ class TestClusteredNeuroVol:
         assert dense_vol.shape == (16, 16, 16)
         
         # Verify the cluster values are preserved
-        flat_data = dense_vol.data.flatten()
+        flat_data = dense_vol.data.flatten(order="F")
         assert np.array_equal(flat_data, cluster_labels)
     
     def test_as_logical_conversion(self, setup_clustered_vol):
@@ -137,7 +137,7 @@ class TestClusteredNeuroVol:
         for cluster_id, cluster_data in split_data.items():
             # Get expected data for this cluster
             cluster_indices = clusvol.cluster_map[cluster_id]
-            expected_data = data.flatten()[cluster_indices]
+            expected_data = data.reshape(-1, order="F")[cluster_indices]
             assert np.array_equal(cluster_data, expected_data)
     
     def test_num_clusters(self, setup_clustered_vol):
@@ -178,7 +178,8 @@ class TestClusteredNeuroVol:
         assert cluster_mask.space == space
         
         # Verify the mask contains only the cluster 0 voxels
-        expected_mask = (cluster_labels == 0).reshape(16, 16, 16)
+        expected_mask = np.zeros((16, 16, 16), dtype=bool)
+        expected_mask.ravel(order="F")[cluster_labels == 0] = True
         assert np.array_equal(cluster_mask.data, expected_mask)
     
     def test_get_cluster_data(self, setup_clustered_vol):
@@ -196,8 +197,81 @@ class TestClusteredNeuroVol:
         
         # Verify we got the right data
         cluster_indices = np.where(cluster_labels == 0)[0]
-        expected_data = data.flatten()[cluster_indices]
+        expected_data = data.reshape(-1, order="F")[cluster_indices]
         assert np.array_equal(cluster_data, expected_data)
+
+    def test_sparse_mask_constructor_validates_cluster_length(self):
+        space = NeuroSpace((4, 4, 4), spacing=(1, 1, 1))
+        mask_data = np.zeros((4, 4, 4), dtype=bool)
+        mask_data[0, 0, 0] = True
+        mask_data[2, 1, 3] = True
+        mask_data[1, 3, 0] = True
+        mask = LogicalNeuroVol(mask_data, space)
+        clusters = np.array([1, 2])  # Wrong length for 3 mask voxels
+
+        with pytest.raises(ValueError, match="must match number of mask voxels"):
+            ClusteredNeuroVol(mask, clusters)
+
+    def test_sparse_mask_cluster_mapping_uses_mask_indices(self):
+        space = NeuroSpace((3, 3, 3), spacing=(1, 1, 1))
+        mask_data = np.zeros((3, 3, 3), dtype=bool)
+        mask_data[0, 0, 0] = True
+        mask_data[2, 0, 1] = True
+        mask_data[1, 2, 2] = True
+        mask = LogicalNeuroVol(mask_data, space)
+
+        clusters = np.array([10, 20, 30], dtype=int)
+        clusvol = ClusteredNeuroVol(mask, clusters)
+
+        mask_indices = np.where(mask_data.ravel(order="F"))[0]
+        assert np.array_equal(clusvol.cluster_map[10], np.array([mask_indices[0]], dtype=int))
+        assert np.array_equal(clusvol.cluster_map[20], np.array([mask_indices[1]], dtype=int))
+        assert np.array_equal(clusvol.cluster_map[30], np.array([mask_indices[2]], dtype=int))
+
+        # Verify data extraction and dense conversion preserve mapped locations
+        coords = np.array([[0, 0, 0], [2, 0, 1], [1, 2, 2]])
+        data = np.arange(np.prod(space.dim), dtype=int).reshape(space.dim, order="F")
+        cluster_data = clusvol.get_cluster_data(data, 20)
+        assert np.array_equal(cluster_data, np.array([data[tuple(coords[1])]]))
+
+        sparse_vol = clusvol.to_sparse()
+        dense_vol = clusvol.as_dense()
+        assert np.array_equal(dense_vol[tuple(coords[0])], 10)
+        assert np.array_equal(dense_vol[tuple(coords[1])], 20)
+        assert sparse_vol[tuple(coords[2])] == 30
+        
+    def test_full_shape_clusters_map_through_mask(self):
+        space = NeuroSpace((3, 3, 2), spacing=(1, 1, 1))
+        mask_data = np.zeros((3, 3, 2), dtype=bool)
+        mask_data[0, 0, 0] = True
+        mask_data[2, 1, 1] = True
+        mask = LogicalNeuroVol(mask_data, space)
+
+        full_clusters = (
+            np.arange(np.prod(space.dim), dtype=int).reshape(space.dim, order="F") + 1000
+        )
+        clusvol = ClusteredNeuroVol(mask, full_clusters)
+
+        dense = clusvol.as_dense()
+        for idx, expected in np.ndenumerate(full_clusters):
+            if mask_data[idx]:
+                assert dense[idx] == expected
+            else:
+                assert dense[idx] == 0
+
+    def test_2d_cluster_matrix_uses_fortran_order_flatten(self):
+        """Non-full mask vectors should flatten in Fortran order."""
+        space = NeuroSpace((3, 2, 1), spacing=(1, 1, 1))
+        mask_data = np.ones(space.dim, dtype=bool)
+        mask = LogicalNeuroVol(mask_data, space)
+
+        clusters = np.array([[0, 1], [10, 11], [20, 21]])
+        clusvol = ClusteredNeuroVol(mask, clusters)
+
+        expected = clusters.ravel(order="F")
+        dense = clusvol.as_dense()
+
+        assert np.array_equal(dense.data.ravel(order="F"), expected)
     
     def test_getitem_with_cluster_id(self, setup_clustered_vol):
         """Test indexing with cluster ID."""

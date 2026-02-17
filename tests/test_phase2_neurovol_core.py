@@ -220,6 +220,30 @@ class TestNeuroVolConversions:
         assert mask[10] == True
         assert mask[5] == False
 
+    def test_as_mask_indices_use_fortran_ordering(self):
+        """Indices for as_mask follow Fortran ordering."""
+        spc = NeuroSpace((2, 2, 2))
+        vol = DenseNeuroVol(np.ones((2, 2, 2)), spc)
+
+        mask = vol.as_mask([1])
+
+        assert mask[1] == True
+        assert mask[0, 1, 0] == False
+        assert mask[1, 0, 0] == True
+        assert mask.sum == 1
+
+    def test_logical_neurovol_indices_use_fortran_ordering(self):
+        """Initializing LogicalNeuroVol with indices follows Fortran ordering."""
+        spc = NeuroSpace((2, 2, 2))
+
+        logical = LogicalNeuroVol(None, spc, indices=[1])
+
+        assert isinstance(logical, LogicalNeuroVol)
+        assert logical[1] == True
+        assert logical[0, 1, 0] == False
+        assert logical[1, 0, 0] == True
+        assert logical.sum == 1
+
 
 class TestNeuroVolArithmetic:
     """Test arithmetic operations on NeuroVol."""

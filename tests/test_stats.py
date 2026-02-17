@@ -380,6 +380,37 @@ class TestCentroids:
         com_centers = centroids(self.clustered, method="center_of_mass")
         # They could be different but both valid
         assert all(len(c) == 3 for c in centers.values())
+
+    def test_centroids_median_uses_fortran_mask_indexing(self):
+        """Median centroid should respect mask voxel ordering in Fortran order."""
+        space = NeuroSpace((3, 3, 3))
+        mask_data = np.zeros(space.dim, dtype=bool)
+        mask_data[0:2, 0:2, 0:2] = True
+        mask = LogicalNeuroVol(mask_data, space)
+
+        mask_indices = np.where(mask_data.ravel(order="F"))[0]
+        clusters = np.ones(len(mask_indices), dtype=int)
+        clusters[len(mask_indices) // 2 :] = 2
+
+        clustered = ClusteredNeuroVol(mask, clusters)
+        centers = centroids(clustered, method="median")
+
+        first_half = mask_indices[: len(mask_indices) // 2]
+        second_half = mask_indices[len(mask_indices) // 2 :]
+
+        expected = {
+            1: np.median(
+                np.array(np.unravel_index(first_half, space.dim, order="F")).T,
+                axis=0,
+            ),
+            2: np.median(
+                np.array(np.unravel_index(second_half, space.dim, order="F")).T,
+                axis=0,
+            ),
+        }
+
+        for cluster_id, expected_center in expected.items():
+            assert np.array_equal(centers[cluster_id], expected_center)
     
     def test_centroids_error(self):
         """Test error with unknown method."""

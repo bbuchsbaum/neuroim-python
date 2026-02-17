@@ -162,7 +162,9 @@ def searchlight_coords(mask: Union[NeuroVol, LogicalNeuroVol], radius: float,
     
     # Iterate over all voxels as centers when `nonzero` is False.
     # For nonzero centers, only iterate over nonzero voxels.
-    indices = _mask_indices(mask, nonzero_only=not nonzero)
+    # By default (nonzero=False), search all voxels as centers.
+    # When nonzero=True, only nonzero voxels define centers.
+    indices = _mask_indices(mask, nonzero_only=nonzero)
     centers = mask.space.index_to_grid(indices)
     
     def generate_coords(idx):

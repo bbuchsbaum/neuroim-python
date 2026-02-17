@@ -18,6 +18,17 @@ class ClusteredNeuroVol(NeuroVol):
         """
         super().__init__(mask.space)
         self.mask = mask
+        clusters_array = np.asarray(clusters)
+        mask_indices = np.where(mask.data.ravel(order="F"))[0]
+        if clusters_array.shape == self.shape:
+            clusters = clusters_array.ravel(order="F")[mask_indices]
+        else:
+            clusters = clusters_array.ravel(order="F")
+            if clusters.size != len(mask_indices):
+                raise ValueError(
+                    f"clusters length ({clusters.size}) must match number of mask voxels ({len(mask_indices)})"
+                )
+        self._mask_indices = mask_indices.astype(int)
         self.clusters = clusters
         self.label_map = label_map or {}
         self.cluster_map = self._create_cluster_map()
@@ -27,7 +38,10 @@ class ClusteredNeuroVol(NeuroVol):
         Create a mapping from cluster IDs to the set of 1D spatial indices belonging to that cluster.
         """
         unique_clusters = np.unique(self.clusters)
-        return {cluster: np.where(self.clusters == cluster)[0] for cluster in unique_clusters}
+        return {
+            cluster: self._mask_indices[self.clusters == cluster].astype(int)
+            for cluster in unique_clusters
+        }
 
     def __getitem__(self, key):
         if isinstance(key, str):
@@ -54,7 +68,7 @@ class ClusteredNeuroVol(NeuroVol):
         :return: A LogicalNeuroVol representing the mask of the specified cluster.
         """
         cluster_mask = np.zeros(self.shape, dtype=bool)
-        cluster_mask[np.unravel_index(self.cluster_map[cluster_id], self.shape)] = True
+        cluster_mask[np.unravel_index(self.cluster_map[cluster_id], self.shape, order="F")] = True
         return LogicalNeuroVol(cluster_mask, self.space)
 
     def get_cluster_data(self, data: NeuroVol, cluster_id: int) -> np.ndarray:
@@ -67,7 +81,7 @@ class ClusteredNeuroVol(NeuroVol):
         """
         if not isinstance(data, NeuroVol) or data.space != self.space:
             raise ValueError("Data must be a NeuroVol with matching space")
-        return data[np.unravel_index(self.cluster_map[cluster_id], self.shape)]
+        return data[np.unravel_index(self.cluster_map[cluster_id], self.shape, order="F")]
 
     def to_sparse(self) -> SparseNeuroVol:
         """
@@ -75,7 +89,7 @@ class ClusteredNeuroVol(NeuroVol):
 
         :return: A SparseNeuroVol representation of the clustered volume.
         """
-        return SparseNeuroVol(self.clusters[self.mask.data.ravel()], self.space, np.where(self.mask.data.ravel())[0])
+        return SparseNeuroVol(self.clusters, self.space, mask=self.mask)
 
     def cluster_sizes(self) -> Dict[int, int]:
         """
@@ -101,7 +115,7 @@ class ClusteredNeuroVol(NeuroVol):
         """
         centers = {}
         for cluster_id, indices in self.cluster_map.items():
-            coords = np.array(np.unravel_index(indices, self.shape)).T
+            coords = np.array(np.unravel_index(indices, self.shape, order="F")).T
             center = np.mean(coords, axis=0)
             centers[cluster_id] = center
         return centers
@@ -117,7 +131,7 @@ class ClusteredNeuroVol(NeuroVol):
             raise ValueError("Data must be a NeuroVol with matching space")
 
         result = {}
-        data_flat = data.data.flatten()
+        data_flat = data.data.reshape(-1, order="F")
         for cluster_id, indices in self.cluster_map.items():
             result[cluster_id] = data_flat[indices]
         return result
@@ -135,8 +149,7 @@ class ClusteredNeuroVol(NeuroVol):
         """Convert to DenseNeuroVol."""
         # Create dense representation
         dense_data = np.zeros(self.shape, dtype=self.clusters.dtype)
-        mask_indices = np.where(self.mask.data.ravel())[0]
-        dense_data.ravel()[mask_indices] = self.clusters
+        dense_data.reshape(-1, order="F")[self._mask_indices] = self.clusters
         return DenseNeuroVol(dense_data, self.space)
     
     def as_logical(self) -> LogicalNeuroVol:

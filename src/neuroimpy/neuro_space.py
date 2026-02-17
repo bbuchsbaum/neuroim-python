@@ -659,8 +659,27 @@ class NeuroSpace:
         start = len(self.axes) + 1
         extra_axes = [NamedAxis(f"v{start + i}", 1) for i in range(n)]
         new_axes = axis_set(len(new_dim), list(self.axes) + extra_axes)
+
+        # Preserve affine transform behavior:
+        # - 3D and below use fixed 4x4 transforms.
+        # - 4D+ use (ndim+1)x(ndim+1) transforms, extending with identity rows/cols.
+        source_dim = self.trans.shape[0] - 1
+        if new_dim.size <= 3:
+            new_trans = np.eye(4)
+            keep = min(source_dim, new_dim.size)
+            new_trans[:keep, :keep] = self.trans[:keep, :keep]
+            new_trans[:keep, 3] = self.trans[:keep, -1]
+            for i in range(keep, new_dim.size):
+                new_trans[i, i] = new_spacing[i]
+        else:
+            new_trans = np.eye(len(new_dim) + 1)
+            keep = min(source_dim, len(new_dim))
+            new_trans[:keep, :keep] = self.trans[:keep, :keep]
+            new_trans[:keep, -1] = self.trans[:keep, -1]
+            for i in range(source_dim, len(new_dim)):
+                new_trans[i, i] = new_spacing[i]
         
-        return NeuroSpace(new_dim, new_spacing, new_origin, new_axes, self.trans)
+        return NeuroSpace(new_dim, new_spacing, new_origin, new_axes, new_trans)
     
     def __repr__(self):
         """String representation matching R's show method."""

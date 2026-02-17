@@ -375,7 +375,7 @@ def split_reduce(x: NeuroVec, fac: np.ndarray,
             # Store mean of reduced values
             if reduced_values:
                 # Convert voxel index back to 3D coordinates
-                coords = np.unravel_index(vox_idx, out_data.shape, order='C')
+                coords = np.unravel_index(vox_idx, out_data.shape, order='F')
                 out_data[coords] = np.mean(reduced_values)
     else:
         # Handle sparse case
@@ -537,8 +537,8 @@ def partition(x: NeuroVol, k: int,
     else:
         mask_data = x.data != 0
     
-    mask_indices = np.where(mask_data.ravel())[0]
-    values = x.data.ravel()[mask_indices].reshape(-1, 1)
+    mask_indices = np.where(mask_data.ravel(order="F"))[0]
+    values = x.data.ravel(order="F")[mask_indices].reshape(-1, 1)
     
     if len(values) < k:
         raise ValueError(f"Number of non-zero voxels ({len(values)}) is less than k ({k})")
@@ -550,7 +550,7 @@ def partition(x: NeuroVol, k: int,
         
         # Create label array
         label_array = np.zeros(x.shape, dtype=int)
-        label_array.ravel()[mask_indices] = labels + 1  # 1-indexed
+        label_array.ravel(order="F")[mask_indices] = labels + 1  # 1-indexed
         
         # Create mask volume
         from .neuro_vol import LogicalNeuroVol
@@ -641,14 +641,14 @@ def centroids(x: ClusteredNeuroVol, method: str = "center_of_mass") -> Dict[int,
         # Compute median coordinates
         centers = {}
         # Get the full volume indices where mask is True
-        mask_indices = np.where(x.mask.data.ravel())[0]
+        mask_indices = np.where(x.mask.data.ravel(order="F"))[0]
         
         for cluster_id, cluster_data_indices in x.cluster_map.items():
             # cluster_data_indices are indices into the masked data
             # We need to convert them to full volume indices
             full_volume_indices = mask_indices[cluster_data_indices]
             # Convert to 3D coordinates
-            coords = np.array(np.unravel_index(full_volume_indices, x.mask.shape)).T
+            coords = np.array(np.unravel_index(full_volume_indices, x.mask.shape, order="F")).T
             # Median of each dimension
             center = np.median(coords, axis=0)
             centers[cluster_id] = center

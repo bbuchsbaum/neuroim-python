@@ -80,6 +80,24 @@ class TestSplitScale:
         
         expected = np.array([[[2.5, 6.5, 10.5]]])
         np.testing.assert_array_almost_equal(result.data, expected)
+
+    def test_split_reduce_uses_fortran_voxel_order(self):
+        """split_reduce should map voxel indices with Fortran indexing."""
+        space = NeuroSpace((2, 2, 2, 2), spacing=(1, 1, 1, 1))
+        data = np.arange(np.prod(space.dim), dtype=float).reshape(space.dim, order="F")
+        vec = DenseNeuroVec(data, space)
+
+        factor = np.array([0, 1])
+        result = split_reduce(vec, factor, np.mean)
+
+        expected = np.zeros(space.dim[:3])
+        data_2d = data.reshape(-1, space.dim[-1], order="F")
+        for vox_idx in range(data_2d.shape[0]):
+            coords = np.array(np.unravel_index(vox_idx, space.dim[:3], order="F"))
+            expected[tuple(coords)] = np.mean(data_2d[vox_idx])
+
+        assert result.shape == space.dim[:3]
+        np.testing.assert_array_equal(result.data, expected)
     
     def test_split_scale_basic(self, create_test_data):
         """Test split_scale with center and scale."""

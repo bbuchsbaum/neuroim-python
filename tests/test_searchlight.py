@@ -181,6 +181,10 @@ class TestSearchlightCenterIndex:
         for i in range(0, len(sl), 7):
             roi = sl[i]
             center_grid = roi.parent_grid
+            assert np.array_equal(
+                self.space.grid_to_index(center_grid.reshape(1, -1)),
+                np.array([roi.parent_index]),
+            )
             center_rows = np.where(np.all(roi.coords == center_grid, axis=1))[0]
             expected = center_rows[0] if len(center_rows) else 0
             assert roi.center_index == int(expected)
@@ -232,6 +236,10 @@ class TestRandomSearchlight:
             assert isinstance(sl, ROIVolWindow)
             assert sl.parent_index is not None
             center_grid = sl.parent_grid
+            assert np.array_equal(
+                self.space.grid_to_index(center_grid.reshape(1, -1)),
+                np.array([sl.parent_index]),
+            )
             center_rows = np.where(np.all(sl.coords == center_grid, axis=1))[0]
             expected_center = center_rows[0] if len(center_rows) else 0
             assert sl.center_index == expected_center
@@ -291,6 +299,10 @@ class TestBootstrapSearchlight:
             assert isinstance(sl, ROIVolWindow)
             assert sl.parent_index is not None
             center_grid = sl.parent_grid
+            assert np.array_equal(
+                self.space.grid_to_index(center_grid.reshape(1, -1)),
+                np.array([sl.parent_index]),
+            )
             center_rows = np.where(np.all(sl.coords == center_grid, axis=1))[0]
             expected_center = center_rows[0] if len(center_rows) else 0
             assert sl.center_index == expected_center

@@ -584,7 +584,8 @@ class DenseNeuroVol(NeuroVol):
             return self.as_logical()
         else:
             mask_data = np.zeros(self.shape, dtype=bool)
-            mask_data.flat[indices] = True
+            flat_mask = mask_data.reshape(-1, order='F')
+            flat_mask[np.asarray(indices, dtype=int)] = True
             return LogicalNeuroVol(mask_data, self.space)
     
     def as_array(self) -> np.ndarray:
@@ -871,7 +872,8 @@ class LogicalNeuroVol(DenseNeuroVol):
         if indices is not None:
             # Create false volume and set specified indices to true
             bool_data = np.zeros(space.dim, dtype=bool)
-            bool_data.flat[indices] = True
+            flat_data = bool_data.reshape(-1, order='F')
+            flat_data[np.asarray(indices, dtype=int)] = True
             super().__init__(bool_data, space, label)
         else:
             # Ensure boolean type

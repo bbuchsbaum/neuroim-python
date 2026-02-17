@@ -284,7 +284,7 @@ def mapped_neurovecseq(vecs: list, map_fun: Callable,
         raise ValueError("vecs list cannot be empty")
     
     # Concatenate vectors
-    from .neuro_vec import concat
-    source = concat(vecs)
+    from .neuro_vec import neurovecseq
+    source = neurovecseq(vecs)
     
     return MappedNeuroVec(source, map_fun, inverse_fun)

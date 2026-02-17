@@ -123,11 +123,11 @@ class TestBigNeuroVec:
         
         vec = big_neurovecseq(vols)
         assert isinstance(vec, BigNeuroVec)
-        assert vec.shape == (3, 10, 10, 10)
+        assert vec.shape == (10, 10, 10, 3)
         
         # Check data
         for i in range(3):
-            assert np.allclose(vec[i], i)
+            assert np.allclose(vec[..., i], i)
         
         del vec
 
@@ -283,6 +283,22 @@ class TestMappedNeuroVec:
         # Test inverse
         reconstructed = inverse(log_data)
         assert np.allclose(reconstructed, positive_data, rtol=1e-10)
+
+    def test_mapped_neurovecseq(self):
+        """Test creating mapped vector sequence from list inputs."""
+        vec1 = DenseNeuroVec(np.ones(self.space.dim + (2,)), self.space)
+        vec2 = DenseNeuroVec(np.ones(self.space.dim + (2,)) * 2, self.space)
+        
+        mapped = mapped_neurovecseq(
+            [vec1, vec2],
+            lambda x: x + 1,
+            None
+        )
+        
+        assert isinstance(mapped, MappedNeuroVec)
+        assert mapped.shape == (self.space.dim[0], self.space.dim[1], self.space.dim[2], 4)
+        assert np.allclose(mapped.data[..., 0:2], np.ones(self.space.dim + (2,)) + 1)
+        assert np.allclose(mapped.data[..., 2:4], (np.ones(self.space.dim + (2,)) * 2) + 1)
     
     def test_threshold_mapper(self):
         """Test threshold mapper utility."""

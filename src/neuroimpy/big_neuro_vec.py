@@ -395,16 +395,16 @@ def big_neurovecseq(vols: list, mask: Optional[np.ndarray] = None) -> BigNeuroVe
     vol_shape = first_vol.shape
     n_vols = len(vols)
     
-    # Create 4D space
+    # Create 4D space with time as last dimension
     space_4d = NeuroSpace(
-        dim=[n_vols] + list(vol_shape),
-        spacing=[1] + list(first_vol.space.spacing),
-        origin=[0] + list(first_vol.space.origin)
+        dim=list(vol_shape) + [n_vols],
+        spacing=list(first_vol.space.spacing) + [1],
+        origin=list(first_vol.space.origin) + [0]
     )
     
     # Create BigNeuroVec
     vec = BigNeuroVec(
-        np.zeros((n_vols,) + vol_shape, dtype=first_vol.data.dtype),
+        np.zeros(vol_shape + (n_vols,), dtype=first_vol.data.dtype),
         space_4d
     )
     
@@ -412,7 +412,7 @@ def big_neurovecseq(vols: list, mask: Optional[np.ndarray] = None) -> BigNeuroVe
     for i, vol in enumerate(vols):
         if vol.shape != vol_shape:
             raise ValueError(f"Volume {i} has inconsistent shape")
-        vec._data[i] = vol.data
+        vec._data[..., i] = vol.data
         
     vec.flush()
     

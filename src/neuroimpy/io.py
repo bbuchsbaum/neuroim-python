@@ -17,6 +17,7 @@ from .axis import find_anatomy_3d
 from .file_format import find_descriptor, NIFTI, FileFormat
 from .meta_info import FileMetaInfo, NIFTIMetaInfo, AFNIMetaInfo
 from .afni_io import write_afni_pair
+from .orientation import affine_to_axcodes
 
 
 def _is_afni_descriptor(desc: Optional[FileFormat]) -> bool:
@@ -27,7 +28,43 @@ def _neurospace_from_afni_meta(meta: AFNIMetaInfo) -> NeuroSpace:
     dim = tuple(int(d) for d in meta.dims[:3])
     spacing = tuple(float(s) for s in meta.spacing[:3])
     origin = tuple(float(o) for o in meta.origin[:3])
-    axes = find_anatomy_3d("RAS")
+    axes = meta.spatial_axes
+
+    # AFNI stores orientation in IJK_TO_DICOM; derive neuroim2-compatible axes
+    # when available.
+    header = getattr(meta, "afni_header", None)
+    ijk_to_dicom = None
+    if isinstance(header, dict):
+        ijk_to_dicom = header.get("IJK_TO_DICOM", {}).get("content")
+
+    if ijk_to_dicom is not None:
+        vals = np.asarray(ijk_to_dicom, dtype=float)
+        if vals.size >= 12:
+            try:
+                mat = vals[:12].reshape(3, 4)
+                if mat.shape != (3, 4):
+                    raise ValueError("Malformed IJK_TO_DICOM")
+
+                # Match neuroim2's conversion: permute by AXIAL_RAI before decoding.
+                # AXIAL_RAI = RIGHT_LEFT, ANT_POST, INF_SUP
+                rai_to_lpi = np.array(
+                    [
+                        [-1.0, 0.0, 0.0],
+                        [0.0, -1.0, 0.0],
+                        [0.0, 0.0, 1.0],
+                    ],
+                    dtype=float,
+                )
+                tlpi = rai_to_lpi @ mat[:, :3]
+                affine = np.eye(4, dtype=float)
+                affine[:3, :3] = tlpi
+                axis_codes = affine_to_axcodes(affine, labels=[("R", "L"), ("A", "P"), ("S", "I")])
+                if len(axis_codes) == 3 and all(c in {"R", "L", "A", "P", "I", "S"} for c in axis_codes):
+                    axes = find_anatomy_3d("".join(axis_codes))
+            except Exception:
+                # keep fallback axes when any unexpected shape/parsing issue occurs
+                pass
+
     trans = np.eye(4, dtype=float)
     trans[0, 0] = spacing[0]
     trans[1, 1] = spacing[1]

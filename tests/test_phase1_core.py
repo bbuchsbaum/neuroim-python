@@ -485,6 +485,29 @@ class TestNeuroSpaceDimensionManipulation:
         assert spc4d.ndim == 4
         assert_array_equal(spc4d.dim, [64, 32, 10, 10])
 
+    def test_add_dim_low_dim_expands_affine(self):
+        """add_dim should expand transforms to 4x4 when moving into 3D or below."""
+        spc1d = NeuroSpace((8,), spacing=(2,), origin=(5,))
+        spc2d = spc1d.add_dim(1, 4)
+        expected_2d_trans = np.eye(4)
+        expected_2d_trans[0, 0] = 2
+        expected_2d_trans[0, 3] = 5
+        expected_2d_trans[1, 1] = 1
+        assert spc2d.ndim == 2
+        assert spc2d.trans.shape == (4, 4)
+        assert_array_equal(spc2d.trans, expected_2d_trans)
+
+        spc2d_custom = NeuroSpace((6, 7), spacing=(2, 3), origin=(4, 9))
+        spc3d = spc2d_custom.add_dim(1, 5)
+        expected_3d_trans = np.eye(4)
+        expected_3d_trans[0, 0] = 2
+        expected_3d_trans[0, 3] = 4
+        expected_3d_trans[1, 1] = 3
+        expected_3d_trans[1, 3] = 9
+        assert spc3d.ndim == 3
+        assert spc3d.trans.shape == (4, 4)
+        assert_array_equal(spc3d.trans, expected_3d_trans)
+
     def test_add_dim_preserves_transformation(self):
         """add_dim should preserve existing transformation and not reinitialize it."""
         trans = np.array([
@@ -502,6 +525,26 @@ class TestNeuroSpaceDimensionManipulation:
         expected_trans[:3, 4] = trans[:3, 3]
 
         assert_array_equal(spc4d.trans, expected_trans)
+
+    def test_add_dim_from_4d_extends_affine(self):
+        """add_dim should extend higher-dimensional transformations by adding identity axes."""
+        trans = np.array([
+            [0.0, -1.0, 0.0, 10.0],
+            [1.0, 0.0, 0.0, 20.0],
+            [0.0, 0.0, 1.0, 30.0],
+            [0.0, 0.0, 0.0, 2.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ])
+        spc4d = NeuroSpace((10, 20, 30, 2), trans=trans)
+
+        spc5d = spc4d.add_dim(1, size=5)
+
+        expected_trans = np.eye(6)
+        expected_trans[:4, :4] = trans[:4, :4]
+        expected_trans[:4, 5] = trans[:4, 4]
+
+        assert_array_equal(spc5d.trans, expected_trans)
+        assert_array_equal(spc5d.dim, [10, 20, 30, 2, 5])
 
     def test_drop_dim_preserves_affine_submatrix(self):
         """drop_dim should keep the affine rows/cols for retained dimensions."""
