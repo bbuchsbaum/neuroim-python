@@ -779,7 +779,7 @@ class SparseNeuroVec(NeuroVec):
             return NotImplemented
 
 
-def neurovecseq(vecs: List[Union[DenseNeuroVec, NeuroVol]], label: str = "") -> DenseNeuroVec:
+def neurovecseq(vecs: List, label: str = "") -> NeuroVec:
     """Create NeuroVec from sequence of volumes or vectors.
     
     Parameters
@@ -791,8 +791,8 @@ def neurovecseq(vecs: List[Union[DenseNeuroVec, NeuroVol]], label: str = "") -> 
         
     Returns
     -------
-    DenseNeuroVec
-        Combined 4D vector
+    NeuroVec
+        Combined 4D vector (DenseNeuroVec or SparseNeuroVec, depending on input).
         
     R Equivalent
     ------------
@@ -824,6 +824,10 @@ def neurovecseq(vecs: List[Union[DenseNeuroVec, NeuroVol]], label: str = "") -> 
     
     elif isinstance(first, DenseNeuroVec):
         # List of vectors - concatenate
+        return first.concat(*vecs[1:])
+
+    elif isinstance(first, SparseNeuroVec):
+        # List of sparse vectors - concatenate with sparse semantics
         return first.concat(*vecs[1:])
     
     else:

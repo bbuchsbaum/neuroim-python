@@ -188,6 +188,7 @@ def write_vol(vol: Union[DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol],
             "FLOAT64": np.float64,
             "DOUBLE": np.float64,
             "BINARY": np.uint8,
+            "UBYTE": np.uint8,
             "BYTE": np.uint8,
             "SHORT": np.int16,
             "INT16": np.int16,
@@ -477,6 +478,7 @@ def write_vec(vec: Union[DenseNeuroVec, SparseNeuroVec],
             "FLOAT64": np.float64,
             "DOUBLE": np.float64,
             "BINARY": np.uint8,
+            "UBYTE": np.uint8,
             "BYTE": np.uint8,
             "SHORT": np.int16,
             "INT16": np.int16,
@@ -622,17 +624,19 @@ def read_image(
         return read_vol(file_path, index=0 if index is _READ_IMAGE_INDEX_NOT_SET else index)
 
     img = nib.load(str(file_path))
-    ndim = len(img.shape)
+    shape = img.shape
+    ndim = len(shape)
+    has_vec_dim = ndim > 3 and any(dim > 1 for dim in shape[3:])
 
-    if ndim == 3:
-        return read_vol(file_path, index=0 if index is _READ_IMAGE_INDEX_NOT_SET else index)
-    elif ndim == 4:
+    if has_vec_dim:
         if indices is None and index is not _READ_IMAGE_INDEX_NOT_SET:
             indices = index
         return read_vec(file_path, indices=indices, mask=mask)
+    if ndim == 3 or (ndim > 3 and not has_vec_dim):
+        return read_vol(file_path, index=0 if index is _READ_IMAGE_INDEX_NOT_SET else index)
     else:
         raise ValueError(
-            f"Expected 3D or 4D image, got {ndim}D from {file_path}"
+            f"Expected 3D or vector-like image, got {len(shape)}D from {file_path}"
         )
 
 

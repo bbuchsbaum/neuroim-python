@@ -9,7 +9,8 @@ from pathlib import Path
 from neuroimpy.io import read_image, load_data, read_vol, read_vec
 from neuroimpy.sources import NeuroVolSource, NeuroVecSource
 from neuroimpy.neuro_vol import DenseNeuroVol
-from neuroimpy.neuro_vec import DenseNeuroVec
+from neuroimpy.neuro_vec import DenseNeuroVec, SparseNeuroVec
+from neuroimpy import NeuroSpace, LogicalNeuroVol
 
 
 @pytest.fixture
@@ -109,6 +110,17 @@ class TestReadImage:
         assert isinstance(result, DenseNeuroVec)
         assert result.shape == (5, 6, 7, 10)
         np.testing.assert_allclose(result.data, data, atol=1e-6)
+
+    def test_4d_singleton_time_dimension_returns_vol(self, tmp_path):
+        data = np.random.rand(5, 6, 7, 1).astype(np.float32)
+        path = tmp_path / "vec_singleton.nii.gz"
+        nib.save(nib.Nifti1Image(data, np.eye(4)), str(path))
+
+        result = read_image(path)
+
+        assert isinstance(result, DenseNeuroVol)
+        assert result.shape == (5, 6, 7)
+        np.testing.assert_allclose(result.data, data[..., 0], atol=1e-6)
 
     def test_3d_kwargs_forwarded(self, tmp_4d_nifti):
         """read_image on a 4D file passes kwargs like indices to read_vec."""
@@ -263,6 +275,26 @@ class TestReadImage:
         assert result.shape == (4, 3, 2, 2)
         assert np.allclose(result.data[..., 0], data1[..., 1], atol=1e-6)
         assert np.allclose(result.data[..., 1], data2[..., 1], atol=1e-6)
+
+    def test_multiple_files_vec_with_mask(self, tmp_path):
+        data1 = np.random.rand(4, 3, 2, 2).astype(np.float32)
+        data2 = np.random.rand(4, 3, 2, 2).astype(np.float32)
+        path1 = tmp_path / "vol1.nii.gz"
+        path2 = tmp_path / "vol2.nii.gz"
+        nib.save(nib.Nifti1Image(data1, np.eye(4)), str(path1))
+        nib.save(nib.Nifti1Image(data2, np.eye(4)), str(path2))
+
+        mask_data = np.zeros((4, 3, 2), dtype=bool)
+        mask_data[0, 0, 0] = True
+        mask = LogicalNeuroVol(mask_data, NeuroSpace(dim=(4, 3, 2)))
+
+        result = read_image([path1, path2], type="vec", mask=mask, indices=[0, 1])
+
+        assert result.shape == (4, 3, 2, 4)
+        assert isinstance(result, SparseNeuroVec)
+        dense = result.as_dense()
+        assert np.allclose(dense.data[0, 0, 0, :2], data1[0, 0, 0, :])
+        assert np.allclose(dense.data[0, 0, 0, 2:], data2[0, 0, 0, :])
 
     def test_multiple_files_afni_vec(self, tmp_path):
         data1 = np.arange(4 * 3 * 2, dtype=np.float32).reshape((4, 3, 2), order="F")
