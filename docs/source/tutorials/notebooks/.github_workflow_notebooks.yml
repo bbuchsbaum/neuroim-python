@@ -1,0 +1,52 @@
+# GitHub Actions workflow for testing notebooks
+# Copy this to .github/workflows/test-notebooks.yml in your repository
+
+name: Test Notebooks
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'docs/source/tutorials/notebooks/*.ipynb'
+      - 'src/neuroimpy/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/source/tutorials/notebooks/*.ipynb'
+      - 'src/neuroimpy/**'
+
+jobs:
+  test-notebooks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest nbformat nbconvert jupyter
+    
+    - name: Test notebook imports
+      run: |
+        cd docs/source/tutorials/notebooks
+        python notebook_execution_test.py
+    
+    - name: Test full notebook execution
+      run: |
+        cd docs/source/tutorials/notebooks
+        python notebook_execution_test.py --full
+    
+    - name: Run simple notebook tests
+      run: |
+        cd docs/source/tutorials/notebooks
+        python test_notebooks_simple.py

@@ -1,0 +1,14 @@
+# Documentation dependencies are managed in pyproject.toml [project.optional-dependencies.docs]
+# Install with: pip install -e ".[docs]"
+#
+# For Read the Docs, see .readthedocs.yaml
+#
+# Direct install (if needed):
+sphinx>=7.0
+pydata-sphinx-theme>=0.15
+numpydoc>=1.6
+sphinx-copybutton>=0.5
+sphinx-design>=0.5
+sphinx-remove-toctrees>=0.0.9
+myst-nb>=1.0
+ipykernel>=6.0

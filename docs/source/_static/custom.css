@@ -1,0 +1,23 @@
+/* Widen main content for scientific documentation */
+.bd-main .bd-content .bd-article-container {
+    max-width: 100%;
+}
+.bd-page-width {
+    max-width: 90rem;
+}
+
+/* Improve code block readability */
+div.highlight pre {
+    font-size: 0.85em;
+    line-height: 1.5;
+}
+
+/* Better parameter list formatting */
+dl.field-list > dt {
+    font-weight: 600;
+}
+
+/* Improve table readability */
+table.docutils {
+    font-size: 0.9em;
+}
