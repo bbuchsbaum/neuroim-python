@@ -36,3 +36,21 @@ Thumbs.db
 
 # Sphinx build output
 docs/build/
+
+# Session artifacts (one-time analysis/reports)
+CLAUDE.md.bak
+FEATURE_PARITY_ASSESSMENT.md
+FINAL_TEST_SUMMARY.md
+IMPLEMENTATION_SUMMARY.md
+ROI_FIXES_SUMMARY.md
+R2Py_unified_prompt.md
+R_FEATURES_NOT_NEEDED.md
+R_to_Python_Test_Coverage.md
+SKIPPED_TESTS_ANALYSIS.md
+TEST_REPORT.md
+feature_comparison.md
+implementation_gaps_and_priorities.md
+module_analysis.md
+feature_parity_chart.png
+missing_features_chart.png
+feature_parity_summary.py
