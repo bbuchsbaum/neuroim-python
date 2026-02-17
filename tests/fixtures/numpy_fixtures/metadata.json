@@ -1,0 +1,7 @@
+{
+  "created_by": "create_test_fixtures_manually",
+  "numpy_version": "2.2.4",
+  "seed": 42,
+  "indexing": "0-based (Python)",
+  "notes": "Manual fixtures for testing without R"
+}
