@@ -35,7 +35,13 @@ def tmp_4d_nifti(tmp_path):
     return path, data
 
 
-def _write_afni_pair(out_dir: Path, stem: str, data: np.ndarray, *, gzip_data: bool = False) -> Path:
+def _write_afni_pair(
+    out_dir: Path,
+    stem: str,
+    data: np.ndarray,
+    *,
+    gzip_data: bool = False,
+) -> Path:
     if data.ndim == 3:
         dims = data.shape
         nvols = 1
@@ -66,6 +72,10 @@ def _write_afni_pair(out_dir: Path, stem: str, data: np.ndarray, *, gzip_data: b
         "name = ORIGIN\n"
         "count = 3\n"
         "0.0 0.0 0.0\n\n"
+        "type = float-attribute\n"
+        "name = IJK_TO_DICOM\n"
+        "count = 12\n"
+        "1.0 0.0 0.0 0.0 0.0 -1.0 0.0 0.0 0.0 0.0 1.0 0.0\n\n"
         "type = integer-attribute\n"
         "name = BRICK_TYPES\n"
         f"count = {nvols}\n"
@@ -237,6 +247,16 @@ class TestReadImage:
         assert isinstance(result, DenseNeuroVol)
         assert result.shape == (4, 3, 2)
         np.testing.assert_allclose(result.data, data[..., 0], atol=1e-6)
+
+    def test_afni_4d_auto_dispatch_returns_vec(self, tmp_path):
+        data = np.arange(4 * 3 * 2 * 2, dtype=np.float32).reshape((4, 3, 2, 2), order="F")
+        head = _write_afni_pair(tmp_path, "vol4d+orig", data)
+
+        result = read_image(head)
+
+        assert isinstance(result, DenseNeuroVec)
+        assert result.shape == (4, 3, 2, 2)
+        np.testing.assert_allclose(result.data, data, atol=1e-6)
 
     def test_multiple_files_vec(self, tmp_path):
         data1 = np.random.rand(4, 3, 2).astype(np.float32)

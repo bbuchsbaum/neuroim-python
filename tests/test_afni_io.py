@@ -2,8 +2,10 @@
 
 import gzip
 from pathlib import Path
+from typing import Optional, Sequence
 
 import numpy as np
+import pytest
 
 from neuroimpy import read_meta_info, read_header, read_vol, read_vec, write_vol, write_vec
 from neuroimpy import DenseNeuroVol, DenseNeuroVec, NeuroSpace
@@ -17,7 +19,13 @@ def _write_afni_pair(
     *,
     float_facs=None,
     gzip_data: bool = False,
+    ijk_to_dicom: Optional[Sequence[float]] = None,
+    include_ijk_to_dicom: bool = True,
+    include_brick_types: bool = True,
 ) -> Path:
+    if ijk_to_dicom is None:
+        ijk_to_dicom = [2.0, 0.0, 0.0, 10.0, 0.0, -2.0, 0.0, 20.0, 0.0, 0.0, 3.0, 30.0]
+
     if data.ndim == 3:
         dims = data.shape
         nvols = 1
@@ -54,10 +62,15 @@ def _write_afni_pair(
         "name = ORIGIN\n"
         "count = 3\n"
         "10.0 20.0 30.0\n\n"
-        "type = integer-attribute\n"
-        "name = BRICK_TYPES\n"
-        f"count = {nvols}\n"
-        f"{brick_types}\n\n"
+    )
+    if include_brick_types:
+        head_txt += (
+            "type = integer-attribute\n"
+            "name = BRICK_TYPES\n"
+            f"count = {nvols}\n"
+            f"{brick_types}\n\n"
+        )
+    head_txt += (
         "type = float-attribute\n"
         "name = BRICK_FLOAT_FACS\n"
         f"count = {nvols}\n"
@@ -66,6 +79,17 @@ def _write_afni_pair(
         "name = BYTEORDER_STRING\n"
         "count = 10\n"
         "~LSB_FIRST~\n\n"
+    )
+    if include_ijk_to_dicom and ijk_to_dicom is not None:
+        ijk_count = len(ijk_to_dicom)
+        head_txt += (
+            "type = float-attribute\n"
+            "name = IJK_TO_DICOM\n"
+            f"count = {ijk_count}\n"
+            " ".join(f"{x}" for x in ijk_to_dicom)
+            + "\n\n"
+        )
+    head_txt += (
         "type = string-attribute\n"
         "name = BRICK_LABS\n"
         f"count = {len(labels)}\n"
@@ -105,6 +129,70 @@ def test_read_meta_info_afni_msb_first_without_tildes(tmp_path):
     assert meta.endian == "big"
 
 
+def test_read_meta_info_afni_missing_ijk_to_dicom(tmp_path):
+    data = np.arange(4 * 3 * 2, dtype=np.float32).reshape((4, 3, 2), order="F")
+    head = _write_afni_pair(
+        tmp_path,
+        "no_ijk+orig",
+        data,
+        include_ijk_to_dicom=False,
+    )
+
+    with pytest.raises(ValueError, match="Invalid IJK_TO_DICOM transformation in AFNI header"):
+        read_meta_info(head)
+
+
+def test_read_meta_info_afni_short_ijk_to_dicom(tmp_path):
+    data = np.arange(4 * 3 * 2, dtype=np.float32).reshape((4, 3, 2), order="F")
+    head = _write_afni_pair(
+        tmp_path,
+        "short_ijk+orig",
+        data,
+        ijk_to_dicom=[2.0, 0.0, 0.0, 10.0, 0.0, -2.0],
+    )
+
+    with pytest.raises(ValueError, match="Invalid IJK_TO_DICOM transformation in AFNI header"):
+        read_meta_info(head)
+
+
+def test_read_meta_info_afni_nan_ijk_to_dicom(tmp_path):
+    data = np.arange(4 * 3 * 2, dtype=np.float32).reshape((4, 3, 2), order="F")
+    head = _write_afni_pair(
+        tmp_path,
+        "nan_ijk+orig",
+        data,
+        ijk_to_dicom=[2.0, 0.0, 0.0, 10.0, 0.0, float("nan"), 0.0, 20.0, 0.0, 0.0, 3.0, 30.0],
+    )
+
+    with pytest.raises(ValueError, match="Invalid IJK_TO_DICOM transformation in AFNI header"):
+        read_meta_info(head)
+
+
+def test_read_meta_info_afni_zero_volume_dimension(tmp_path):
+    data = np.zeros((4, 3, 0), dtype=np.float32)
+    head = _write_afni_pair(
+        tmp_path,
+        "bad_dims+orig",
+        data,
+    )
+
+    with pytest.raises(ValueError, match="AFNI dataset must have at least 3 dimensions"):
+        read_meta_info(head)
+
+
+def test_read_meta_info_afni_missing_brick_types(tmp_path):
+    data = np.zeros((4, 3, 2), dtype=np.float32)
+    head = _write_afni_pair(
+        tmp_path,
+        "no_brick_types+orig",
+        data,
+        include_brick_types=False,
+    )
+
+    with pytest.raises(ValueError, match="Missing BRICK_TYPES in AFNI header"):
+        read_meta_info(head)
+
+
 def test_read_header_afni(tmp_path):
     data = np.ones((4, 3, 2), dtype=np.float32)
     head = _write_afni_pair(tmp_path, "header_only+orig", data)
@@ -135,6 +223,21 @@ def test_read_vec_afni_indices_and_gzip(tmp_path):
     expected = np.stack([base[..., 0] * 1.0, base[..., 2] * 3.0], axis=3)
     np.testing.assert_allclose(vec.data, expected)
     assert vec.shape == expected.shape
+
+
+def test_read_vol_afni_respects_ijk_to_dicom_orientation(tmp_path):
+    data = np.arange(4 * 3 * 2, dtype=np.float32).reshape((4, 3, 2), order="F")
+    head = _write_afni_pair(
+        tmp_path,
+        "ijk_to_dicom+orig",
+        data,
+        ijk_to_dicom=[-1.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+    )
+
+    vol = read_vol(head)
+    assert vol.space.axes.i.axis == "Left-to-Right"
+    assert vol.space.axes.j.axis == "Posterior-to-Anterior"
+    assert vol.space.axes.k.axis == "Inferior-to-Superior"
 
 
 def test_write_read_vol_afni_roundtrip(tmp_path):

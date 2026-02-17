@@ -313,6 +313,15 @@ class AFNIFormat(FileFormat):
         afni_header = read_afni_header(header_file)
         afni_header["file_name"] = header_file
 
+        ijk_to_dicom = afni_header.get("IJK_TO_DICOM", {}).get("content")
+        try:
+            ijk_to_dicom_values = np.asarray(ijk_to_dicom, dtype=float)
+        except (TypeError, ValueError):
+            raise ValueError("Invalid IJK_TO_DICOM transformation in AFNI header")
+
+        if ijk_to_dicom_values.size < 12 or not np.all(np.isfinite(ijk_to_dicom_values[:12])):
+            raise ValueError("Invalid IJK_TO_DICOM transformation in AFNI header")
+
         if "DATASET_DIMENSIONS" not in afni_header:
             raise ValueError("Missing DATASET_DIMENSIONS in AFNI header")
         dims3 = [int(x) for x in afni_header["DATASET_DIMENSIONS"]["content"] if int(x) > 0]
@@ -321,7 +330,10 @@ class AFNIFormat(FileFormat):
         dims: List[int] = dims3[:3]
 
         dataset_rank = afni_header.get("DATASET_RANK", {}).get("content", [3, 1])
-        nvols = int(dataset_rank[1]) if len(dataset_rank) > 1 else 1
+        try:
+            nvols = int(dataset_rank[1]) if len(dataset_rank) > 1 else 1
+        except (TypeError, ValueError):
+            raise ValueError("Invalid DATASET_RANK in AFNI header")
         if nvols > 1:
             dims.append(nvols)
 
@@ -331,7 +343,15 @@ class AFNIFormat(FileFormat):
         else:
             labels = [str(x) for x in brick_labs]
 
-        brick_type = int(afni_header.get("BRICK_TYPES", {}).get("content", [3])[0])
+        if "BRICK_TYPES" not in afni_header:
+            raise ValueError("Missing BRICK_TYPES in AFNI header")
+        brick_type_raw = afni_header["BRICK_TYPES"].get("content", [3])
+        if not brick_type_raw:
+            raise ValueError("Missing BRICK_TYPES in AFNI header")
+        try:
+            brick_type = int(brick_type_raw[0])
+        except (TypeError, ValueError):
+            raise ValueError("Invalid BRICK_TYPES in AFNI header")
         data_type_map = {0: "UINT8", 1: "INT16", 3: "FLOAT32"}
         bpe_map = {0: 1, 1: 2, 3: 4}
         if brick_type not in data_type_map:
