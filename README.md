@@ -4,8 +4,8 @@ A modern Python library for neuroimaging data analysis, providing efficient data
 
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-543%20passing-green)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-71%25-yellowgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1220%20passing-green)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-85%25-yellowgreen)](tests/)
 
 ## Features
 
@@ -183,12 +183,12 @@ chunk = big_data[30:40, 30:40, 20:30, :]  # Load only what's needed
 
 ## Documentation
 
-Full documentation is available at [https://neuroim.readthedocs.io](https://neuroim.readthedocs.io) (coming soon).
+The documentation site is built with Quarto from `docs/`.
 
-- [Installation Guide](docs/source/installation.rst)
-- [Tutorials](docs/source/tutorials/)
-- [API Reference](docs/source/api/)
-- [Migration from R](docs/source/migration/)
+- [Documentation source](docs/)
+- [Tutorials](docs/tutorials/)
+- [API reference](docs/reference/)
+- [Porting and parity notes](docs/porting/)
 
 ## Requirements
 
@@ -201,7 +201,7 @@ Full documentation is available at [https://neuroim.readthedocs.io](https://neur
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](docs/source/contributing.rst) for details.
+We welcome contributions. For local development:
 
 ```bash
 # Run tests
