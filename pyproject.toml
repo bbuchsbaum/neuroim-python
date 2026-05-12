@@ -61,7 +61,7 @@ docs = [
 
 [project.urls]
 "Homepage" = "https://github.com/bbuchsbaum/neuroim-python"
-"Documentation" = "https://neuroim.readthedocs.io"
+"Documentation" = "https://bbuchsbaum.github.io/neuroim-python/"
 "Bug Tracker" = "https://github.com/bbuchsbaum/neuroim-python/issues"
 
 [tool.setuptools.packages.find]

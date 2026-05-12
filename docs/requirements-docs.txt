@@ -1,7 +1,7 @@
 # Documentation dependencies are managed in pyproject.toml [project.optional-dependencies.docs]
 # Install with: pip install -e ".[docs]"
 #
-# For Read the Docs, see .readthedocs.yaml
+# GitHub Pages is built by .github/workflows/docs.yml.
 #
 # Direct install (if needed):
 quartodoc>=0.7
