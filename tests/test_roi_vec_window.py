@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.roi_vec_window import ROIVecWindow
+from neuroim.neuro_space import NeuroSpace
+from neuroim.roi_vec_window import ROIVecWindow
 
 
 @pytest.fixture

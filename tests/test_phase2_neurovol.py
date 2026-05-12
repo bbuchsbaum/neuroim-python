@@ -10,12 +10,12 @@ from numpy.testing import assert_array_equal, assert_array_almost_equal
 import tempfile
 from pathlib import Path
 
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.neuro_vol import (
+from neuroim.neuro_space import NeuroSpace
+from neuroim.neuro_vol import (
     NeuroVol, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol, 
     neurovol
 )
-from neuroimpy.io import read_vol, write_vol, read_header
+from neuroim.io import read_vol, write_vol, read_header
 
 
 class TestNeuroVolConstruction:

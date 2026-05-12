@@ -1,7 +1,7 @@
 API Function Mappings
 =====================
 
-This page provides a comprehensive mapping between R neuroim2 functions and their Python neuroimpy equivalents.
+This page provides a comprehensive mapping between R neuroim2 functions and their Python neuroim equivalents.
 
 Core Classes
 ------------
@@ -11,7 +11,7 @@ Core Classes
    :header-rows: 1
 
    * - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
      - Notes
    * - ``NeuroSpace()``
      - ``pn.NeuroSpace()``
@@ -61,7 +61,7 @@ I/O Functions
    :header-rows: 1
 
    * - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
      - Notes
    * - ``read_vol(filename)``
      - ``pn.read_vol(filename)``
@@ -87,7 +87,7 @@ ROI Functions
    :header-rows: 1
 
    * - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
      - Notes
    * - ``spherical_roi(center, radius, space)``
      - ``pn.spherical_roi(center, radius, space)``
@@ -110,7 +110,7 @@ Searchlight Functions
    :header-rows: 1
 
    * - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
      - Notes
    * - ``searchlight(mask, radius, method)``
      - ``pn.searchlight(mask, radius, method)``
@@ -133,7 +133,7 @@ Statistical Functions
    :header-rows: 1
 
    * - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
      - Notes
    * - ``partition(x, k)``
      - ``pn.partition(x, k)``
@@ -156,7 +156,7 @@ Data Access Methods
    :header-rows: 1
 
    * - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
      - Notes
    * - ``dim(x)``
      - ``x.shape`` or ``x.dim``
@@ -200,7 +200,7 @@ Both R and Python support standard arithmetic operations on volumes and vectors:
 
    * - Operation
      - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
    * - Addition
      - ``vol1 + vol2``
      - ``vol1 + vol2``
@@ -222,7 +222,7 @@ Indexing Operations
    :header-rows: 1
 
    * - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
      - Notes
    * - ``vol[i, j, k]``
      - ``vol[i-1, j-1, k-1]``
@@ -245,7 +245,7 @@ Utility Functions
    :header-rows: 1
 
    * - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
      - Notes
    * - ``grid_to_index(space, coords)``
      - ``space.grid_to_index(coords)``
@@ -271,7 +271,7 @@ Memory-Mapped Operations
    :header-rows: 1
 
    * - R (neuroim2)
-     - Python (neuroimpy)
+     - Python (neuroim)
      - Notes
    * - ``BigNeuroVec(...)``
      - ``pn.BigNeuroVec(...)``

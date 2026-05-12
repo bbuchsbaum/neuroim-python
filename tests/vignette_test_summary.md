@@ -1,6 +1,6 @@
-# PyNeuroim Vignette Functionality Test Summary
+# Neuroim Vignette Functionality Test Summary
 
-This document summarizes the results of testing the functionality described in the R neuroim2 vignettes against the Python neuroimpy implementation.
+This document summarizes the results of testing the functionality described in the R neuroim2 vignettes against the Python neuroim implementation.
 
 ## Test Results Overview
 

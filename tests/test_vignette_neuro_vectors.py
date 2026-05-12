@@ -5,8 +5,8 @@ import os
 
 # Test imports
 try:
-    from neuroimpy import read_vec, neurovec, DenseNeuroVol, DenseNeuroVec, NeuroSpace
-    from neuroimpy.neuro_vec import neurovecseq
+    from neuroim import read_vec, neurovec, DenseNeuroVol, DenseNeuroVec, NeuroSpace
+    from neuroim.neuro_vec import neurovecseq
     print("✓ Basic imports work")
 except ImportError as e:
     print(f"✗ Import error: {e}")
@@ -82,7 +82,7 @@ def test_series_extraction():
 
 def test_series_roi():
     """Test ROI-based series extraction."""
-    from neuroimpy import spherical_roi
+    from neuroim import spherical_roi
     
     data = np.random.randn(10, 10, 10, 20)
     vec = neurovec(data)
@@ -132,7 +132,7 @@ def test_vols_extraction():
 
 def test_as_sparse():
     """Test sparse conversion."""
-    from neuroimpy import LogicalNeuroVol
+    from neuroim import LogicalNeuroVol
     
     data = np.zeros((10, 10, 10, 20))
     data[5:7, 5:7, 5:7, :] = 1.0

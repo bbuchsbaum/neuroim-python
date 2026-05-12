@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 try:
-    from neuroimpy import (
+    from neuroim import (
         # File formats
         FileFormat, NIFTIFormat, AFNIFormat,
         NIFTI, NIFTI_GZ, NIFTI_PAIR, NIFTI_PAIR_GZ, AFNI, AFNI_GZ,
@@ -27,14 +27,14 @@ try:
     NIBABEL_AVAILABLE = True
 except ImportError:
     # Import components that don't require nibabel
-    from neuroimpy.file_format import (
+    from neuroim.file_format import (
         FileFormat, NIFTIFormat, AFNIFormat,
         NIFTI, NIFTI_GZ, NIFTI_PAIR, NIFTI_PAIR_GZ, AFNI, AFNI_GZ,
         find_descriptor
     )
-    from neuroimpy.meta_info import MetaInfo, FileMetaInfo, NIFTIMetaInfo, AFNIMetaInfo
-    from neuroimpy.binary_io import BinaryReader, BinaryWriter, ColumnReader
-    from neuroimpy import DenseNeuroVol, NeuroSpace, find_anatomy_3d
+    from neuroim.meta_info import MetaInfo, FileMetaInfo, NIFTIMetaInfo, AFNIMetaInfo
+    from neuroim.binary_io import BinaryReader, BinaryWriter, ColumnReader
+    from neuroim import DenseNeuroVol, NeuroSpace, find_anatomy_3d
     NIBABEL_AVAILABLE = False
 
 
@@ -152,7 +152,7 @@ class TestMetaInfo:
     def test_meta_info_creation(self):
         """Test creating MetaInfo object."""
         spatial_axes = find_anatomy_3d("RAS")
-        from neuroimpy.axis import AxisSet
+        from neuroim.axis import AxisSet
         
         meta = MetaInfo(
             data_type="FLOAT32",

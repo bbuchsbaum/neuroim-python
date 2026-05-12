@@ -1,14 +1,14 @@
 """
 Test suite for ClusteredNeuroVol class.
 
-This module tests the ClusteredNeuroVol functionality in neuroimpy,
+This module tests the ClusteredNeuroVol functionality in neuroim,
 corresponding to the R neuroim2 test-clusteredneurovol.R tests.
 """
 
 import pytest
 import numpy as np
 from sklearn.cluster import KMeans
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVol, LogicalNeuroVol, 
     ClusteredNeuroVol, SparseNeuroVol
 )

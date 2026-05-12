@@ -5,10 +5,10 @@ Tests for parallel searchlight processing.
 import pytest
 import numpy as np
 import time
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.neuro_vol import DenseNeuroVol, LogicalNeuroVol
-from neuroimpy.searchlight import searchlight_iterator, searchlight_coords
-from neuroimpy.searchlight_high_level import searchlight
+from neuroim.neuro_space import NeuroSpace
+from neuroim.neuro_vol import DenseNeuroVol, LogicalNeuroVol
+from neuroim.searchlight import searchlight_iterator, searchlight_coords
+from neuroim.searchlight_high_level import searchlight
 
 
 class TestParallelSearchlight:
@@ -146,7 +146,7 @@ class TestParallelSearchlight:
     
     def test_searchlight_with_neurovec(self, small_mask):
         """Test parallel searchlight with NeuroVec data."""
-        from neuroimpy.neuro_vec import DenseNeuroVec
+        from neuroim.neuro_vec import DenseNeuroVec
         
         # Create 4D data
         space_4d = NeuroSpace(dim=(10, 10, 10, 5), spacing=(1, 1, 1, 1))
@@ -193,8 +193,8 @@ class TestParallelSearchlight:
 
 def test_parallel_imports():
     """Test that joblib is properly imported."""
-    from neuroimpy.searchlight import Parallel, delayed
-    from neuroimpy.searchlight_high_level import Parallel as Parallel2, delayed as delayed2
+    from neuroim.searchlight import Parallel, delayed
+    from neuroim.searchlight_high_level import Parallel as Parallel2, delayed as delayed2
     
     assert Parallel is not None
     assert delayed is not None

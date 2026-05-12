@@ -6,7 +6,7 @@ All Jupyter notebooks in the tutorials directory have been successfully fixed an
 ## Notebooks Fixed
 
 1. **image_volumes.ipynb**
-   - Fixed namespace issues (added `import neuroimpy as pn`)
+   - Fixed namespace issues (added `import neuroim as pn`)
    - Removed file I/O dependencies
    - Added tutorial-friendly data generation
    - All code cells now execute without errors
@@ -31,7 +31,7 @@ All Jupyter notebooks in the tutorials directory have been successfully fixed an
 
 ## Key Changes Made
 
-1. **Import Fixes**: All notebooks now properly import `neuroimpy as pn`
+1. **Import Fixes**: All notebooks now properly import `neuroim as pn`
 2. **Data Generation**: Replaced all file I/O with generated example data
 3. **Function Updates**: Fixed function calls to match current API
 4. **Removed Dependencies**: No external data files needed
@@ -40,7 +40,7 @@ All Jupyter notebooks in the tutorials directory have been successfully fixed an
 ## Testing
 
 All notebooks have been tested with a simple Python script that:
-- Imports neuroimpy
+- Imports neuroim
 - Creates example data
 - Runs key operations from each notebook
 - Verifies outputs
@@ -52,7 +52,7 @@ Test Results: **4/4 notebooks pass all tests**
 Users can now run any notebook directly without needing external data files. Each notebook:
 - Is self-contained
 - Generates its own example data
-- Demonstrates key neuroimpy functionality
+- Demonstrates key neuroim functionality
 - Can be executed cell-by-cell in Jupyter
 
 ## Validation and Testing

@@ -5,10 +5,10 @@ Tests multi-dimensional neuroimaging data with features beyond time
 
 import pytest
 import numpy as np
-from neuroimpy import NeuroSpace
-from neuroimpy.neuro_hypervec import DenseNeuroHyperVec, SparseNeuroHyperVec
-from neuroimpy.neuro_vec import DenseNeuroVec
-from neuroimpy.neuro_vol import LogicalNeuroVol
+from neuroim import NeuroSpace
+from neuroim.neuro_hypervec import DenseNeuroHyperVec, SparseNeuroHyperVec
+from neuroim.neuro_vec import DenseNeuroVec
+from neuroim.neuro_vol import LogicalNeuroVol
 import warnings
 
 

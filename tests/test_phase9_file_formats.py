@@ -7,16 +7,16 @@ import tempfile
 import os
 import shutil
 
-from neuroimpy import NeuroSpace, DenseNeuroVol
+from neuroim import NeuroSpace, DenseNeuroVol
 
 # Try to import file format functions (may not be available without nibabel)
 try:
-    from neuroimpy.file_format import (
+    from neuroim.file_format import (
         FileFormat, NIFTIFormat, AFNIFormat,
         NIFTI, NIFTI_GZ, NIFTI_PAIR, NIFTI_PAIR_GZ, AFNI, AFNI_GZ,
         find_descriptor
     )
-    from neuroimpy.nifti_utils import (
+    from neuroim.nifti_utils import (
         create_nifti_header, as_nifti_header,
         matrix_to_quatern, quatern_to_matrix
     )

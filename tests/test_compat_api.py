@@ -3,7 +3,19 @@
 import numpy as np
 import pytest
 
-import neuroimpy as ni
+import neuroim as ni
+
+
+def test_legacy_package_aliases_import_primary_api():
+    import neuroimpy
+    import neuroimpy.neuro_space
+    import pyneuroim
+    import pyneuroim.neuro_space
+
+    assert neuroimpy.NeuroSpace is ni.NeuroSpace
+    assert pyneuroim.NeuroSpace is ni.NeuroSpace
+    assert neuroimpy.neuro_space.NeuroSpace.__name__ == ni.NeuroSpace.__name__
+    assert pyneuroim.neuro_space.NeuroSpace.__name__ == ni.NeuroSpace.__name__
 
 
 def test_top_level_geometry_wrappers_delegate_to_space_methods():

@@ -6,14 +6,14 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
 
-import neuroimpy  # noqa: E402
+import neuroim  # noqa: E402
 
 # -- Project information -----------------------------------------------------
 
-project = "neuroimpy"
+project = "neuroim"
 copyright = "2024, Brad Buchsbaum"
 author = "Brad Buchsbaum"
-release = neuroimpy.__version__
+release = neuroim.__version__
 version = ".".join(release.split(".")[:2])
 language = "en"
 
@@ -97,12 +97,12 @@ html_theme_options = {
     "icon_links": [
         {
             "name": "GitHub",
-            "url": "https://github.com/bbuchsbaum/neuroimpy",
+            "url": "https://github.com/bbuchsbaum/neuroim-python",
             "icon": "fa-brands fa-github",
         },
         {
             "name": "PyPI",
-            "url": "https://pypi.org/project/neuroimpy",
+            "url": "https://pypi.org/project/neuroim",
             "icon": "fa-brands fa-python",
         },
     ],
@@ -111,7 +111,7 @@ html_theme_options = {
 html_context = {
     "default_mode": "auto",
     "github_user": "bbuchsbaum",
-    "github_repo": "neuroimpy",
+    "github_repo": "neuroim-python",
     "github_version": "main",
     "doc_path": "docs/source",
 }

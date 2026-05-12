@@ -1,16 +1,16 @@
 Quickstart Guide
 ================
 
-This quickstart guide will get you up and running with neuroimpy in just a few minutes.
+This quickstart guide will get you up and running with neuroim in just a few minutes.
 
 Installation
 ------------
 
-Install neuroimpy using pip:
+Install neuroim using pip:
 
 .. code-block:: bash
 
-    pip install neuroimpy
+    pip install neuroim
 
 Basic Usage
 -----------
@@ -20,11 +20,11 @@ Creating and Working with 3D Volumes
 
 .. code-block:: python
 
-    import neuroimpy
+    import neuroim
     import numpy as np
 
     # Create a NeuroSpace defining the image geometry
-    space = neuroimpy.NeuroSpace(
+    space = neuroim.NeuroSpace(
         dim=[64, 64, 32],           # dimensions (x, y, z)
         spacing=[2.0, 2.0, 3.0],    # voxel sizes in mm
         origin=[0, 0, 0]            # origin coordinates
@@ -32,7 +32,7 @@ Creating and Working with 3D Volumes
 
     # Create a volume from a numpy array
     data = np.random.randn(64, 64, 32)
-    vol = neuroimpy.DenseNeuroVol(data, space)
+    vol = neuroim.DenseNeuroVol(data, space)
 
     # Display information about the volume
     print(vol)
@@ -52,13 +52,13 @@ Reading and Writing Files
 .. code-block:: python
 
     # Read a NIfTI file
-    vol = neuroimpy.read_vol("path/to/structural.nii.gz")
+    vol = neuroim.read_vol("path/to/structural.nii.gz")
 
     # Perform some operation
-    smoothed = neuroimpy.gaussian_blur(vol, sigma=2.0)
+    smoothed = neuroim.gaussian_blur(vol, sigma=2.0)
 
     # Write the result
-    neuroimpy.write_vol(smoothed, "smoothed_structural.nii.gz")
+    neuroim.write_vol(smoothed, "smoothed_structural.nii.gz")
 
 Working with 4D Time Series Data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -66,7 +66,7 @@ Working with 4D Time Series Data
 .. code-block:: python
 
     # Read a 4D fMRI dataset
-    vec = neuroimpy.read_vec("path/to/fmri.nii.gz")
+    vec = neuroim.read_vec("path/to/fmri.nii.gz")
     print(vec.shape)  # (x, y, z, time)
 
     # Extract a time series from a single voxel
@@ -90,14 +90,14 @@ Creating an ROI and Extracting Data
 
     # Create a spherical ROI centered at (32, 32, 16) with radius 8mm
     center = [32, 32, 16]
-    roi = neuroimpy.spherical_roi(vol, center, radius=8.0)
+    roi = neuroim.spherical_roi(vol, center, radius=8.0)
 
     # Get ROI properties
     print(f"ROI volume: {roi.size} voxels")
     print(f"ROI center of mass: {roi.centroid}")
 
     # Extract time series from ROI voxels (for 4D data)
-    vec = neuroimpy.read_vec("fmri.nii.gz")
+    vec = neuroim.read_vec("fmri.nii.gz")
     roi_series = vec.series_roi(roi)
     print(roi_series.shape)  # (n_timepoints, n_roi_voxels)
 
@@ -110,10 +110,10 @@ Saving Results
 .. code-block:: python
 
     # Save a 3D volume
-    neuroimpy.write_vol(vol, "output.nii.gz")
+    neuroim.write_vol(vol, "output.nii.gz")
 
     # Save a 4D dataset
-    neuroimpy.write_vec(vec, "output_4d.nii.gz")
+    neuroim.write_vec(vec, "output_4d.nii.gz")
 
 Next Steps
 ----------

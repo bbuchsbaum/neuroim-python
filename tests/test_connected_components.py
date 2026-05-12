@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVol, LogicalNeuroVol,
     conn_comp, conn_comp_3D,
     ClusteredNeuroVol, ConnCompResult

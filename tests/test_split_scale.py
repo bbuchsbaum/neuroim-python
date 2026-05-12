@@ -1,17 +1,17 @@
 """
 Test suite for split_reduce and split_scale functions.
 
-This module tests the statistical utility functions in neuroimpy,
+This module tests the statistical utility functions in neuroim,
 corresponding to the R neuroim2 test-splitscale.R tests.
 """
 
 import pytest
 import numpy as np
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVol, DenseNeuroVec, SparseNeuroVec,
     LogicalNeuroVol, split_reduce, split_scale
 )
-from neuroimpy.stats import split_blocks, split_clusters, split_fill
+from neuroim.stats import split_blocks, split_clusters, split_fill
 
 
 class TestSplitScale:

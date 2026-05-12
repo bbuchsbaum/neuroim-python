@@ -5,8 +5,8 @@ Tests boundary conditions, invalid inputs, and special cases
 
 import pytest
 import numpy as np
-from neuroimpy import NeuroSpace
-from neuroimpy.neuro_vol import DenseNeuroVol, LogicalNeuroVol, SparseNeuroVol
+from neuroim import NeuroSpace
+from neuroim.neuro_vol import DenseNeuroVol, LogicalNeuroVol, SparseNeuroVol
 import warnings
 
 

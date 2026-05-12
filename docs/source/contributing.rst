@@ -1,7 +1,7 @@
-Contributing to PyNeuroim
+Contributing to Neuroim
 =========================
 
-Thank you for your interest in contributing to PyNeuroim! This guide will help you get started.
+Thank you for your interest in contributing to Neuroim! This guide will help you get started.
 
 Getting Started
 ---------------
@@ -9,8 +9,8 @@ Getting Started
 1. Fork the repository on GitHub
 2. Clone your fork locally::
 
-    git clone https://github.com/YOUR_USERNAME/neuroimpy.git
-    cd neuroimpy
+    git clone https://github.com/YOUR_USERNAME/neuroim-python.git
+    cd neuroim-python
 
 3. Create a virtual environment::
 
@@ -154,7 +154,7 @@ Reporting Issues
 When reporting issues, please include:
 
 - Python version and OS
-- PyNeuroim version
+- Neuroim version
 - Minimal code to reproduce the issue
 - Full error traceback
 - Expected vs actual behavior
@@ -175,7 +175,7 @@ Community Guidelines
 - Be respectful and inclusive
 - Welcome newcomers
 - Provide constructive feedback
-- Follow the `Code of Conduct <https://github.com/bbuchsbaum/neuroimpy/blob/main/CODE_OF_CONDUCT.md>`_
+- Follow the `Code of Conduct <https://github.com/bbuchsbaum/neuroim-python/blob/main/CODE_OF_CONDUCT.md>`_
 
 Questions?
 ----------
@@ -184,4 +184,4 @@ Questions?
 - Check the documentation
 - Look at existing issues
 
-Thank you for contributing to PyNeuroim!
+Thank you for contributing to Neuroim!

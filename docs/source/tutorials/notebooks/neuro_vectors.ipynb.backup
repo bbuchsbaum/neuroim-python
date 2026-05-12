@@ -3,12 +3,12 @@
   {
    "cell_type": "markdown",
    "metadata": {},
-   "source": "# Four-dimensional Neuroimaging Data\n\nThe neuroimpy package contains data structures and functions for reading, accessing, and processing 4-dimensional neuroimaging data.\n\n## Reading a four-dimensional NIFTI image\n\nTo read a 4D image, use the `read_vec()` function"
+   "source": "# Four-dimensional Neuroimaging Data\n\nThe neuroim package contains data structures and functions for reading, accessing, and processing 4-dimensional neuroimaging data.\n\n## Reading a four-dimensional NIFTI image\n\nTo read a 4D image, use the `read_vec()` function"
   },
   {
    "cell_type": "code",
    "metadata": {},
-   "source": "# Import required libraries\nimport neuroimpy as pn\nimport numpy as np\n\n# Create example 4D data for tutorial\n# (In practice, you would use real neuroimaging files)\n\n# Create a 4D space (64x64x25 spatial, 100 time points)\nspace_4d = pn.NeuroSpace(dim=(64, 64, 25, 100), \n                         spacing=(3.5, 3.5, 5.0, 2.0),\n                         origin=(-110.5, -88.9342, -42.75, 0.0))\n\n# Create example 4D data with some temporal structure\nnp.random.seed(42)\nexample_4d_data = np.random.randn(64, 64, 25, 100)\n\n# Create a 4D NeuroVec\nvec = pn.DenseNeuroVec(example_4d_data, space_4d)\n\n# Note: In practice, you would read a 4D NIFTI file like this:\n# vec = pn.read_vec(\"path/to/4d_image.nii\")\n\nprint(vec.shape)\nprint(vec)",
+   "source": "# Import required libraries\nimport neuroim as pn\nimport numpy as np\n\n# Create example 4D data for tutorial\n# (In practice, you would use real neuroimaging files)\n\n# Create a 4D space (64x64x25 spatial, 100 time points)\nspace_4d = pn.NeuroSpace(dim=(64, 64, 25, 100), \n                         spacing=(3.5, 3.5, 5.0, 2.0),\n                         origin=(-110.5, -88.9342, -42.75, 0.0))\n\n# Create example 4D data with some temporal structure\nnp.random.seed(42)\nexample_4d_data = np.random.randn(64, 64, 25, 100)\n\n# Create a 4D NeuroVec\nvec = pn.DenseNeuroVec(example_4d_data, space_4d)\n\n# Note: In practice, you would read a 4D NIFTI file like this:\n# vec = pn.read_vec(\"path/to/4d_image.nii\")\n\nprint(vec.shape)\nprint(vec)",
    "outputs": []
   },
   {

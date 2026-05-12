@@ -1,5 +1,5 @@
 """
-Performance benchmark tests for neuroimpy.
+Performance benchmark tests for neuroim.
 
 These tests ensure that Python operations are within acceptable performance
 bounds compared to the R implementation. According to R2Py guidelines,
@@ -9,10 +9,10 @@ Python should be within 20% of R performance.
 import pytest
 import numpy as np
 import time
-import neuroimpy as pn
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.neuro_vol import DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
-from neuroimpy.neuro_vec import DenseNeuroVec, SparseNeuroVec
+import neuroim as pn
+from neuroim.neuro_space import NeuroSpace
+from neuroim.neuro_vol import DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
+from neuroim.neuro_vec import DenseNeuroVec, SparseNeuroVec
 import tempfile
 
 
@@ -351,7 +351,7 @@ class TestPerformanceOptimizations:
 def create_performance_report():
     """Generate a performance comparison report."""
     report = """
-    # neuroimpy Performance Report
+    # neuroim Performance Report
     
     ## Summary
     Python implementation performance vs R baseline (target: within 20%)

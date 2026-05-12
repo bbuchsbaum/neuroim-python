@@ -1,4 +1,4 @@
-# Systematic Translation Strategy: neuroim2 (R) → neuroimpy (Python)
+# Systematic Translation Strategy: neuroim2 (R) → neuroim (Python)
 
 ## 1. Translation Principles
 

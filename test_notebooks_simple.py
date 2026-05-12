@@ -11,7 +11,7 @@ def test_image_volumes():
     """Test key code from image_volumes notebook."""
     print("\nTesting image_volumes notebook code...")
     try:
-        import neuroimpy as pn
+        import neuroim as pn
         import numpy as np
         
         # Create example volume
@@ -47,7 +47,7 @@ def test_neuro_vectors():
     """Test key code from neuro_vectors notebook."""
     print("\nTesting neuro_vectors notebook code...")
     try:
-        import neuroimpy as pn
+        import neuroim as pn
         import numpy as np
         
         # Create 4D space
@@ -89,7 +89,7 @@ def test_regions_of_interest():
     """Test key code from regions_of_interest notebook."""
     print("\nTesting regions_of_interest notebook code...")
     try:
-        import neuroimpy as pn
+        import neuroim as pn
         import numpy as np
         
         # Create volume
@@ -126,7 +126,7 @@ def test_pipelines():
     """Test key code from pipelines notebook."""
     print("\nTesting pipelines notebook code...")
     try:
-        import neuroimpy as pn
+        import neuroim as pn
         import numpy as np
         
         # Create volume
@@ -146,12 +146,12 @@ def test_pipelines():
         print(f"✓ Found {comp.index.num_clusters} connected components")
         
         # Test split clusters
-        from neuroimpy import split_clusters
+        from neuroim import split_clusters
         cluster_rois = split_clusters(vol2, comp.index)
         print(f"✓ Split into {len(cluster_rois)} cluster ROIs")
         
         # Test searchlight
-        from neuroimpy import searchlight
+        from neuroim import searchlight
         mask = vol.data > 0.2
         mask_vol = pn.LogicalNeuroVol(mask, vol.space)
         rois = list(searchlight(mask_vol, radius=5))[:10]

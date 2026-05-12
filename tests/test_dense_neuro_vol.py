@@ -1,8 +1,8 @@
 import pytest
 import numpy as np
-from neuroimpy.neuro_vol import DenseNeuroVol, NeuroVol
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.axis import AxisSet3D, NamedAxis
+from neuroim.neuro_vol import DenseNeuroVol, NeuroVol
+from neuroim.neuro_space import NeuroSpace
+from neuroim.axis import AxisSet3D, NamedAxis
 
 @pytest.fixture
 def sample_space():
@@ -145,12 +145,12 @@ def test_dense_neuro_vol_space_attributes(sample_space, sample_data):
     assert vol.space.axes.k.axis == sample_space.axes.k.axis
 
 def test_dense_neuro_vol_factory_function(sample_space, sample_data):
-    from neuroimpy import neurovol
+    from neuroim import neurovol
     vol = neurovol(sample_data, sample_space)
     assert isinstance(vol, DenseNeuroVol)
 
 def test_dense_neuro_vol_to_sparse(sample_space):
-    from neuroimpy.neuro_vol import SparseNeuroVol
+    from neuroim.neuro_vol import SparseNeuroVol
     data = np.zeros((10, 10, 10))
     data[0, 0, 0] = 1
     data[5, 5, 5] = 2

@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import nibabel as nib
 
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol,
     neurovol, read_vol, write_vol
 )

@@ -8,7 +8,7 @@ neuroimaging data with additional feature dimensions beyond the standard
 """
 
 import numpy as np
-import neuroimpy as pn
+import neuroim as pn
 import tempfile
 import os
 

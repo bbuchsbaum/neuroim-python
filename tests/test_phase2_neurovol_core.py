@@ -7,8 +7,8 @@ import pytest
 import numpy as np
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.neuro_vol import (
+from neuroim.neuro_space import NeuroSpace
+from neuroim.neuro_vol import (
     NeuroVol, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol, 
     neurovol
 )

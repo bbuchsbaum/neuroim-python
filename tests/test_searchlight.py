@@ -2,13 +2,13 @@
 
 import pytest
 import numpy as np
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, LogicalNeuroVol, DenseNeuroVol,
     searchlight, searchlight_coords, random_searchlight,
     bootstrap_searchlight, clustered_searchlight,
     ROIVolWindow, ROIVol
 )
-from neuroimpy.utils import LazyList
+from neuroim.utils import LazyList
 
 
 class TestSearchlight:

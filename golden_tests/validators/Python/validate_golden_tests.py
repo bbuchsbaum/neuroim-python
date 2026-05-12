@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Golden Test Validator for neuroimpy
+Golden Test Validator for neuroim
 
 This module provides tools to validate golden tests that ensure semantic equivalence
 across different language implementations (R, Python, Rust) of neuroimaging software.
@@ -50,7 +50,7 @@ class TestResult:
 
 
 class GoldenTestValidator:
-    """Validates golden tests for neuroimpy."""
+    """Validates golden tests for neuroim."""
     
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
@@ -487,7 +487,7 @@ if __name__ == "__main__":
     # Command line interface
     import argparse
     
-    parser = argparse.ArgumentParser(description="Validate golden tests for neuroimpy")
+    parser = argparse.ArgumentParser(description="Validate golden tests for neuroim")
     parser.add_argument("path", help="Path to test XML file or directory")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     

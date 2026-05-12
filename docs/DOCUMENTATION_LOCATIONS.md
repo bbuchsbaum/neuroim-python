@@ -4,13 +4,13 @@
 
 ### 1. GitHub Pages (Public Documentation)
 Once GitHub Pages is enabled and the workflow runs:
-- **Main URL**: `https://[username].github.io/neuroimpy/`
-- **Notebooks**: `https://[username].github.io/neuroimpy/tutorials/notebooks.html`
+- **Main URL**: `https://[username].github.io/neuroim-python/`
+- **Notebooks**: `https://[username].github.io/neuroim-python/tutorials/notebooks.html`
 - **Individual notebooks**:
-  - `https://[username].github.io/neuroimpy/tutorials/notebooks/image_volumes.html`
-  - `https://[username].github.io/neuroimpy/tutorials/notebooks/neuro_vectors.html`
-  - `https://[username].github.io/neuroimpy/tutorials/notebooks/regions_of_interest.html`
-  - `https://[username].github.io/neuroimpy/tutorials/notebooks/pipelines.html`
+  - `https://[username].github.io/neuroim-python/tutorials/notebooks/image_volumes.html`
+  - `https://[username].github.io/neuroim-python/tutorials/notebooks/neuro_vectors.html`
+  - `https://[username].github.io/neuroim-python/tutorials/notebooks/regions_of_interest.html`
+  - `https://[username].github.io/neuroim-python/tutorials/notebooks/pipelines.html`
 
 ### 2. Local Build
 When you build documentation locally:
@@ -38,7 +38,7 @@ Source files are located at:
 ### The workflow will:
 1. Build documentation on every push to `main`
 2. Deploy to the `gh-pages` branch
-3. Serve at `https://[username].github.io/neuroimpy/`
+3. Serve at `https://[username].github.io/neuroim-python/`
 
 ## Integration Features
 

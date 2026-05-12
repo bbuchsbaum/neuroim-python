@@ -8,10 +8,10 @@ import pytest
 import numpy as np
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.neuro_vol import DenseNeuroVol
-from neuroimpy.neuro_slice import NeuroSlice, neuroslice, slice, slices
-from neuroimpy.axis import AxisSet2D, NamedAxis
+from neuroim.neuro_space import NeuroSpace
+from neuroim.neuro_vol import DenseNeuroVol
+from neuroim.neuro_slice import NeuroSlice, neuroslice, slice, slices
+from neuroim.axis import AxisSet2D, NamedAxis
 
 
 class TestNeuroSliceConstruction:

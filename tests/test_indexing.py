@@ -2,8 +2,8 @@
 
 import pytest
 import numpy as np
-from neuroimpy import NeuroSpace, DenseNeuroVol, DenseNeuroVec
-from neuroimpy.indexing import (
+from neuroim import NeuroSpace, DenseNeuroVol, DenseNeuroVec
+from neuroim.indexing import (
     linear_access, matricized_access, from_matvec, to_matvec, dot_reduce
 )
 

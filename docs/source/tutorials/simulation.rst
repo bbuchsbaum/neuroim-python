@@ -1,7 +1,7 @@
 Simulation Utilities
 ====================
 
-neuroimpy provides utilities for generating synthetic neuroimaging data, useful for method development, testing, and statistical power analysis.
+neuroim provides utilities for generating synthetic neuroimaging data, useful for method development, testing, and statistical power analysis.
 
 Simulating fMRI Data
 --------------------
@@ -10,11 +10,11 @@ Generate synthetic 4D fMRI datasets with configurable properties:
 
 .. code-block:: python
 
-    import neuroimpy
+    import neuroim
     import numpy as np
 
     # Create a basic simulated fMRI dataset
-    sim_vec = neuroimpy.simulate_fmri(
+    sim_vec = neuroim.simulate_fmri(
         dim=[64, 64, 32],           # Spatial dimensions
         n_timepoints=100,           # Number of volumes
         tr=2.0,                     # Repetition time in seconds
@@ -27,7 +27,7 @@ Generate synthetic 4D fMRI datasets with configurable properties:
     )
 
     print(sim_vec.shape)  # (64, 64, 32, 100)
-    neuroimpy.write_vec(sim_vec, "simulated_fmri.nii.gz")
+    neuroim.write_vec(sim_vec, "simulated_fmri.nii.gz")
 
 Simulating Task-Based Activation
 ---------------------------------
@@ -37,16 +37,16 @@ Create synthetic data with task-evoked responses:
 .. code-block:: python
 
     # Define activation regions
-    space = neuroimpy.NeuroSpace(dim=[64, 64, 32], spacing=[3, 3, 3])
+    space = neuroim.NeuroSpace(dim=[64, 64, 32], spacing=[3, 3, 3])
 
     # Create ROIs where signal will be present
-    roi1 = neuroimpy.spherical_roi(
+    roi1 = neuroim.spherical_roi(
         space,
         center=[32, 32, 16],
         radius=8.0
     )
 
-    roi2 = neuroimpy.spherical_roi(
+    roi2 = neuroim.spherical_roi(
         space,
         center=[45, 30, 16],
         radius=6.0
@@ -61,11 +61,11 @@ Create synthetic data with task-evoked responses:
         design[start:start+10] = 1
 
     # Convolve with HRF (simplified double-gamma)
-    hrf = neuroimpy.double_gamma_hrf(tr=2.0, duration=32)
+    hrf = neuroim.double_gamma_hrf(tr=2.0, duration=32)
     signal = np.convolve(design, hrf)[:n_timepoints]
 
     # Simulate data with activation in ROIs
-    sim_vec = neuroimpy.simulate_fmri(
+    sim_vec = neuroim.simulate_fmri(
         dim=[64, 64, 32],
         n_timepoints=n_timepoints,
         tr=2.0,
@@ -76,7 +76,7 @@ Create synthetic data with task-evoked responses:
         seed=42
     )
 
-    neuroimpy.write_vec(sim_vec, "task_fmri_sim.nii.gz")
+    neuroim.write_vec(sim_vec, "task_fmri_sim.nii.gz")
 
 Creating Confound Regressors
 -----------------------------
@@ -86,7 +86,7 @@ Generate nuisance regressors for denoising:
 .. code-block:: python
 
     # Create motion confounds (6 parameters: 3 translation, 3 rotation)
-    motion = neuroimpy.prepare_confounds(
+    motion = neuroim.prepare_confounds(
         n_timepoints=200,
         confound_type='motion',
         motion_amplitude=2.0,  # Maximum displacement in mm
@@ -96,7 +96,7 @@ Generate nuisance regressors for denoising:
     print(motion.shape)  # (200, 6)
 
     # Create polynomial drift regressors
-    drift = neuroimpy.prepare_confounds(
+    drift = neuroim.prepare_confounds(
         n_timepoints=200,
         confound_type='polynomial',
         poly_degree=3
@@ -105,7 +105,7 @@ Generate nuisance regressors for denoising:
     print(drift.shape)  # (200, 4) - intercept + 3 polynomial terms
 
     # Create discrete cosine basis for high-pass filtering
-    cosine = neuroimpy.prepare_confounds(
+    cosine = neuroim.prepare_confounds(
         n_timepoints=200,
         confound_type='cosine',
         high_pass_cutoff=0.01,  # Hz
@@ -124,14 +124,14 @@ Create temporal weights for weighted regression:
 .. code-block:: python
 
     # Create exponential decay weights (weight recent timepoints more)
-    weights = neuroimpy.make_time_weights(
+    weights = neuroim.make_time_weights(
         n_timepoints=200,
         weight_type='exponential',
         decay_rate=0.95
     )
 
     # Create Gaussian weights centered on a specific timepoint
-    gaussian_weights = neuroimpy.make_time_weights(
+    gaussian_weights = neuroim.make_time_weights(
         n_timepoints=200,
         weight_type='gaussian',
         center=100,
@@ -139,7 +139,7 @@ Create temporal weights for weighted regression:
     )
 
     # Create block weights (weight specific epochs)
-    block_weights = neuroimpy.make_time_weights(
+    block_weights = neuroim.make_time_weights(
         n_timepoints=200,
         weight_type='block',
         blocks=[(20, 40), (80, 100), (140, 160)]  # Start, end tuples
@@ -156,7 +156,7 @@ Create synthetic resting-state fMRI with realistic properties:
 .. code-block:: python
 
     # Simulate resting-state with spatial and temporal structure
-    rest_vec = neuroimpy.simulate_fmri(
+    rest_vec = neuroim.simulate_fmri(
         dim=[64, 64, 32],
         n_timepoints=300,
         tr=2.0,
@@ -169,7 +169,7 @@ Create synthetic resting-state fMRI with realistic properties:
         seed=42
     )
 
-    neuroimpy.write_vec(rest_vec, "resting_state_sim.nii.gz")
+    neuroim.write_vec(rest_vec, "resting_state_sim.nii.gz")
 
 Power Analysis
 --------------
@@ -193,7 +193,7 @@ Use simulations to estimate required sample sizes:
             group_data = []
 
             for subj in range(n_subjects):
-                vec = neuroimpy.simulate_fmri(
+                vec = neuroim.simulate_fmri(
                     dim=[20, 20, 10],
                     n_timepoints=100,
                     noise_sd=1.0,

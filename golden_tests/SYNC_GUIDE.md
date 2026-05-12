@@ -7,7 +7,7 @@ The `sync_golden_tests.py` script synchronizes golden test specifications betwee
 ## Quick Start
 
 ```bash
-# Basic sync from neuroim2 (R) to neuroimpy (Python)
+# Basic sync from neuroim2 (R) to neuroim (Python)
 python golden_tests/sync_golden_tests.py \
     --source ~/code/neuroim2/golden_tests \
     --target ./golden_tests \

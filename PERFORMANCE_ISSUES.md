@@ -1,7 +1,7 @@
-# Performance Issues in neuroimpy Codebase
+# Performance Issues in neuroim Codebase
 
 ## Summary
-After analyzing the neuroimpy codebase, I've identified several performance issues and optimization opportunities. The codebase is a Python translation of R's neuroim2 package, and some patterns that work well in R may not be optimal in Python.
+After analyzing the neuroim codebase, I've identified several performance issues and optimization opportunities. The codebase is a Python translation of R's neuroim2 package, and some patterns that work well in R may not be optimal in Python.
 
 ## Major Performance Issues
 

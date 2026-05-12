@@ -2,7 +2,7 @@
 
 The core Python classes expose idiomatic attributes and methods.  This module
 adds thin dispatch wrappers for the R package's exported S4 generic names so
-migration code can call ``neuroimpy.space(x)`` or ``neuroimpy.values(x)``
+migration code can call ``neuroim.space(x)`` or ``neuroim.values(x)``
 without duplicating logic already implemented on the objects.
 """
 

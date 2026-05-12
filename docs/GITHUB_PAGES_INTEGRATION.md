@@ -1,6 +1,6 @@
 # GitHub Pages Integration Guide
 
-This guide explains how the neuroimpy documentation and notebooks are integrated with GitHub Pages.
+This guide explains how the neuroim documentation and notebooks are integrated with GitHub Pages.
 
 ## Overview
 
@@ -56,7 +56,7 @@ The workflow automatically:
 1. Builds documentation on push to main
 2. Uploads HTML as artifacts
 3. Deploys to GitHub Pages using `peaceiris/actions-gh-pages`
-4. Documentation appears at: `https://[username].github.io/neuroimpy/`
+4. Documentation appears at: `https://[username].github.io/neuroim-python/`
 
 ## Configuration Details
 
@@ -98,8 +98,8 @@ make html
 ### Online (GitHub Pages)
 
 Once deployed, documentation is available at:
-- Main site: `https://[username].github.io/neuroimpy/`
-- Notebooks: `https://[username].github.io/neuroimpy/tutorials/notebooks.html`
+- Main site: `https://[username].github.io/neuroim-python/`
+- Notebooks: `https://[username].github.io/neuroim-python/tutorials/notebooks.html`
 
 ## Notebook Features in Documentation
 
@@ -155,7 +155,7 @@ Check GitHub Actions logs for:
 
 - Ensure notebooks have valid JSON structure
 - All cells must have execution_count
-- Use standard imports: `import neuroimpy as pn`
+- Use standard imports: `import neuroim as pn`
 
 ### Local Testing
 

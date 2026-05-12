@@ -1,13 +1,13 @@
 """
 Test suite for image processing functions.
 
-This module tests the image processing functionality in neuroimpy,
+This module tests the image processing functionality in neuroim,
 corresponding to the R neuroim2 test-imageproc.R tests.
 """
 
 import pytest
 import numpy as np
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVol, LogicalNeuroVol,
     gaussian_blur, guided_filter, bilateral_filter
 )

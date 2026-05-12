@@ -1,6 +1,6 @@
-# PyNeuroim Tutorial Notebooks
+# Neuroim Tutorial Notebooks
 
-This directory contains Jupyter notebooks that demonstrate key functionality of the neuroimpy library. All notebooks have been tested and verified to execute correctly.
+This directory contains Jupyter notebooks that demonstrate key functionality of the neuroim library. All notebooks have been tested and verified to execute correctly.
 
 ## Available Notebooks
 
@@ -38,7 +38,7 @@ All notebooks are self-contained and generate their own example data. No externa
 
 ### Prerequisites
 ```bash
-pip install neuroimpy numpy scipy
+pip install neuroim numpy scipy
 ```
 
 ### Quick Start
@@ -67,7 +67,7 @@ All notebooks follow a similar structure:
 
 **Import Convention**: All notebooks use the standard import:
 ```python
-import neuroimpy as pn
+import neuroim as pn
 ```
 
 **Data Generation**: Example volumes are created with:
@@ -91,7 +91,7 @@ This script tests key functionality from each notebook and reports any issues.
 
 ### Creating a Volume
 ```python
-import neuroimpy as pn
+import neuroim as pn
 import numpy as np
 
 # Define spatial dimensions
@@ -123,7 +123,7 @@ ts = vec.series(10, 10, 10)
 sphere = pn.spherical_roi(vol, center=[20, 20, 10], radius=5)
 
 # Searchlight iterator
-from neuroimpy import searchlight
+from neuroim import searchlight
 mask = vol > 0.2
 mask_vol = pn.LogicalNeuroVol(mask, vol.space)
 rois = searchlight(mask_vol, radius=5)
@@ -132,9 +132,9 @@ rois = searchlight(mask_vol, radius=5)
 ## Troubleshooting
 
 ### Import Errors
-Ensure neuroimpy is installed:
+Ensure neuroim is installed:
 ```bash
-pip install -e /path/to/neuroimpy
+pip install -e /path/to/neuroim
 ```
 
 ### Memory Issues

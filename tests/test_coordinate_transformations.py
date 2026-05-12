@@ -5,8 +5,8 @@ Tests grid-to-coord, coord-to-grid, and transformation matrices
 
 import pytest
 import numpy as np
-from neuroimpy import NeuroSpace
-from neuroimpy.neuro_vol import DenseNeuroVol
+from neuroim import NeuroSpace
+from neuroim.neuro_vol import DenseNeuroVol
 
 
 class TestCoordinateTransformations:
@@ -253,7 +253,7 @@ class TestCoordinateTransformations:
         space = NeuroSpace(dim=(10, 10, 10), axes=axes)
 
         # Test that axes are properly created from list
-        from neuroimpy.axis import axis_names
+        from neuroim.axis import axis_names
         names = axis_names(space.axes)
         assert names == ['x', 'y', 'z']
     

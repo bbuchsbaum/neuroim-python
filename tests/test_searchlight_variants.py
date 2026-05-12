@@ -2,11 +2,11 @@
 
 import pytest
 import numpy as np
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, LogicalNeuroVol, DenseNeuroVol, DenseNeuroVec,
     ClusteredNeuroVol,
 )
-from neuroimpy.searchlight_high_level import (
+from neuroim.searchlight_high_level import (
     resampled_searchlight,
     cluster_searchlight_series,
 )

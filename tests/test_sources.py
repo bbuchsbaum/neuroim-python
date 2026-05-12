@@ -5,7 +5,7 @@ import numpy as np
 import tempfile
 import os
 
-from neuroimpy.sources import (
+from neuroim.sources import (
     FileSource, NeuroVolSource, NeuroVecSource,
     SparseNeuroVecSource, MappedNeuroVecSource,
 )
@@ -130,7 +130,7 @@ class TestNeuroVecSource:
 class TestSparseNeuroVecSource:
 
     def test_lazy_load_with_mask(self, tmp_path):
-        from neuroimpy import NeuroSpace, LogicalNeuroVol
+        from neuroim import NeuroSpace, LogicalNeuroVol
         path, data = _make_nifti_4d(tmp_path, shape=(8, 8, 8, 4))
         mask_data = np.zeros((8, 8, 8), dtype=bool)
         mask_data[2:6, 2:6, 2:6] = True

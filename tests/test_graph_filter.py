@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 from scipy import sparse
 
-from neuroimpy import (
+from neuroim import (
     DenseNeuroVol, LogicalNeuroVol, DenseNeuroVec, NeuroSpace,
     cgb_make_graph, cgb_filter, cgb_smooth,
     cgb_smooth_loro, cgb_nuisance, laplace_enhance,

@@ -5,7 +5,7 @@ Tests ROI, ROICoords, ROIVol, ROIVec, ROIVolWindow and construction functions.
 
 import pytest
 import numpy as np
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVol,
     ROI, ROICoords, ROIVol, ROIVec, ROIVolWindow,
     roicoords, roivol,
@@ -380,7 +380,7 @@ class TestROIIntegration:
     
     def test_roi_with_sparse_vol(self):
         """Test ROI extraction from sparse volume."""
-        from neuroimpy import SparseNeuroVol
+        from neuroim import SparseNeuroVol
         
         space = NeuroSpace([20, 20, 20])
         indices = np.array([100, 200, 300, 400, 500])

@@ -4,7 +4,7 @@ import numpy as np
 import nibabel as nib
 import pytest
 
-from neuroimpy.nifti_extension import (
+from neuroim.nifti_extension import (
     NiftiExtensionCodes,
     NiftiExtension,
     NiftiExtensionList,

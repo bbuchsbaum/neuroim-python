@@ -1,18 +1,18 @@
 Working with Image Volumes
 ==========================
 
-This tutorial covers the basics of working with 3D neuroimaging volumes in neuroimpy.
+This tutorial covers the basics of working with 3D neuroimaging volumes in neuroim.
 
 Reading a NIFTI formatted image volume
 --------------------------------------
 
 The primary way to read a volumetric image file is to use :func:`read_vol`::
 
-    import neuroimpy
+    import neuroim
     import numpy as np
     
     # Read a NIFTI file
-    vol = neuroimpy.read_vol("path/to/image.nii.gz")
+    vol = neuroim.read_vol("path/to/image.nii.gz")
 
 Working with image volumes
 --------------------------
@@ -31,7 +31,7 @@ Information about the geometry of the image volume can be displayed::
 :func:`read_vol` returns a :class:`NeuroVol` object which extends a numpy array and has 3 dimensions (x, y, z)::
 
     print(type(vol))
-    # <class 'neuroimpy.neuro_vol.DenseNeuroVol'>
+    # <class 'neuroim.neuro_vol.DenseNeuroVol'>
     
     print(isinstance(vol.data, np.ndarray))
     # True
@@ -72,7 +72,7 @@ A numeric image volume can be converted to a binary image::
     # Convert to logical volume
     vol_binary = vol.as_logical()
     print(type(vol_binary))
-    # <class 'neuroimpy.neuro_vol.LogicalNeuroVol'>
+    # <class 'neuroim.neuro_vol.LogicalNeuroVol'>
     
     print(vol_binary[0, 0, 0])
     # False
@@ -86,8 +86,8 @@ We can create a :class:`NeuroVol` instance from an array or numeric vector. Firs
 
 Now we create a :class:`NeuroSpace` instance that describes the geometry of the image including its dimensions and voxel spacing::
 
-    bspace = neuroimpy.NeuroSpace(dim=[64, 64, 64], spacing=[1, 1, 1])
-    vol = neuroimpy.DenseNeuroVol(x, bspace)
+    bspace = neuroim.NeuroSpace(dim=[64, 64, 64], spacing=[1, 1, 1])
+    vol = neuroim.DenseNeuroVol(x, bspace)
     print(vol)
 
 Working with existing spaces
@@ -96,7 +96,7 @@ Working with existing spaces
 We don't usually have to create :class:`NeuroSpace` objects manually, because geometric information is automatically determined from the image file header. We can copy spatial information from existing images using the :attr:`space` property::
 
     # Create a new volume with the same space as an existing one
-    vol2 = neuroimpy.DenseNeuroVol((vol.data + 1) * 25, vol.space)
+    vol2 = neuroim.DenseNeuroVol((vol.data + 1) * 25, vol.space)
     print(np.max(vol2.data))
     # 25.0
     
@@ -113,10 +113,10 @@ Writing a NIFTI formatted image volume
 When we're ready to write an image volume to disk, we use :func:`write_vol`::
 
     # Write uncompressed NIFTI
-    neuroimpy.write_vol(vol2, "output.nii")
+    neuroim.write_vol(vol2, "output.nii")
     
     # Write compressed NIFTI (adding .gz extension)
-    neuroimpy.write_vol(vol2, "output.nii.gz")
+    neuroim.write_vol(vol2, "output.nii.gz")
 
 Sparse volumes
 --------------
@@ -128,11 +128,11 @@ For volumes with many zero values, we can use :class:`SparseNeuroVol` to save me
     data[10:20, 10:20, 10:20] = 1.0
     
     # Convert to sparse
-    dense_vol = neuroimpy.DenseNeuroVol(data, bspace)
+    dense_vol = neuroim.DenseNeuroVol(data, bspace)
     sparse_vol = dense_vol.as_sparse()
     
     print(type(sparse_vol))
-    # <class 'neuroimpy.neuro_vol.SparseNeuroVol'>
+    # <class 'neuroim.neuro_vol.SparseNeuroVol'>
     
     # Sparse volumes behave like dense volumes
     print(sparse_vol[15, 15, 15])
@@ -148,7 +148,7 @@ Common statistical operations are available as methods::
 
     # Create a volume with random data
     data = np.random.randn(64, 64, 64)
-    vol = neuroimpy.DenseNeuroVol(data, bspace)
+    vol = neuroim.DenseNeuroVol(data, bspace)
     
     # Get statistics
     print(f"Mean: {vol.vol_mean():.3f}")

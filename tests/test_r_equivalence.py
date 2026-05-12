@@ -1,7 +1,7 @@
 """
 R-Python Equivalence Tests
 
-This module tests that neuroimpy produces identical results to R neuroim2
+This module tests that neuroim produces identical results to R neuroim2
 by comparing against pre-generated R fixtures.
 
 To generate R fixtures:
@@ -12,7 +12,7 @@ To generate R fixtures:
 
 import pytest
 import numpy as np
-import neuroimpy as pn
+import neuroim as pn
 from pathlib import Path
 import warnings
 

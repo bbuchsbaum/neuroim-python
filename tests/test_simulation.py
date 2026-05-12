@@ -2,9 +2,9 @@
 
 import pytest
 import numpy as np
-from neuroimpy import NeuroSpace
-from neuroimpy.simulation import simulate_fmri, prepare_confounds, make_time_weights
-from neuroimpy.neuro_vec import DenseNeuroVec
+from neuroim import NeuroSpace
+from neuroim.simulation import simulate_fmri, prepare_confounds, make_time_weights
+from neuroim.neuro_vec import DenseNeuroVec
 
 
 class TestSimulateFmri:

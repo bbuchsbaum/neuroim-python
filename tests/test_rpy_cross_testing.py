@@ -12,7 +12,7 @@ import pytest
 
 import nibabel as nib
 
-import neuroimpy as pn
+import neuroim as pn
 
 try:
     from rpy2 import robjects as ro

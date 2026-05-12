@@ -1,6 +1,6 @@
-# Golden Tests for neuroimpy
+# Golden Tests for neuroim
 
-This directory contains golden tests for the neuroimpy package, designed to ensure semantic equivalence across different language implementations (R, Python, Rust).
+This directory contains golden tests for the neuroim package, designed to ensure semantic equivalence across different language implementations (R, Python, Rust).
 
 ## Overview
 
@@ -100,7 +100,7 @@ Example:
   ]]></R>
   <Python><![CDATA[
 import numpy as np
-from neuroimpy import NeuroSpace
+from neuroim import NeuroSpace
 
 # Create NeuroSpace
 space = NeuroSpace(dim=(4, 4, 4), 

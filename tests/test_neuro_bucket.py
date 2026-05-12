@@ -2,8 +2,8 @@
 
 import pytest
 import numpy as np
-from neuroimpy import NeuroSpace, DenseNeuroVol
-from neuroimpy.neuro_bucket import NeuroBucket
+from neuroim import NeuroSpace, DenseNeuroVol
+from neuroim.neuro_bucket import NeuroBucket
 
 
 @pytest.fixture

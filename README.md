@@ -1,4 +1,4 @@
-# neuroimpy
+# neuroim
 
 A modern Python library for neuroimaging data analysis, providing efficient data structures and algorithms for working with 3D, 4D, and 5D+ brain imaging data.
 
@@ -21,29 +21,29 @@ A modern Python library for neuroimaging data analysis, providing efficient data
 ### From PyPI (coming soon)
 
 ```bash
-pip install neuroimpy
+pip install neuroim
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/bbuchsbaum/neuroimpy.git
-cd neuroimpy
+git clone https://github.com/bbuchsbaum/neuroim-python.git
+cd neuroim-python
 pip install -e .
 ```
 
 ### Development Installation
 
 ```bash
-git clone https://github.com/bbuchsbaum/neuroimpy.git
-cd neuroimpy
+git clone https://github.com/bbuchsbaum/neuroim-python.git
+cd neuroim-python
 pip install -e ".[dev]"
 ```
 
 ## Quick Start
 
 ```python
-import neuroimpy as pn
+import neuroim as pn
 import numpy as np
 
 # Load a 3D brain volume
@@ -183,7 +183,7 @@ chunk = big_data[30:40, 30:40, 20:30, :]  # Load only what's needed
 
 ## Documentation
 
-Full documentation is available at [https://neuroimpy.readthedocs.io](https://neuroimpy.readthedocs.io) (coming soon).
+Full documentation is available at [https://neuroim.readthedocs.io](https://neuroim.readthedocs.io) (coming soon).
 
 - [Installation Guide](docs/source/installation.rst)
 - [Tutorials](docs/source/tutorials/)
@@ -217,20 +217,20 @@ mypy src/
 
 ## Citation
 
-If you use neuroimpy in your research, please cite:
+If you use neuroim in your research, please cite:
 
 ```bibtex
-@software{neuroimpy,
+@software{neuroim,
   author = {Buchsbaum, Brad},
-  title = {neuroimpy: Python Neuroimaging Library},
+  title = {neuroim: Python Neuroimaging Library},
   year = {2024},
-  url = {https://github.com/bbuchsbaum/neuroimpy}
+  url = {https://github.com/bbuchsbaum/neuroim-python}
 }
 ```
 
 ## Related Projects
 
-- [neuroim2](https://github.com/bbuchsbaum/neuroim2) - R package (neuroimpy is designed for compatibility)
+- [neuroim2](https://github.com/bbuchsbaum/neuroim2) - R package (neuroim is designed for compatibility)
 - [NiBabel](https://nipy.org/nibabel/) - Neuroimaging file I/O
 - [Nilearn](https://nilearn.github.io/) - Machine learning for neuroimaging
 - [MNE-Python](https://mne.tools/) - MEG/EEG analysis
@@ -241,4 +241,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-neuroimpy is inspired by and designed to be compatible with the R neuroim2 package. Special thanks to the neuroimaging community for feedback and contributions.
+neuroim is inspired by and designed to be compatible with the R neuroim2 package. Special thanks to the neuroimaging community for feedback and contributions.

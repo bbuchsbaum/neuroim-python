@@ -1,7 +1,7 @@
 # Test Parity Implementation Summary
 
 ## Overview
-Successfully implemented comprehensive test coverage improvements for neuroimpy to achieve better parity with R neuroim2.
+Successfully implemented comprehensive test coverage improvements for neuroim to achieve better parity with R neuroim2.
 
 ## Key Accomplishments
 

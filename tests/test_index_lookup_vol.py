@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.index_lookup_vol import IndexLookupVol
+from neuroim.neuro_space import NeuroSpace
+from neuroim.index_lookup_vol import IndexLookupVol
 
 
 @pytest.fixture

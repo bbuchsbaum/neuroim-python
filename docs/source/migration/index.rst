@@ -1,7 +1,7 @@
 Migration Guide
 ===============
 
-This section provides guidance for users transitioning from the R neuroim2 package to neuroimpy.
+This section provides guidance for users transitioning from the R neuroim2 package to neuroim.
 
 .. toctree::
    :maxdepth: 2

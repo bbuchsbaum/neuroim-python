@@ -1,7 +1,7 @@
 Tutorials
 =========
 
-This section contains detailed tutorials covering the main features of neuroimpy.
+This section contains detailed tutorials covering the main features of neuroim.
 
 Core Data Structures
 --------------------

@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import tempfile
 import os
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVol, DenseNeuroVec,
     BigNeuroVec, big_neurovecseq,
     FileBackedNeuroVec, file_backed_neurovec,
@@ -159,7 +159,7 @@ class TestFileBackedNeuroVec:
     def test_file_backed_creation(self):
         """Test creating FileBackedNeuroVec."""
         # Need to mock read_vol to work with numpy files
-        import neuroimpy.file_backed_neuro_vec as fb_module
+        import neuroim.file_backed_neuro_vec as fb_module
         
         def mock_read_vol(filename):
             data = np.load(filename)
@@ -186,7 +186,7 @@ class TestFileBackedNeuroVec:
     
     def test_file_backed_caching(self):
         """Test caching behavior."""
-        import neuroimpy.file_backed_neuro_vec as fb_module
+        import neuroim.file_backed_neuro_vec as fb_module
         
         def mock_read_vol(filename):
             data = np.load(filename)

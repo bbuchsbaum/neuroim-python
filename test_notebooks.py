@@ -3,6 +3,7 @@
 
 import os
 import sys
+from pathlib import Path
 import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 import warnings
@@ -45,12 +46,12 @@ def test_notebook(notebook_path):
 
 def main():
     """Test all notebooks in the notebooks directory."""
-    notebooks_dir = "/Users/bbuchsbaum/code/neuroimpy/docs/source/tutorials/notebooks"
+    notebooks_dir = Path(__file__).parent / "docs" / "source" / "tutorials" / "notebooks"
     
     # Get all .ipynb files except index
     notebooks = [
-        os.path.join(notebooks_dir, f) 
-        for f in os.listdir(notebooks_dir) 
+        notebooks_dir / f
+        for f in os.listdir(notebooks_dir)
         if f.endswith('.ipynb') and not f.startswith('00_')
     ]
     

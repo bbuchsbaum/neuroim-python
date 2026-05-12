@@ -1,7 +1,7 @@
 Changelog
 =========
 
-All notable changes to PyNeuroim will be documented in this file.
+All notable changes to Neuroim will be documented in this file.
 
 The format is based on `Keep a Changelog <https://keepachangelog.com/en/1.0.0/>`_,
 and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0.html>`_.
@@ -45,7 +45,7 @@ Changed
 [0.1.0] - 2024-01-30
 --------------------
 
-Initial release of PyNeuroim.
+Initial release of Neuroim.
 
 Added
 ~~~~~
@@ -107,7 +107,7 @@ Planned features:
 Contributing
 ------------
 
-See `Contributing Guide <contributing.html>`_ for information on how to contribute to PyNeuroim.
+See `Contributing Guide <contributing.html>`_ for information on how to contribute to Neuroim.
 
 Versioning
 ----------
@@ -123,6 +123,6 @@ How to Upgrade
 
 To upgrade to the latest version::
 
-    pip install --upgrade neuroimpy
+    pip install --upgrade neuroim
 
 Always check the changelog for breaking changes before upgrading major versions.

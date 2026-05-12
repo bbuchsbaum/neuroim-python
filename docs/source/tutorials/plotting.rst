@@ -1,7 +1,7 @@
 Visualization and Plotting
 ==========================
 
-neuroimpy provides convenient functions for visualizing neuroimaging data using matplotlib.
+neuroim provides convenient functions for visualizing neuroimaging data using matplotlib.
 
 Single Volume Display
 ----------------------
@@ -10,14 +10,14 @@ Display a single slice from a 3D volume:
 
 .. code-block:: python
 
-    import neuroimpy
+    import neuroim
     import matplotlib.pyplot as plt
 
     # Load a structural image
-    vol = neuroimpy.read_vol("structural.nii.gz")
+    vol = neuroim.read_vol("structural.nii.gz")
 
     # Plot a single slice
-    fig, ax = neuroimpy.plot_neuro_vol(
+    fig, ax = neuroim.plot_neuro_vol(
         vol,
         slice_index=32,       # Which slice to show
         axis='z',             # Slice orientation ('x', 'y', or 'z')
@@ -36,7 +36,7 @@ Display three orthogonal slices simultaneously:
 .. code-block:: python
 
     # Plot orthogonal views at a specific coordinate
-    fig = neuroimpy.plot_ortho(
+    fig = neuroim.plot_ortho(
         vol,
         coords=[32, 32, 16],  # x, y, z coordinates
         cmap='gray',
@@ -46,10 +46,10 @@ Display three orthogonal slices simultaneously:
     plt.savefig("ortho_views.png")
 
     # Plot at the center of mass of a statistical map
-    stat_vol = neuroimpy.read_vol("tstat.nii.gz")
+    stat_vol = neuroim.read_vol("tstat.nii.gz")
     com = stat_vol.center_of_mass()
 
-    fig = neuroimpy.plot_ortho(
+    fig = neuroim.plot_ortho(
         stat_vol,
         coords=com,
         cmap='RdBu_r',
@@ -64,7 +64,7 @@ Display multiple slices in a grid:
 .. code-block:: python
 
     # Create a montage of axial slices
-    fig = neuroimpy.plot_montage(
+    fig = neuroim.plot_montage(
         vol,
         axis='z',
         n_slices=12,          # Number of slices to show
@@ -78,7 +78,7 @@ Display multiple slices in a grid:
     plt.savefig("axial_montage.png")
 
     # Automatic slice selection (evenly spaced)
-    fig = neuroimpy.plot_montage(
+    fig = neuroim.plot_montage(
         vol,
         axis='z',
         n_slices=16,
@@ -94,11 +94,11 @@ Overlay statistical maps on anatomical images:
 .. code-block:: python
 
     # Load anatomical and statistical images
-    anat = neuroimpy.read_vol("T1.nii.gz")
-    stat = neuroimpy.read_vol("tstat.nii.gz")
+    anat = neuroim.read_vol("T1.nii.gz")
+    stat = neuroim.read_vol("tstat.nii.gz")
 
     # Plot overlay with thresholding
-    fig = neuroimpy.plot_overlay(
+    fig = neuroim.plot_overlay(
         background=anat,
         overlay=stat,
         slice_index=25,
@@ -113,7 +113,7 @@ Overlay statistical maps on anatomical images:
     plt.savefig("activation_overlay.png")
 
     # Two-sided threshold for positive and negative effects
-    fig = neuroimpy.plot_overlay(
+    fig = neuroim.plot_overlay(
         background=anat,
         overlay=stat,
         slice_index=25,
@@ -132,7 +132,7 @@ Create custom color schemes:
 .. code-block:: python
 
     # Map volume values to RGB colors
-    rgb_array = neuroimpy.map_to_colors(
+    rgb_array = neuroim.map_to_colors(
         vol,
         cmap='viridis',
         vmin=None,            # Auto-scale or specify
@@ -142,12 +142,12 @@ Create custom color schemes:
     print(rgb_array.shape)    # (x, y, z, 3) RGB values
 
     # Resolve colormap from string or matplotlib colormap
-    cmap = neuroimpy.resolve_cmap('hot')
+    cmap = neuroim.resolve_cmap('hot')
 
     # Use custom normalization
     from matplotlib.colors import PowerNorm
 
-    rgb_array = neuroimpy.map_to_colors(
+    rgb_array = neuroim.map_to_colors(
         vol,
         cmap=cmap,
         norm=PowerNorm(gamma=0.5)  # Nonlinear scaling
@@ -161,11 +161,11 @@ Visualize time series data:
 .. code-block:: python
 
     # Load 4D fMRI data
-    vec = neuroimpy.read_vec("fmri.nii.gz")
+    vec = neuroim.read_vec("fmri.nii.gz")
 
     # Plot mean across time
     mean_vol = vec.mean(axis=3)
-    fig, ax = neuroimpy.plot_neuro_vol(
+    fig, ax = neuroim.plot_neuro_vol(
         mean_vol,
         slice_index=16,
         axis='z',
@@ -175,7 +175,7 @@ Visualize time series data:
 
     # Plot standard deviation across time
     std_vol = vec.std(axis=3)
-    fig, ax = neuroimpy.plot_neuro_vol(
+    fig, ax = neuroim.plot_neuro_vol(
         std_vol,
         slice_index=16,
         axis='z',
@@ -202,16 +202,16 @@ Highlight regions of interest:
 
     # Create an ROI
     center = [32, 32, 16]
-    roi = neuroimpy.spherical_roi(vol, center, radius=8.0)
+    roi = neuroim.spherical_roi(vol, center, radius=8.0)
 
     # Create a mask volume
-    roi_vol = neuroimpy.LogicalNeuroVol(
+    roi_vol = neuroim.LogicalNeuroVol(
         roi.as_mask(),
         vol.space
     )
 
     # Overlay ROI on anatomical image
-    fig = neuroimpy.plot_overlay(
+    fig = neuroim.plot_overlay(
         background=vol,
         overlay=roi_vol.astype(float),
         slice_index=16,

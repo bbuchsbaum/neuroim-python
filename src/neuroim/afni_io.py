@@ -281,7 +281,7 @@ def _afni_dtype_info(dtype: np.dtype) -> tuple[int, np.dtype]:
         return 0, dt
     if dt == np.dtype(np.int16):
         return 1, dt
-    # AFNI reader in neuroimpy currently supports FLOAT32 as general fallback.
+    # AFNI reader in neuroim currently supports FLOAT32 as general fallback.
     return 3, np.dtype(np.float32)
 
 

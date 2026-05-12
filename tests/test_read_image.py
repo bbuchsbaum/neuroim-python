@@ -6,11 +6,11 @@ import pytest
 import gzip
 from pathlib import Path
 
-from neuroimpy.io import read_image, load_data, read_vol, read_vec
-from neuroimpy.sources import NeuroVolSource, NeuroVecSource
-from neuroimpy.neuro_vol import DenseNeuroVol
-from neuroimpy.neuro_vec import DenseNeuroVec, SparseNeuroVec
-from neuroimpy import NeuroSpace, LogicalNeuroVol
+from neuroim.io import read_image, load_data, read_vol, read_vec
+from neuroim.sources import NeuroVolSource, NeuroVecSource
+from neuroim.neuro_vol import DenseNeuroVol
+from neuroim.neuro_vec import DenseNeuroVec, SparseNeuroVec
+from neuroim import NeuroSpace, LogicalNeuroVol
 
 
 @pytest.fixture

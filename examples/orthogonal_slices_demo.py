@@ -7,7 +7,7 @@ slices from a 3D volume at a specific world-space coordinate.
 """
 
 import numpy as np
-from neuroimpy import NeuroSpace, DenseNeuroVol
+from neuroim import NeuroSpace, DenseNeuroVol
 
 # Create a sample 3D volume with a sphere in the center
 print("Creating sample 3D volume...")
@@ -45,7 +45,7 @@ for slice_type, slice_obj in slices.items():
 
 # Method 2: Extract individual slices
 print("\nExtracting individual slices...")
-from neuroimpy import extract_axial_slice, extract_sagittal_slice, extract_coronal_slice
+from neuroim import extract_axial_slice, extract_sagittal_slice, extract_coronal_slice
 
 axial = extract_axial_slice(vol, center_world)
 sagittal = extract_sagittal_slice(vol, center_world) 
@@ -76,7 +76,7 @@ for pos in positions:
 
 # Get slice orientation information
 print("\nSlice orientations:")
-from neuroimpy import get_slice_orientation
+from neuroim import get_slice_orientation
 
 for slice_type in ['axial', 'sagittal', 'coronal']:
     orientation = get_slice_orientation(vol, slice_type)

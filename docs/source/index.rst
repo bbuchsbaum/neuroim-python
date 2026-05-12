@@ -1,9 +1,9 @@
-.. neuroimpy documentation master file
+.. neuroim documentation master file
 
-neuroimpy
+neuroim
 =========
 
-**neuroimpy** is a comprehensive Python library for neuroimaging data analysis, providing a Python-native equivalent of the R neuroim2 package. It offers efficient, memory-aware data structures for working with 3D, 4D, and 5D+ neuroimaging datasets, along with a rich ecosystem of analysis tools for fMRI, structural imaging, and multimodal neuroimaging research.
+**neuroim** is a comprehensive Python library for neuroimaging data analysis, providing a Python-native equivalent of the R neuroim2 package. It offers efficient, memory-aware data structures for working with 3D, 4D, and 5D+ neuroimaging datasets, along with a rich ecosystem of analysis tools for fMRI, structural imaging, and multimodal neuroimaging research.
 
 The package combines nibabel's robust file I/O capabilities with optimized numpy-based data structures, enabling seamless integration into modern Python scientific workflows while maintaining performance and memory efficiency for large-scale neuroimaging analyses.
 

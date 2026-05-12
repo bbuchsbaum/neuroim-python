@@ -1,7 +1,7 @@
 NeuroHyperVec: 5D+ Neuroimaging Data
 ====================================
 
-NeuroHyperVec extends neuroimpy's capabilities to handle neuroimaging data with more than 4 dimensions. This is essential for modern neuroimaging applications that require additional feature dimensions beyond the standard spatial and temporal dimensions.
+NeuroHyperVec extends neuroim's capabilities to handle neuroimaging data with more than 4 dimensions. This is essential for modern neuroimaging applications that require additional feature dimensions beyond the standard spatial and temporal dimensions.
 
 Overview
 --------
@@ -23,7 +23,7 @@ Creating a NeuroHyperVec
 
 .. code-block:: python
 
-    import neuroimpy as pn
+    import neuroim as pn
     import numpy as np
 
     # Create 5D space: 64x64x40 voxels, 200 timepoints, 3 features

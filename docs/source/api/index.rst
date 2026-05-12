@@ -1,9 +1,9 @@
 API Reference
 =============
 
-.. currentmodule:: neuroimpy
+.. currentmodule:: neuroim
 
-Complete API documentation for all neuroimpy modules, organized by topic.
+Complete API documentation for all neuroim modules, organized by topic.
 
 .. toctree::
    :maxdepth: 2

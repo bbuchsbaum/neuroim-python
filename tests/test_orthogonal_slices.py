@@ -1,13 +1,13 @@
 """
 Test suite for orthogonal slice extraction functionality.
 
-This module tests the orthogonal slice extraction functions in neuroimpy,
+This module tests the orthogonal slice extraction functions in neuroim,
 including axial, sagittal, and coronal slice extraction at world-space coordinates.
 """
 
 import pytest
 import numpy as np
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVol, NeuroSlice,
     extract_orthogonal_slices, extract_axial_slice,
     extract_sagittal_slice, extract_coronal_slice,
@@ -294,7 +294,7 @@ class TestOrthogonalSlices:
     def test_non_3d_volume_error(self):
         """Test that non-3D volumes raise appropriate error."""
         # Create 4D NeuroVec instead of NeuroVol
-        from neuroimpy import DenseNeuroVec
+        from neuroim import DenseNeuroVec
         space_4d = NeuroSpace((10, 10, 10, 5))
         data_4d = np.random.rand(10, 10, 10, 5)
         vec_4d = DenseNeuroVec(data_4d, space_4d)

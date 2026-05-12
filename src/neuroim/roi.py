@@ -403,7 +403,7 @@ def roivol(space: NeuroSpace, coords: np.ndarray, data: np.ndarray) -> ROIVol:
         
     Examples
     --------
-    >>> from neuroimpy import NeuroSpace
+    >>> from neuroim import NeuroSpace
     >>> space = NeuroSpace([64,64,64])
     >>> coords = np.array([[1,2,3], [4,5,6]])
     >>> data = np.array([1.5, 2.5])

@@ -1,19 +1,19 @@
 """
 R-Python Equivalence Tests using NumPy fixtures
 
-This module tests that neuroimpy produces identical results to R neuroim2
+This module tests that neuroim produces identical results to R neuroim2
 using pre-converted NumPy fixtures.
 """
 
 import pytest
 import numpy as np
-import neuroimpy as pn
-from neuroimpy.neuro_vol import DenseNeuroVol, LogicalNeuroVol
-from neuroimpy.neuro_vec import DenseNeuroVec
-from neuroimpy import SparseNeuroVec
-from neuroimpy.roi import spherical_roi, cuboid_roi
-from neuroimpy.stats import partition
-from neuroimpy.connected_components import conn_comp
+import neuroim as pn
+from neuroim.neuro_vol import DenseNeuroVol, LogicalNeuroVol
+from neuroim.neuro_vec import DenseNeuroVec
+from neuroim import SparseNeuroVec
+from neuroim.roi import spherical_roi, cuboid_roi
+from neuroim.stats import partition
+from neuroim.connected_components import conn_comp
 from pathlib import Path
 
 # Check if fixtures exist

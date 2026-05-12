@@ -2,8 +2,8 @@
 
 import pytest
 import numpy as np
-from neuroimpy import NeuroSpace, LogicalNeuroVol, ClusteredNeuroVol
-from neuroimpy.clustered_neuro_vec import ClusteredNeuroVec
+from neuroim import NeuroSpace, LogicalNeuroVol, ClusteredNeuroVol
+from neuroim.clustered_neuro_vec import ClusteredNeuroVec
 
 
 @pytest.fixture

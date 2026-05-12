@@ -28,7 +28,7 @@ class IndexLookupVol:
 
     Examples
     --------
-    >>> from neuroimpy import NeuroSpace
+    >>> from neuroim import NeuroSpace
     >>> space = NeuroSpace([10, 10, 10])
     >>> active = np.array([5, 20, 100, 500])
     >>> lut = IndexLookupVol(space, active)

@@ -9,8 +9,8 @@ NeuroHyperVec represents data with:
 
 import pytest
 import numpy as np
-import neuroimpy as pn
-from neuroimpy.neuro_space import NeuroSpace
+import neuroim as pn
+from neuroim.neuro_space import NeuroSpace
 
 
 # Note: NeuroHyperVec is not yet implemented, so these tests will guide implementation

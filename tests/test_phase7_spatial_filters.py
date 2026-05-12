@@ -7,7 +7,7 @@ import pytest
 import numpy as np
 from scipy import ndimage
 
-from neuroimpy import (
+from neuroim import (
     # Core classes
     DenseNeuroVol, LogicalNeuroVol, DenseNeuroVec, NeuroSpace,
     # Kernel classes

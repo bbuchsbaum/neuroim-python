@@ -2,7 +2,7 @@
 
 ## Overview
 
-NeuroHyperVec is a powerful extension to the neuroimpy library that enables working with neuroimaging data that has more than 4 dimensions. While traditional neuroimaging data is 4D (3 spatial dimensions + time), many modern applications require additional dimensions to represent features, parameters, or other varying quantities.
+NeuroHyperVec is a powerful extension to the neuroim library that enables working with neuroimaging data that has more than 4 dimensions. While traditional neuroimaging data is 4D (3 spatial dimensions + time), many modern applications require additional dimensions to represent features, parameters, or other varying quantities.
 
 ## Use Cases
 
@@ -10,7 +10,7 @@ NeuroHyperVec is a powerful extension to the neuroimpy library that enables work
 Multi-echo fMRI collects data at multiple echo times (TEs) to improve signal quality and enable advanced denoising:
 
 ```python
-import neuroimpy as pn
+import neuroim as pn
 import numpy as np
 
 # Create 5D space: 64x64x40 voxels, 200 timepoints, 3 echoes

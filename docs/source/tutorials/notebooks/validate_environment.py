@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Environment validation script for neuroimpy notebooks.
+Environment validation script for neuroim notebooks.
 
 Run this script to check if your environment is properly configured
-to run the neuroimpy tutorial notebooks.
+to run the neuroim tutorial notebooks.
 """
 
 import sys
@@ -29,17 +29,17 @@ def check_package(package_name: str, min_version: str = None) -> Tuple[bool, str
         return False, f"{package_name} not installed"
 
 
-def check_neuroimpy_components() -> List[Tuple[str, bool, str]]:
-    """Check specific neuroimpy components."""
+def check_neuroim_components() -> List[Tuple[str, bool, str]]:
+    """Check specific neuroim components."""
     components = [
-        ("Basic volumes", "neuroimpy.DenseNeuroVol"),
-        ("Sparse volumes", "neuroimpy.SparseNeuroVol"),
-        ("Logical volumes", "neuroimpy.LogicalNeuroVol"),
-        ("4D vectors", "neuroimpy.DenseNeuroVec"),
-        ("ROI functions", "neuroimpy.spherical_roi"),
-        ("Searchlight", "neuroimpy.searchlight"),
-        ("Connected components", "neuroimpy.conn_comp"),
-        ("Orthogonal slices", "neuroimpy.extract_orthogonal_slices"),
+        ("Basic volumes", "neuroim.DenseNeuroVol"),
+        ("Sparse volumes", "neuroim.SparseNeuroVol"),
+        ("Logical volumes", "neuroim.LogicalNeuroVol"),
+        ("4D vectors", "neuroim.DenseNeuroVec"),
+        ("ROI functions", "neuroim.spherical_roi"),
+        ("Searchlight", "neuroim.searchlight"),
+        ("Connected components", "neuroim.conn_comp"),
+        ("Orthogonal slices", "neuroim.extract_orthogonal_slices"),
     ]
     
     results = []
@@ -57,7 +57,7 @@ def check_neuroimpy_components() -> List[Tuple[str, bool, str]]:
 
 def main():
     """Run all validation checks."""
-    print("PyNeuroim Notebook Environment Validation")
+    print("Neuroim Notebook Environment Validation")
     print("=" * 60)
     
     # Check required packages
@@ -67,7 +67,7 @@ def main():
     required_packages = [
         ("numpy", "1.19"),
         ("scipy", "1.5"),
-        ("neuroimpy", None),
+        ("neuroim", None),
     ]
     
     optional_packages = [
@@ -97,11 +97,11 @@ def main():
         status = "✓" if success else "○"
         print(f"{status} {message}")
     
-    # Check neuroimpy components
-    print("\nChecking neuroimpy components:")
+    # Check neuroim components
+    print("\nChecking neuroim components:")
     print("-" * 40)
     
-    components = check_neuroimpy_components()
+    components = check_neuroim_components()
     for name, success, message in components:
         status = "✓" if success else "✗"
         print(f"{status} {name}: {message}")
@@ -113,7 +113,7 @@ def main():
     print("-" * 40)
     
     try:
-        import neuroimpy as pn
+        import neuroim as pn
         import numpy as np
         
         # Create a simple volume
@@ -138,13 +138,13 @@ def main():
     # Summary
     print("\n" + "=" * 60)
     if all_good:
-        print("✓ Environment is ready for neuroimpy notebooks!")
+        print("✓ Environment is ready for neuroim notebooks!")
         print("\nYou can now run the notebooks with:")
         print("  jupyter notebook")
     else:
         print("✗ Some issues were found.")
         print("\nTo fix missing required packages:")
-        print("  pip install neuroimpy numpy scipy")
+        print("  pip install neuroim numpy scipy")
         print("\nFor full notebook support also install:")
         print("  pip install matplotlib pandas jupyter")
     

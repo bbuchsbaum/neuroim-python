@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVec, SparseNeuroVec, 
     ROICoords, ROIVol, DenseNeuroVol, LogicalNeuroVol
 )

@@ -175,7 +175,7 @@ def convert_rst_to_notebook(rst_path: Path, output_dir: Path):
         import_cell = {
             "cell_type": "code",
             "metadata": {},
-            "source": "import neuroimpy as pn\nimport numpy as np\nimport matplotlib.pyplot as plt\n%matplotlib inline",
+            "source": "import neuroim as pn\nimport numpy as np\nimport matplotlib.pyplot as plt\n%matplotlib inline",
             "outputs": []
         }
         cells.insert(1, import_cell)  # After title
@@ -240,7 +240,7 @@ vol = pn.DenseNeuroVol(example_data, space_3d)  # For tutorial""",
         for cell in notebook['cells']:
             if cell.get('cell_type') == 'code' and 'read_vol' in cell.get('source', ''):
                 cell['source'] = cell['source'].replace(
-                    'vol = neuroimpy.read_vol("path/to/image.nii.gz")',
+                    'vol = neuroim.read_vol("path/to/image.nii.gz")',
                     '# In practice:\n# vol = pn.read_vol("path/to/image.nii.gz")\n# For this tutorial:\nvol = pn.DenseNeuroVol(example_data, space_3d)'
                 )
     
@@ -288,7 +288,7 @@ def create_index_notebook(notebook_dir: Path, notebook_paths: List[Path]):
         {
             "cell_type": "markdown",
             "metadata": {},
-            "source": "# neuroimpy Tutorials\n\nWelcome to the neuroimpy tutorial notebooks! These interactive tutorials will guide you through the main features of the package."
+            "source": "# neuroim Tutorials\n\nWelcome to the neuroim tutorial notebooks! These interactive tutorials will guide you through the main features of the package."
         },
         {
             "cell_type": "markdown",
@@ -303,10 +303,10 @@ def create_index_notebook(notebook_dir: Path, notebook_paths: List[Path]):
             "metadata": {},
             "source": """## Getting Started
 
-Before running these tutorials, make sure you have neuroimpy installed:
+Before running these tutorials, make sure you have neuroim installed:
 
 ```bash
-pip install neuroimpy
+pip install neuroim
 ```
 
 Each notebook contains executable code examples that demonstrate key features of the package. The notebooks are designed to be run in order, but can also be used as standalone references.
@@ -317,7 +317,7 @@ These tutorials use synthetic data for demonstration. In practice, you would loa
         }
     ]
     
-    index_notebook = create_notebook(cells, "neuroimpy Tutorials")
+    index_notebook = create_notebook(cells, "neuroim Tutorials")
     
     index_path = notebook_dir / "00_index.ipynb"
     with open(index_path, 'w') as f:

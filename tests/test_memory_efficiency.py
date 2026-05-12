@@ -6,10 +6,10 @@ Tests memory usage patterns between different implementations
 import pytest
 import numpy as np
 import sys
-from neuroimpy import NeuroSpace
-from neuroimpy.neuro_vol import DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
-from neuroimpy.neuro_vec import DenseNeuroVec, SparseNeuroVec
-from neuroimpy.file_backed_neuro_vec import FileBackedNeuroVec
+from neuroim import NeuroSpace
+from neuroim.neuro_vol import DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
+from neuroim.neuro_vec import DenseNeuroVec, SparseNeuroVec
+from neuroim.file_backed_neuro_vec import FileBackedNeuroVec
 import tempfile
 import gc
 import os

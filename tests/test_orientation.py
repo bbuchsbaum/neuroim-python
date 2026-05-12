@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from neuroimpy.orientation import (
+from neuroim.orientation import (
     affine_to_orientation,
     affine_to_axcodes,
     axcodes_to_orientation,

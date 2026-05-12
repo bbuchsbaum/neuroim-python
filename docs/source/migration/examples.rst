@@ -1,7 +1,7 @@
 Side-by-Side Examples
 =====================
 
-This page shows common neuroimaging tasks implemented in both R (neuroim2) and Python (neuroimpy).
+This page shows common neuroimaging tasks implemented in both R (neuroim2) and Python (neuroim).
 
 Basic Volume Operations
 -----------------------
@@ -33,11 +33,11 @@ Creating and Manipulating Volumes
    # Arithmetic
    vol2 <- vol * 2 + 1
 
-**Python (neuroimpy):**
+**Python (neuroim):**
 
 .. code-block:: python
 
-   import neuroimpy as pn
+   import neuroim as pn
    import numpy as np
 
    # Create a volume with random data
@@ -78,7 +78,7 @@ Working with NIfTI Files
    # Save the result
    write_vol(brain, "output.nii.gz")
 
-**Python (neuroimpy):**
+**Python (neuroim):**
 
 .. code-block:: python
 
@@ -117,7 +117,7 @@ Extracting and Analyzing Time Series
    # Compute correlation
    cor_ts <- cor(t(multi_ts))
 
-**Python (neuroimpy):**
+**Python (neuroim):**
 
 .. code-block:: python
 
@@ -157,7 +157,7 @@ Creating and Using ROIs
    # Average time series in ROI
    mean_ts <- colMeans(roi_data)
 
-**Python (neuroimpy):**
+**Python (neuroim):**
 
 .. code-block:: python
 
@@ -200,7 +200,7 @@ Running Searchlight
    # Save results
    write_vol(result, "searchlight_results.nii")
 
-**Python (neuroimpy):**
+**Python (neuroim):**
 
 .. code-block:: python
 
@@ -243,7 +243,7 @@ Clustering and Partitioning
                            k = 20,
                            mask = brain_mask)
 
-**Python (neuroimpy):**
+**Python (neuroim):**
 
 .. code-block:: python
 
@@ -285,7 +285,7 @@ Memory-Efficient Processing
    # Extract data matrix
    data_matrix <- as.matrix(sparse_fmri)
 
-**Python (neuroimpy):**
+**Python (neuroim):**
 
 .. code-block:: python
 
@@ -325,7 +325,7 @@ Plotting Brain Data
           zlim = c(2, 5),
           col = heat.colors(100))
 
-**Python (neuroimpy):**
+**Python (neuroim):**
 
 .. code-block:: python
 
@@ -355,7 +355,7 @@ Memory-Mapped Large Datasets
      chunk <- big_data[,,,i:end_idx]
    }
 
-**Python (neuroimpy):**
+**Python (neuroim):**
 
 .. code-block:: python
 

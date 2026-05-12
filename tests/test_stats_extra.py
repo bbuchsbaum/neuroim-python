@@ -2,13 +2,13 @@
 
 import pytest
 import numpy as np
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVol, DenseNeuroVec, SparseNeuroVol,
     LogicalNeuroVol, ClusteredNeuroVol, ROIVol,
     split_blocks, split_clusters, split_fill, split_reduce,
     split_scale, partition, map_values, centroids
 )
-from neuroimpy import SparseNeuroVec
+from neuroim import SparseNeuroVec
 
 
 class TestSplitBlocksEdgeCases:

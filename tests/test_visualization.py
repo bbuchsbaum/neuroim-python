@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import pytest
 
-from neuroimpy.plotting import (
+from neuroim.plotting import (
     plot_ortho,
     plot_montage,
     plot_overlay,

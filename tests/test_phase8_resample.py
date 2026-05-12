@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, NeuroVol, DenseNeuroVol, DenseNeuroVec,
     resample, resample_vec, reorient,
     LEFT_RIGHT, RIGHT_LEFT, ANT_POST, POST_ANT, SUP_INF, INF_SUP
@@ -344,7 +344,7 @@ class TestResampleIntegration:
         # This test simulates nibabel not being available
         import sys
         # Get the actual module (not the function)
-        resample_module = sys.modules['neuroimpy.resample']
+        resample_module = sys.modules['neuroim.resample']
         original_has_nibabel = resample_module.HAS_NIBABEL
         
         try:

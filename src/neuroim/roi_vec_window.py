@@ -35,7 +35,7 @@ class ROIVecWindow:
 
     Examples
     --------
-    >>> from neuroimpy import NeuroSpace
+    >>> from neuroim import NeuroSpace
     >>> space = NeuroSpace([64, 64, 64])
     >>> coords = np.array([[10, 10, 10], [11, 10, 10], [10, 11, 10]])
     >>> data = np.random.randn(100, 3)

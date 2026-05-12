@@ -5,9 +5,9 @@ Tests boundary conditions, invalid inputs, and special cases for 4D data
 
 import pytest
 import numpy as np
-from neuroimpy import NeuroSpace
-from neuroimpy.neuro_vec import DenseNeuroVec, SparseNeuroVec
-from neuroimpy.neuro_vol import LogicalNeuroVol
+from neuroim import NeuroSpace
+from neuroim.neuro_vec import DenseNeuroVec, SparseNeuroVec
+from neuroim.neuro_vol import LogicalNeuroVol
 import warnings
 
 

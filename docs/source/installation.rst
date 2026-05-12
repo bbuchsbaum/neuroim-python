@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-neuroimpy requires Python 3.8 or later. The main dependencies are:
+neuroim requires Python 3.8 or later. The main dependencies are:
 
 * numpy >= 1.20
 * scipy >= 1.7
@@ -15,17 +15,17 @@ neuroimpy requires Python 3.8 or later. The main dependencies are:
 Installation from PyPI
 ----------------------
 
-The easiest way to install neuroimpy is using pip::
+The easiest way to install neuroim is using pip::
 
-    pip install neuroimpy
+    pip install neuroim
 
 Installation from Source
 ------------------------
 
 To install from source, clone the repository and install using pip::
 
-    git clone https://github.com/yourusername/neuroimpy.git
-    cd neuroimpy
+    git clone https://github.com/yourusername/neuroim-python.git
+    cd neuroim-python
     pip install -e .
 
 Development Installation
@@ -33,8 +33,8 @@ Development Installation
 
 For development, install with the development dependencies::
 
-    git clone https://github.com/yourusername/neuroimpy.git
-    cd neuroimpy
+    git clone https://github.com/yourusername/neuroim-python.git
+    cd neuroim-python
     pip install -e ".[dev]"
 
 This will install additional packages needed for testing and documentation:
@@ -48,9 +48,9 @@ This will install additional packages needed for testing and documentation:
 Verifying Installation
 ----------------------
 
-To verify that neuroimpy is installed correctly, you can run::
+To verify that neuroim is installed correctly, you can run::
 
-    python -c "import neuroimpy; print(neuroimpy.__version__)"
+    python -c "import neuroim; print(neuroim.__version__)"
 
 Or run the test suite::
 

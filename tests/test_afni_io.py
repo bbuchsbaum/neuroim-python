@@ -8,10 +8,10 @@ from typing import Optional, Sequence
 import numpy as np
 import pytest
 
-from neuroimpy import read_meta_info, read_header, read_vol, read_vec, write_vol, write_vec
-from neuroimpy import DenseNeuroVol, DenseNeuroVec, NeuroSpace
-from neuroimpy.afni_io import parse_niml_element, parse_niml_file
-from neuroimpy.meta_info import AFNIMetaInfo
+from neuroim import read_meta_info, read_header, read_vol, read_vec, write_vol, write_vec
+from neuroim import DenseNeuroVol, DenseNeuroVec, NeuroSpace
+from neuroim.afni_io import parse_niml_element, parse_niml_file
+from neuroim.meta_info import AFNIMetaInfo
 
 
 def _write_afni_pair(

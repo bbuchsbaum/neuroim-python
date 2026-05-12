@@ -3,8 +3,8 @@
 import pytest
 import numpy as np
 
-from neuroimpy import NeuroSpace, DenseNeuroVol
-from neuroimpy.roi import (
+from neuroim import NeuroSpace, DenseNeuroVol
+from neuroim.roi import (
     cube_roi, ellipsoid_roi, patch_set,
     spherical_roi, cuboid_roi, spherical_roi_set,
 )

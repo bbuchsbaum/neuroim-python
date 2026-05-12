@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import tempfile
 import os
-from neuroimpy import (
+from neuroim import (
     NeuroSpace, DenseNeuroVec, SparseNeuroVec, NeuroVec,
     DenseNeuroVol, LogicalNeuroVol, neurovol, neurovec, neurovecseq,
     BigNeuroVec, FileBackedNeuroVec, MappedNeuroVec

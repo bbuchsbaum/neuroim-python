@@ -2,8 +2,8 @@
 
 import pytest
 import numpy as np
-from neuroimpy import NeuroSpace, DenseNeuroVol, DenseNeuroVec, SparseNeuroVol
-from neuroimpy.operations import concat, scale_series, mapf, downsample
+from neuroim import NeuroSpace, DenseNeuroVol, DenseNeuroVec, SparseNeuroVol
+from neuroim.operations import concat, scale_series, mapf, downsample
 
 
 class TestConcat:

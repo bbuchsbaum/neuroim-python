@@ -1,18 +1,18 @@
 Four-dimensional Neuroimaging Data
 ==================================
 
-The neuroimpy package contains data structures and functions for reading, accessing, and processing 4-dimensional neuroimaging data.
+The neuroim package contains data structures and functions for reading, accessing, and processing 4-dimensional neuroimaging data.
 
 Reading a four-dimensional NIFTI image
 --------------------------------------
 
 To read a 4D image, use the :func:`read_vec` function::
 
-    import neuroimpy
+    import neuroim
     import numpy as np
     
     # Read a single 4D NIFTI file
-    vec = neuroimpy.read_vec("path/to/4d_image.nii")
+    vec = neuroim.read_vec("path/to/4d_image.nii")
     print(vec.shape)
     # (64, 64, 25, 100)  # x, y, z, time
     
@@ -30,7 +30,7 @@ You can also read multiple 4D images and concatenate them::
 
     # Read multiple files (here using the same file 3 times as example)
     file_list = ["image1.nii", "image2.nii", "image3.nii"]
-    vec = neuroimpy.read_vec(file_list)
+    vec = neuroim.read_vec(file_list)
     print(vec.shape)
     # Will concatenate along the time dimension
 
@@ -90,7 +90,7 @@ Extract time series for all voxels in a region of interest (ROI)::
 
     # First, create an ROI (e.g., a sphere)
     center = [32, 32, 12]
-    roi = neuroimpy.spherical_roi(vec, center, radius=8)
+    roi = neuroim.spherical_roi(vec, center, radius=8)
     
     # Extract time series for all voxels in the ROI
     roi_series = vec.series_roi(roi)
@@ -113,7 +113,7 @@ Working with masks
 Often we want to extract data only from voxels within a brain mask::
 
     # Load a binary mask
-    mask = neuroimpy.read_vol("brain_mask.nii")
+    mask = neuroim.read_vol("brain_mask.nii")
     
     # Get indices of non-zero voxels
     mask_indices = np.where(mask.data.ravel(order='F'))[0]
@@ -131,11 +131,11 @@ Dense to Sparse
 For memory efficiency with masked data::
 
     # Convert to sparse representation using a mask
-    mask_vol = neuroimpy.LogicalNeuroVol(mask.data > 0, mask.space)
+    mask_vol = neuroim.LogicalNeuroVol(mask.data > 0, mask.space)
     sparse_vec = vec.as_sparse(mask_vol)
     
     print(type(sparse_vec))
-    # <class 'neuroimpy.neuro_vec.SparseNeuroVec'>
+    # <class 'neuroim.neuro_vec.SparseNeuroVec'>
     
     # Sparse vectors work the same way
     ts = sparse_vec.series(10, 10, 10)
@@ -156,8 +156,8 @@ Concatenating NeuroVecs
 Combine multiple 4D datasets along the time dimension::
 
     # Create some example vectors
-    vec1 = neuroimpy.neurovec(np.random.randn(10, 10, 10, 50))
-    vec2 = neuroimpy.neurovec(np.random.randn(10, 10, 10, 30))
+    vec1 = neuroim.neurovec(np.random.randn(10, 10, 10, 50))
+    vec2 = neuroim.neurovec(np.random.randn(10, 10, 10, 30))
     
     # Concatenate
     combined = vec1.concat(vec2)
@@ -172,7 +172,7 @@ Get individual 3D volumes from the 4D data::
     # Get the first volume
     vol0 = vec[..., 0]
     print(type(vol0))
-    # <class 'neuroimpy.neuro_vol.DenseNeuroVol'>
+    # <class 'neuroim.neuro_vol.DenseNeuroVol'>
     
     # Get multiple volumes as a list
     vols = vec.vols([0, 10, 20, 30])
@@ -198,10 +198,10 @@ For very large datasets that don't fit in memory::
 
     # Create a memory-mapped vector
     big_data = np.random.randn(100, 100, 50, 1000)  # Large dataset
-    space = neuroimpy.NeuroSpace(dim=[100, 100, 50, 1000])
+    space = neuroim.NeuroSpace(dim=[100, 100, 50, 1000])
     
     # This keeps data on disk
-    big_vec = neuroimpy.BigNeuroVec(big_data, space)
+    big_vec = neuroim.BigNeuroVec(big_data, space)
     
     # Access works the same way
     ts = big_vec.series(50, 50, 25)

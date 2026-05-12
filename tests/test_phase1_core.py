@@ -11,8 +11,8 @@ import pytest
 import numpy as np
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 
-from neuroimpy.neuro_space import NeuroSpace, neurospace
-from neuroimpy.axis import (
+from neuroim.neuro_space import NeuroSpace, neurospace
+from neuroim.axis import (
     NamedAxis, AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D,
     LEFT_RIGHT, RIGHT_LEFT, ANT_POST, POST_ANT, INF_SUP, SUP_INF,
     TIME, NullAxis, TimeAxis,

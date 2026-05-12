@@ -4,9 +4,9 @@ import pytest
 import numpy as np
 import tempfile
 import os
-from neuroimpy import NeuroSpace, DenseNeuroVol, FileBackedNeuroVec
-from neuroimpy.file_backed_neuro_vec import file_backed_neurovec
-from neuroimpy.io import write_vol
+from neuroim import NeuroSpace, DenseNeuroVol, FileBackedNeuroVec
+from neuroim.file_backed_neuro_vec import file_backed_neurovec
+from neuroim.io import write_vol
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ class TestFileBackedNeuroVecCreation:
         files, shape, vol_space = temp_vol_files
         
         # Create 4D space
-        from neuroimpy.axis import AxisSet4D, NamedAxis
+        from neuroim.axis import AxisSet4D, NamedAxis
         time_axis = NamedAxis("t", 1)
         axes_4d = AxisSet4D(vol_space.axes.i, vol_space.axes.j, vol_space.axes.k, time_axis)
         
@@ -423,7 +423,7 @@ class TestFileBackedNeuroVecOperations:
         
         dense_vec = fb_vec.as_dense()
         
-        from neuroimpy.neuro_vec import DenseNeuroVec
+        from neuroim.neuro_vec import DenseNeuroVec
         assert isinstance(dense_vec, DenseNeuroVec)
         assert dense_vec.shape == fb_vec.shape
         np.testing.assert_array_equal(dense_vec.data, fb_vec.data)
@@ -439,7 +439,7 @@ class TestFileBackedNeuroVecOperations:
         
         sparse_vec = fb_vec.as_sparse(mask)
         
-        from neuroimpy import SparseNeuroVec
+        from neuroim import SparseNeuroVec
         assert isinstance(sparse_vec, SparseNeuroVec)
     
     def test_as_sparse_auto_mask(self, temp_vol_files):
@@ -449,7 +449,7 @@ class TestFileBackedNeuroVecOperations:
         
         sparse_vec = fb_vec.as_sparse()
         
-        from neuroimpy import SparseNeuroVec
+        from neuroim import SparseNeuroVec
         assert isinstance(sparse_vec, SparseNeuroVec)
 
 
@@ -463,7 +463,7 @@ class TestFileBackedNeuroVecArithmetic:
         
         result = fb_vec._arithmetic_op(10, np.add)
         
-        from neuroimpy.neuro_vec import DenseNeuroVec
+        from neuroim.neuro_vec import DenseNeuroVec
         assert isinstance(result, DenseNeuroVec)
         assert np.all(result.data[0:2, 0:2, 0:2, 0] == 20)
     
@@ -473,7 +473,7 @@ class TestFileBackedNeuroVecArithmetic:
         fb_vec = FileBackedNeuroVec(files)
         
         # Create another vector
-        from neuroimpy.neuro_vec import DenseNeuroVec
+        from neuroim.neuro_vec import DenseNeuroVec
         other = DenseNeuroVec(np.ones(fb_vec.shape) * 2, fb_vec.space)
         
         result = fb_vec._arithmetic_op(other, np.multiply)
@@ -487,7 +487,7 @@ class TestFileBackedNeuroVecArithmetic:
         fb_vec = FileBackedNeuroVec(files)
         
         # Create vector with different shape
-        from neuroimpy.neuro_vec import DenseNeuroVec
+        from neuroim.neuro_vec import DenseNeuroVec
         other_space = NeuroSpace(dim=[10, 10, 10, 3])
         other = DenseNeuroVec(np.ones((10, 10, 10, 3)), other_space)
         
@@ -524,7 +524,7 @@ class TestFileBackedNeuroVecComparison:
         fb_vec = FileBackedNeuroVec(files)
         
         # Create comparison vector
-        from neuroimpy.neuro_vec import DenseNeuroVec
+        from neuroim.neuro_vec import DenseNeuroVec
         other = DenseNeuroVec(np.ones(fb_vec.shape) * 15, fb_vec.space)
         
         result = fb_vec._comparison_op(other, np.less)
@@ -549,7 +549,7 @@ class TestFileBackedNeuroVecComparison:
         fb_vec = FileBackedNeuroVec(files)
         
         # Create vector with different shape
-        from neuroimpy.neuro_vec import DenseNeuroVec
+        from neuroim.neuro_vec import DenseNeuroVec
         other_space = NeuroSpace(dim=[10, 10, 10, 3])
         other = DenseNeuroVec(np.ones((10, 10, 10, 3)), other_space)
         

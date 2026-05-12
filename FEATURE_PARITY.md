@@ -1,4 +1,4 @@
-# Feature Parity Tracking: neuroim2 → neuroimpy
+# Feature Parity Tracking: neuroim2 → neuroim
 
 ## Overall Progress Summary
 - **Phase 1 (Core Infrastructure)**: ✅ Complete (100%)

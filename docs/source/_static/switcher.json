@@ -1,11 +1,11 @@
 [
     {
         "version": "0.1.0",
-        "url": "https://neuroimpy.readthedocs.io/en/v0.1.0/"
+        "url": "https://neuroim.readthedocs.io/en/v0.1.0/"
     },
     {
         "version": "dev",
-        "url": "https://neuroimpy.readthedocs.io/en/latest/",
+        "url": "https://neuroim.readthedocs.io/en/latest/",
         "name": "dev (latest)"
     }
 ]

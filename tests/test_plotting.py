@@ -8,10 +8,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 from unittest.mock import patch, MagicMock
 
-import neuroimpy as pn
-from neuroimpy.plotting import plot_neuro_vol
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.neuro_vol import DenseNeuroVol
+import neuroim as pn
+from neuroim.plotting import plot_neuro_vol
+from neuroim.neuro_space import NeuroSpace
+from neuroim.neuro_vol import DenseNeuroVol
 
 # Use non-interactive backend for testing
 matplotlib.use('Agg')

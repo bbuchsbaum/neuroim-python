@@ -1,6 +1,6 @@
 # R to Python Test Mapping
 
-This document shows which R tests from neuroim2 have corresponding Python tests in neuroimpy.
+This document shows which R tests from neuroim2 have corresponding Python tests in neuroim.
 
 ## Test Coverage Summary
 

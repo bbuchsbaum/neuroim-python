@@ -4,7 +4,7 @@ Tutorial Notebooks
 ==================
 
 This section contains interactive Jupyter notebooks that demonstrate key functionality
-of the neuroimpy library. All notebooks are self-contained and generate their own
+of the neuroim library. All notebooks are self-contained and generate their own
 example data.
 
 .. toctree::
@@ -21,14 +21,14 @@ Getting Started
 
 All notebooks can be run directly without any external data files. To get started:
 
-1. Install neuroimpy and Jupyter::
+1. Install neuroim and Jupyter::
 
-    pip install neuroimpy jupyter
+    pip install neuroim jupyter
 
 2. Clone the repository and navigate to the notebooks directory::
 
-    git clone https://github.com/yourusername/neuroimpy.git
-    cd neuroimpy/docs/source/tutorials/notebooks
+    git clone https://github.com/yourusername/neuroim-python.git
+    cd neuroim-python/docs/source/tutorials/notebooks
 
 3. Start Jupyter Notebook::
 
@@ -80,5 +80,5 @@ Two testing methods are available:
 Additional Resources
 --------------------
 
-- `GitHub Repository <https://github.com/bbuchsbaum/neuroimpy>`_ - Source code
+- `GitHub Repository <https://github.com/bbuchsbaum/neuroim-python>`_ - Source code
 - :doc:`API Reference <../api/index>` - Detailed API documentation

@@ -1,8 +1,8 @@
-# R neuroim2 vs Python neuroimpy Test Coverage Comparison
+# R neuroim2 vs Python neuroim Test Coverage Comparison
 
 ## Overview
 
-This document compares test coverage between R neuroim2 (151 test cases across 17 files) and Python neuroimpy to identify gaps and prioritize test development.
+This document compares test coverage between R neuroim2 (151 test cases across 17 files) and Python neuroim to identify gaps and prioritize test development.
 
 ## Test Coverage Summary
 
@@ -192,7 +192,7 @@ expect_lt(system.time(operation)["elapsed"], 1.0)
 
 Current test coverage comparison:
 - **R neuroim2**: 151 test cases, ~90% functionality covered
-- **Python neuroimpy**: ~80 test cases, ~60% functionality covered
+- **Python neuroim**: ~80 test cases, ~60% functionality covered
 - **Gap**: 71 test cases, 30% functionality
 
 Target after implementation:

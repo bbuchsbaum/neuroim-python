@@ -1,6 +1,6 @@
-# Migrating from R neuroim2 to Python neuroimpy
+# Migrating from R neuroim2 to Python neuroim
 
-This guide helps R users transition to the Python neuroimpy package, providing quick references and key differences.
+This guide helps R users transition to the Python neuroim package, providing quick references and key differences.
 
 ## Quick Start
 
@@ -15,8 +15,8 @@ library(neuroim2)
 
 ```python
 # Python
-pip install neuroimpy
-import neuroimpy as pn
+pip install neuroim
+import neuroim as pn
 ```
 
 ## Critical Differences

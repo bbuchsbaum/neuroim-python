@@ -12,7 +12,7 @@ try:
 except ImportError:
     NIBABEL_AVAILABLE = False
 
-from neuroimpy import (
+from neuroim import (
     read_vol, write_vol, read_vec, write_vec, 
     read_vol_list, read_header, read_meta_info,
     DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol,

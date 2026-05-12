@@ -9,9 +9,9 @@ This module tests the conversion between different coordinate systems:
 
 import pytest
 import numpy as np
-import neuroimpy as pn
-from neuroimpy.neuro_space import NeuroSpace
-from neuroimpy.neuro_vol import DenseNeuroVol
+import neuroim as pn
+from neuroim.neuro_space import NeuroSpace
+from neuroim.neuro_vol import DenseNeuroVol
 
 
 class TestCoordinateTransformations:

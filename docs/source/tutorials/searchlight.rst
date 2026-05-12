@@ -10,17 +10,17 @@ The simplest way to create a searchlight is with :func:`searchlight_iterator`:
 
 .. code-block:: python
 
-    import neuroimpy
+    import neuroim
     import numpy as np
     from sklearn.svm import SVC
     from sklearn.model_selection import cross_val_score
 
     # Load fMRI data
-    vec = neuroimpy.read_vec("fmri_data.nii.gz")
-    mask = neuroimpy.read_vol("brain_mask.nii.gz")
+    vec = neuroim.read_vec("fmri_data.nii.gz")
+    mask = neuroim.read_vol("brain_mask.nii.gz")
 
     # Create searchlight iterator with 8mm radius
-    searchlight = neuroimpy.searchlight_iterator(
+    searchlight = neuroim.searchlight_iterator(
         vec,
         mask=mask,
         radius=8.0
@@ -68,7 +68,7 @@ Process each searchlight with a custom function:
     results = []
     centers = []
 
-    searchlight = neuroimpy.searchlight_iterator(vec, mask=mask, radius=8.0)
+    searchlight = neuroim.searchlight_iterator(vec, mask=mask, radius=8.0)
 
     for sl in searchlight:
         data = vec.series(sl.indices).T  # Transpose to (samples, features)
@@ -77,7 +77,7 @@ Process each searchlight with a custom function:
         centers.append(sl.center)
 
     # Create a volume with the results
-    result_vol = neuroimpy.DenseNeuroVol(
+    result_vol = neuroim.DenseNeuroVol(
         np.zeros(vec.shape[:3]),
         vec.space
     )
@@ -86,7 +86,7 @@ Process each searchlight with a custom function:
         result_vol[center[0], center[1], center[2]] = accuracy
 
     # Save the searchlight map
-    neuroimpy.write_vol(result_vol, "searchlight_accuracy.nii.gz")
+    neuroim.write_vol(result_vol, "searchlight_accuracy.nii.gz")
 
 Random Searchlight Sampling
 ----------------------------
@@ -96,7 +96,7 @@ For large datasets, sample random searchlights instead of exhaustively searching
 .. code-block:: python
 
     # Create random searchlight with 1000 samples
-    random_searchlight = neuroimpy.random_searchlight(
+    random_searchlight = neuroim.random_searchlight(
         vec,
         mask=mask,
         radius=8.0,
@@ -123,7 +123,7 @@ Use bootstrap resampling to estimate confidence intervals:
 .. code-block:: python
 
     # Bootstrap searchlight with 100 iterations
-    bootstrap_searchlight = neuroimpy.bootstrap_searchlight(
+    bootstrap_searchlight = neuroim.bootstrap_searchlight(
         vec,
         mask=mask,
         radius=8.0,
@@ -154,9 +154,9 @@ Use bootstrap resampling to estimate confidence intervals:
         center_accuracies[key].append(acc)
 
     # Create mean and CI volumes
-    mean_vol = neuroimpy.DenseNeuroVol(np.zeros(vec.shape[:3]), vec.space)
-    ci_lower_vol = neuroimpy.DenseNeuroVol(np.zeros(vec.shape[:3]), vec.space)
-    ci_upper_vol = neuroimpy.DenseNeuroVol(np.zeros(vec.shape[:3]), vec.space)
+    mean_vol = neuroim.DenseNeuroVol(np.zeros(vec.shape[:3]), vec.space)
+    ci_lower_vol = neuroim.DenseNeuroVol(np.zeros(vec.shape[:3]), vec.space)
+    ci_upper_vol = neuroim.DenseNeuroVol(np.zeros(vec.shape[:3]), vec.space)
 
     for center, accs in center_accuracies.items():
         mean_acc = np.mean(accs)
@@ -167,9 +167,9 @@ Use bootstrap resampling to estimate confidence intervals:
         ci_lower_vol[center] = ci_lower
         ci_upper_vol[center] = ci_upper
 
-    neuroimpy.write_vol(mean_vol, "searchlight_mean.nii.gz")
-    neuroimpy.write_vol(ci_lower_vol, "searchlight_ci_lower.nii.gz")
-    neuroimpy.write_vol(ci_upper_vol, "searchlight_ci_upper.nii.gz")
+    neuroim.write_vol(mean_vol, "searchlight_mean.nii.gz")
+    neuroim.write_vol(ci_lower_vol, "searchlight_ci_lower.nii.gz")
+    neuroim.write_vol(ci_upper_vol, "searchlight_ci_upper.nii.gz")
 
 Clustered Searchlight with Parcellations
 -----------------------------------------
@@ -179,10 +179,10 @@ Constrain searchlights to anatomical or functional parcellations:
 .. code-block:: python
 
     # Load a parcellation atlas
-    atlas = neuroimpy.read_vol("atlas_parcellation.nii.gz")
+    atlas = neuroim.read_vol("atlas_parcellation.nii.gz")
 
     # Create clustered searchlight
-    clustered_searchlight = neuroimpy.clustered_searchlight(
+    clustered_searchlight = neuroim.clustered_searchlight(
         vec,
         atlas=atlas,
         mask=mask,
@@ -216,7 +216,7 @@ Create searchlights with custom shapes:
                     continue
 
                 # Define a cuboid ROI
-                roi = neuroimpy.cuboid_roi(
+                roi = neuroim.cuboid_roi(
                     vec,
                     center=[x, y, z],
                     extents=[6, 6, 4]  # Half-widths in each dimension
@@ -247,7 +247,7 @@ For large-scale searchlight analyses:
         return center, classify(data, labels)
 
     # Prepare searchlight data
-    searchlight = neuroimpy.searchlight_iterator(vec, mask=mask, radius=8.0)
+    searchlight = neuroim.searchlight_iterator(vec, mask=mask, radius=8.0)
     sl_data_list = [(sl.indices, sl.center) for sl in searchlight]
 
     # Process in parallel

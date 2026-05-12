@@ -2,7 +2,7 @@
 
 This module provides functions for working with image orientations and
 affine transformations. It wraps nibabel's orientation utilities with
-a clean neuroimpy API.
+a clean neuroim API.
 """
 
 import numpy as np

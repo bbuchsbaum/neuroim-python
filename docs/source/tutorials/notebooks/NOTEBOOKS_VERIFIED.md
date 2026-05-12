@@ -1,8 +1,8 @@
-# PyNeuroim Notebooks - Verification Complete
+# Neuroim Notebooks - Verification Complete
 
 ## Summary
 
-All PyNeuroim tutorial notebooks have been successfully fixed, tested, and verified to be fully executable. A comprehensive testing and validation infrastructure has been created to ensure notebooks remain functional.
+All Neuroim tutorial notebooks have been successfully fixed, tested, and verified to be fully executable. A comprehensive testing and validation infrastructure has been created to ensure notebooks remain functional.
 
 ## Notebooks Status
 
@@ -15,7 +15,7 @@ All PyNeuroim tutorial notebooks have been successfully fixed, tested, and verif
 
 ## Key Fixes Applied
 
-1. **Import Standardization**: All notebooks now use `import neuroimpy as pn`
+1. **Import Standardization**: All notebooks now use `import neuroim as pn`
 2. **Self-Contained Data**: Removed file dependencies, generate example data
 3. **API Updates**: Fixed function calls to match current API
 4. **Code Organization**: Consistent structure across all notebooks
@@ -27,7 +27,7 @@ All PyNeuroim tutorial notebooks have been successfully fixed, tested, and verif
 python validate_environment.py
 ```
 - Checks all required packages
-- Verifies neuroimpy components
+- Verifies neuroim components
 - Tests basic functionality
 
 ### 2. Quick Functional Tests
@@ -76,7 +76,7 @@ Users can now:
 1. Clone the repository
 2. Run `python validate_environment.py` to check setup
 3. Open any notebook and run all cells
-4. Follow examples to learn neuroimpy
+4. Follow examples to learn neuroim
 
 ## Maintenance
 
@@ -88,4 +88,4 @@ To keep notebooks functional:
 
 ## Conclusion
 
-The PyNeuroim tutorial notebooks are now fully functional, well-tested, and ready for users. The comprehensive testing infrastructure ensures they will remain reliable as the library evolves.
+The Neuroim tutorial notebooks are now fully functional, well-tested, and ready for users. The comprehensive testing infrastructure ensures they will remain reliable as the library evolves.
