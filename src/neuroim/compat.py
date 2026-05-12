@@ -777,15 +777,15 @@ def image(x: Any, *args: Any, **kwargs: Any) -> Any:
 
 
 def plot_checkerboard(*args: Any, **kwargs: Any) -> Any:
-    from .plotting import plot_overlay
+    from .plotting import plot_checkerboard as _plot_checkerboard
 
-    return plot_overlay(*args, **kwargs)
+    return _plot_checkerboard(*args, **kwargs)
 
 
 def plot_edge_overlay(*args: Any, **kwargs: Any) -> Any:
-    from .plotting import plot_overlay
+    from .plotting import plot_edge_overlay as _plot_edge_overlay
 
-    return plot_overlay(*args, **kwargs)
+    return _plot_edge_overlay(*args, **kwargs)
 
 
 def scale_fill_neuro(cmap: str = "viridis", limits: Any = None, **kwargs: Any) -> dict:

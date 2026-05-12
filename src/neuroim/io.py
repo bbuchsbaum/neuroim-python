@@ -326,19 +326,32 @@ def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
     if _is_afni_descriptor(descriptor):
         meta = descriptor.read_meta_info(filename)
         assert isinstance(meta, AFNIMetaInfo)
+        affine = _neurospace_from_afni_meta(meta).trans
         return {
             "dim": tuple(meta.dims),
+            "pixdim": tuple(meta.spacing),
             "spacing": tuple(meta.spacing),
             "origin": tuple(meta.origin),
             "datatype": meta.get_data_dtype(),
+            "data_type": str(meta.get_data_dtype()),
             "bitpix": int(meta.bytes_per_element * 8),
-            "affine": _neurospace_from_afni_meta(meta).trans,
+            "affine": affine,
+            "trans": affine,
             "description": "",
+            "descrip": "",
+            "qform": {"matrix": affine, "code": 0},
             "qform_code": 0,
+            "sform": {"matrix": affine, "code": 0},
             "sform_code": 0,
+            "intent_code": 0,
+            "intent_name": "",
             "vox_offset": int(meta.data_offset),
             "scl_slope": meta.slope,
             "scl_inter": meta.intercept,
+            "cal_min": np.nan,
+            "cal_max": np.nan,
+            "TR": np.nan,
+            "raw": meta.afni_header,
             "afni_header": meta.afni_header,
         }
 
@@ -352,19 +365,47 @@ def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
     else:
         descrip = str(descrip).strip()
     
+    qform, qform_code = img.get_qform(coded=True)
+    sform, sform_code = img.get_sform(coded=True)
+    qform = img.affine if qform is None else qform
+    sform = img.affine if sform is None else sform
+
+    zooms = header.get_zooms()
+    raw_header = {key: header[key].copy() for key in header.keys()}
+    tr = float(zooms[3]) if len(zooms) > 3 else np.nan
+    intent_name = header.get("intent_name", b"")
+    if hasattr(intent_name, "item"):
+        intent_name = intent_name.item()
+    if isinstance(intent_name, bytes):
+        intent_name = intent_name.decode("utf-8", errors="ignore").strip("\x00")
+    else:
+        intent_name = str(intent_name)
+
     return {
         "dim": img.shape,
-        "spacing": header.get_zooms(),
+        "pixdim": zooms,
+        "spacing": zooms,
         "origin": img.affine[:3, 3],
         "datatype": header.get_data_dtype(),
+        "data_type": str(header.get_data_dtype()),
         "bitpix": int(header.get('bitpix', 0)),
         "affine": img.affine,
+        "trans": img.affine,
         "description": descrip,
+        "descrip": descrip,
+        "qform": {"matrix": qform, "code": int(qform_code or 0)},
         "qform_code": int(header.get('qform_code', 0)),
+        "sform": {"matrix": sform, "code": int(sform_code or 0)},
         "sform_code": int(header.get('sform_code', 0)),
+        "intent_code": int(header.get("intent_code", 0)),
+        "intent_name": intent_name,
         "vox_offset": float(header.get('vox_offset', 0)),
         "scl_slope": float(header.get('scl_slope', 1)),
         "scl_inter": float(header.get('scl_inter', 0)),
+        "cal_min": float(header.get("cal_min", np.nan)),
+        "cal_max": float(header.get("cal_max", np.nan)),
+        "TR": tr,
+        "raw": raw_header,
     }
 
 

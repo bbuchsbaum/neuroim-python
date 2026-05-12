@@ -133,7 +133,7 @@ from .neuro_hypervec import (
 # Import visualization / plotting utilities
 from .plotting import (
     plot_neuro_vol, plot_ortho, plot_montage, plot_overlay,
-    map_to_colors, resolve_cmap,
+    plot_checkerboard, plot_edge_overlay, map_to_colors, resolve_cmap,
 )
 
 # R-compatible constructor alias; Python callers can use neurovecseq directly.

@@ -4,6 +4,8 @@ This module provides functions for resampling and reorienting neuroimaging
 volumes and vectors to match different spatial configurations.
 """
 
+import warnings
+
 import numpy as np
 from typing import Union, List, Tuple, Optional
 
@@ -75,8 +77,24 @@ def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
     if interpolation not in [0, 1, 3]:
         raise ValueError("interpolation must be 0 (nearest), 1 (linear), or 3 (cubic)")
 
+    from .clustered_neuro_vol import ClusteredNeuroVol
+    from .neuro_vol import LogicalNeuroVol
+
+    preserve_clusters = isinstance(source, ClusteredNeuroVol)
+    if preserve_clusters and interpolation != 0:
+        warnings.warn(
+            "ClusteredNeuroVol resampling uses nearest-neighbor interpolation",
+            UserWarning,
+            stacklevel=2,
+        )
+        interpolation = 0
+
     # Convert source NeuroVol to nibabel image
-    source_nifti = nib.Nifti1Image(source.data, source.space.trans)
+    if preserve_clusters:
+        source_data = source.as_dense().data.astype(np.int32)
+    else:
+        source_data = source.data if hasattr(source, "data") else source.as_dense().data
+    source_nifti = nib.Nifti1Image(source_data, source.space.trans)
 
     if isinstance(target, NeuroSpace):
         # Create a dummy nibabel image for the target space
@@ -92,17 +110,24 @@ def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
         )
     else:
         # Convert target NeuroVol to nibabel image
-        target_nifti = nib.Nifti1Image(target.data, target.space.trans)
+        target_data = target.data if hasattr(target, "data") else target.as_dense().data
+        target_nifti = nib.Nifti1Image(target_data, target.space.trans)
         target_space = target.space
 
     # Perform resampling
     resampled_nifti = resample_from_to(source_nifti, target_nifti, order=interpolation)
 
-    # Create and return a new NeuroVol with the resampled data
-    return DenseNeuroVol(
-        resampled_nifti.get_fdata().astype(np.float32),
-        target_space
-    )
+    resampled_data = resampled_nifti.get_fdata()
+    if preserve_clusters:
+        labels = np.rint(resampled_data).astype(source.clusters.dtype)
+        mask = labels != 0
+        return ClusteredNeuroVol(
+            LogicalNeuroVol(mask, target_space),
+            labels.ravel(order="F")[mask.ravel(order="F")],
+            label_map=dict(source.label_map),
+        )
+
+    return DenseNeuroVol(resampled_data.astype(np.float32), target_space)
 
 
 def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],

@@ -357,6 +357,121 @@ def plot_overlay(
     return fig, axes
 
 
+def _as_3d_array(vol: np.ndarray) -> np.ndarray:
+    data = np.asarray(vol.data if hasattr(vol, "data") else vol)
+    if data.ndim != 3:
+        raise ValueError("registration QC plots require 3D volumes")
+    return data
+
+
+def _same_grid(*vols: np.ndarray) -> bool:
+    spaces = [getattr(vol, "space", None) for vol in vols]
+    if all(sp is not None for sp in spaces):
+        return all(spaces[0] == sp for sp in spaces[1:])
+    shapes = [_as_3d_array(vol).shape for vol in vols]
+    return all(shapes[0] == shape for shape in shapes[1:])
+
+
+def _validate_qc_inputs(vols: tuple[np.ndarray, ...], zlevels, ncol: int) -> np.ndarray:
+    if not _same_grid(*vols):
+        raise ValueError("registration QC volumes must be on the same NeuroSpace grid")
+
+    data = _as_3d_array(vols[0])
+    if zlevels is None:
+        zlevels = np.unique(np.round(np.linspace(0, data.shape[2] - 1, min(6, data.shape[2])))).astype(int)
+    zlevels = np.asarray(zlevels, dtype=int)
+    if zlevels.size == 0:
+        raise ValueError("`zlevels` must contain at least one slice index")
+    if np.any(zlevels < 0) or np.any(zlevels >= data.shape[2]):
+        raise ValueError("`zlevels` contains slices outside the volume")
+    if int(ncol) <= 0:
+        raise ValueError("`ncol` must be positive")
+    return zlevels
+
+
+def _qc_axes(n_panels: int, ncol: int, figsize=None):
+    nrow = int(np.ceil(n_panels / ncol))
+    if figsize is None:
+        figsize = (3.5 * ncol, 3.5 * nrow)
+    fig, axes = plt.subplots(nrow, ncol, figsize=figsize, squeeze=False)
+    return fig, axes.ravel()
+
+
+def plot_checkerboard(
+    base_vol: np.ndarray,
+    overlay_vol: np.ndarray,
+    zlevels=None,
+    tile: int = 8,
+    ncol: int = 3,
+    title: Optional[str] = None,
+    figsize: Optional[Tuple[float, float]] = None,
+    draw: bool = True,
+) -> Tuple[plt.Figure, np.ndarray]:
+    """Registration QC checkerboard slices for two aligned 3D volumes."""
+    zlevels = _validate_qc_inputs((base_vol, overlay_vol), zlevels, ncol)
+    if int(tile) <= 0:
+        raise ValueError("`tile` must be positive")
+
+    base = _as_3d_array(base_vol)
+    overlay = _as_3d_array(overlay_vol)
+    fig, axes = _qc_axes(len(zlevels), int(ncol), figsize)
+
+    xgrid, ygrid = np.indices(base.shape[:2])
+    checker = ((xgrid // int(tile)) + (ygrid // int(tile))) % 2 == 0
+
+    for ax, z in zip(axes, zlevels):
+        panel = np.where(checker, base[:, :, z], overlay[:, :, z])
+        ax.imshow(panel.T, cmap="gray", origin="lower", aspect="equal")
+        ax.set_title(f"z = {int(z)}")
+        ax.axis("off")
+
+    for ax in axes[len(zlevels):]:
+        ax.axis("off")
+    if title is not None:
+        fig.suptitle(title)
+    fig.tight_layout()
+    if draw:
+        fig.canvas.draw_idle()
+    return fig, axes[:len(zlevels)]
+
+
+def plot_edge_overlay(
+    base_vol: np.ndarray,
+    edge_vol1: np.ndarray,
+    edge_vol2: np.ndarray,
+    zlevels=None,
+    edge_thresh: float = 0.0,
+    ncol: int = 3,
+    title: Optional[str] = None,
+    figsize: Optional[Tuple[float, float]] = None,
+    draw: bool = True,
+) -> Tuple[plt.Figure, np.ndarray]:
+    """Registration QC edge-overlay slices for aligned 3D volumes."""
+    zlevels = _validate_qc_inputs((base_vol, edge_vol1, edge_vol2), zlevels, ncol)
+    base = _as_3d_array(base_vol)
+    edge1 = _as_3d_array(edge_vol1)
+    edge2 = _as_3d_array(edge_vol2)
+    fig, axes = _qc_axes(len(zlevels), int(ncol), figsize)
+
+    for ax, z in zip(axes, zlevels):
+        ax.imshow(base[:, :, z].T, cmap="gray", origin="lower", aspect="equal")
+        e1 = np.ma.masked_where(np.abs(edge1[:, :, z]) <= edge_thresh, edge1[:, :, z])
+        e2 = np.ma.masked_where(np.abs(edge2[:, :, z]) <= edge_thresh, edge2[:, :, z])
+        ax.imshow(e1.T, cmap="Reds", origin="lower", aspect="equal", alpha=0.65)
+        ax.imshow(e2.T, cmap="Blues", origin="lower", aspect="equal", alpha=0.65)
+        ax.set_title(f"z = {int(z)}")
+        ax.axis("off")
+
+    for ax in axes[len(zlevels):]:
+        ax.axis("off")
+    if title is not None:
+        fig.suptitle(title)
+    fig.tight_layout()
+    if draw:
+        fig.canvas.draw_idle()
+    return fig, axes[:len(zlevels)]
+
+
 # Add the plot method to NeuroVol class
 def _plot_method(self, **kwargs):
     """Plot this NeuroVol using plot_neuro_vol."""
