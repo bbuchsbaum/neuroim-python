@@ -46,6 +46,7 @@ dev = [
 ]
 docs = [
     "quartodoc>=0.7",
+    "griffe<2",
     "jupyter",
     "nbclient",
     "nbformat>=5.7.0",
