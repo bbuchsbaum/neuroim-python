@@ -96,7 +96,7 @@ class TestSplitScale:
             coords = np.array(np.unravel_index(vox_idx, space.dim[:3], order="F"))
             expected[tuple(coords)] = np.mean(data_2d[vox_idx])
 
-        assert result.shape == space.dim[:3]
+        assert result.shape == tuple(space.dim[:3])
         np.testing.assert_array_equal(result.data, expected)
     
     def test_split_scale_basic(self, create_test_data):

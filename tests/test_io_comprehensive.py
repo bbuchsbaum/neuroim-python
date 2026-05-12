@@ -153,7 +153,7 @@ class TestReadWriteVol:
     def test_write_vol_accepts_legacy_data_type_aliases(self):
         """Test legacy NIfTI data_type aliases are accepted."""
         vol = DenseNeuroVol(
-            np.array([[[1, -2], [3, -4]], [[5, -6], [7, -8]], dtype=np.int16),
+            np.array([[[1, -2], [3, -4]], [[5, -6], [7, -8]]], dtype=np.int16),
             NeuroSpace(dim=(2, 2, 2)),
         )
 
@@ -193,7 +193,7 @@ class TestReadWriteVol:
     def test_write_vol_defaults_to_float_type(self):
         """Test no data_type uses default float output."""
         vol = DenseNeuroVol(
-            np.array([[[1, 0], [1, 0]], [[0, 1], [1, 0]], dtype=np.int16),
+            np.array([[[1, 0], [1, 0]], [[0, 1], [1, 0]]], dtype=np.int16),
             NeuroSpace(dim=(2, 2, 2)),
         )
 
@@ -484,7 +484,7 @@ class TestReadWriteVec:
 
     def test_write_vec_accepts_nifti_format_aliases(self):
         """Test legacy NIfTI format aliases are accepted."""
-        vec = DenseNeuroVec(np.ones((3, 3, 3, 4), dtype=np.float32), NeuroSpace(dim=(3, 3, 3, 4))
+        vec = DenseNeuroVec(np.ones((3, 3, 3, 4), dtype=np.float32), NeuroSpace(dim=(3, 3, 3, 4)))
 
         for alias in ["NIFTI1", "NIFTI-1"]:
             with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:

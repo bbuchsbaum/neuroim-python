@@ -324,10 +324,10 @@ class AFNIFormat(FileFormat):
 
         if "DATASET_DIMENSIONS" not in afni_header:
             raise ValueError("Missing DATASET_DIMENSIONS in AFNI header")
-        dims3 = [int(x) for x in afni_header["DATASET_DIMENSIONS"]["content"] if int(x) > 0]
-        if len(dims3) < 3:
+        dims_raw = [int(x) for x in afni_header["DATASET_DIMENSIONS"]["content"]]
+        if len(dims_raw) < 3 or any(d <= 0 for d in dims_raw[:3]):
             raise ValueError("AFNI dataset must have at least 3 dimensions")
-        dims: List[int] = dims3[:3]
+        dims: List[int] = dims_raw[:3]
 
         dataset_rank = afni_header.get("DATASET_RANK", {}).get("content", [3, 1])
         try:

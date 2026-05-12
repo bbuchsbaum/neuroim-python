@@ -11,7 +11,7 @@
   - NeuroSlice class, slice extraction, all operations
 - **Phase 5 (ROI)**: ✅ Complete (100%)
   - ROI hierarchy, construction functions, all operations
-- **Phase 6 (I/O)**: ✅ Complete (90%)
+- **Phase 6 (I/O)**: ✅ Complete (95%)
 - **Phase 7 (Filtering)**: ✅ Complete (100%)
 - **Phase 8 (Resampling)**: ✅ Complete (100%)
 - **Phase 9 (Metadata)**: ✅ Complete (95%)
@@ -19,15 +19,16 @@
 - **Phase 11 (Connected Components)**: ✅ Complete (100%)
 - **Phase 12 (Statistical Operations)**: ✅ Complete (100%)
 - **Phase 13 (Memory-Mapped Variants)**: ✅ Complete (100%)
-- **Phase 14 (Test Conversion)**: 📝 Planned
+- **Phase 14 (Test Conversion / R Oracles)**: ✅ Complete
 
-**Total Features**: ~165 | **Implemented**: ~151 (92%)
+**Total Features**: ~165 | **Implemented or explicitly resolved**: ~164 plus 1 documented non-goal
 
 ## Status Legend
 - ✅ Implemented and tested
 - 🚧 In progress
 - 📝 Planned
 - ❌ Not started
+- ⛔ Explicit non-goal
 - 🔄 Needs refactoring
 
 ## 1. Core Data Structures
@@ -126,7 +127,7 @@
 | reorient | reorient | ✅ | Complete with orientation support |
 | resample | resample | ✅ | Complete with nibabel backend |
 | resample_vec | resample_vec | ✅ | For 4D NeuroVec objects |
-| perm_mat | perm_mat | ❌ | |
+| perm_mat | perm_mat | ✅ | Complete in orientation.py |
 
 ## 5. Data Access Methods
 
@@ -134,10 +135,10 @@
 | R Method | Python Method | Status | Notes |
 |----------|---------------|--------|-------|
 | `[` operator | `__getitem__` | ✅ | Complete for all classes |
-| linear_access | linear_access | ❌ | |
-| matricized_access | matricized_access | ❌ | |
+| linear_access | linear_access | ✅ | Complete in indexing.py |
+| matricized_access | matricized_access | ✅ | Complete in indexing.py |
 | series | series | ✅ | Method of NeuroVec |
-| series_roi | series_roi | ❌ | |
+| series_roi | series_roi | ✅ | Method of NeuroVec with dense, sparse, and memory-mapped coverage |
 | vols | vols | ✅ | Method of NeuroVec |
 | slices | slices | ✅ | Function implemented |
 | sub_vector | sub_vector | ✅ | Method of NeuroVec |
@@ -147,7 +148,7 @@
 |-----------|-----------------|--------|-------|
 | as.sparse | as_sparse | ✅ | Method of NeuroVec |
 | as.dense | as_dense | ✅ | Method of SparseNeuroVec |
-| as.mask | as_mask | 📝 | |
+| as.mask | as_mask | ✅ | Method of NeuroVol subclasses |
 | as.matrix | as_matrix | ✅ | Method of DenseNeuroVec |
 | scale_series | scale_series | ✅ | Method of DenseNeuroVec |
 | concat | concat | ✅ | Method of NeuroVec |
@@ -160,8 +161,9 @@
 | gaussian_blur | gaussian_blur | ✅ | Complete with mask support |
 | bilateral_filter | bilateral_filter | ✅ | Complete with spatial/intensity control |
 | bilateral_filter_vec | bilateral_filter_vec | ✅ | Complete for NeuroVec |
+| bilateral_filter_4d | bilateral_filter_4d | ✅ | Joint spatial-temporal filter with R oracle coverage |
 | guided_filter | guided_filter | ✅ | Complete with edge preservation |
-| laplace_enhance | - | ❌ | Removed per user request |
+| laplace_enhance | laplace_enhance | ⛔ | Explicit non-goal for parity claims; placeholder remains for compatibility |
 
 ### Connected Components
 | R Function | Python Function | Status | Notes |
@@ -177,7 +179,7 @@
 | spherical_kernel | spherical_kernel | ✅ | Complete with custom weight functions |
 | box_kernel | box_kernel | ✅ | Uniform weight kernel |
 | embed_kernel | embed_kernel | ✅ | Embed kernel in NeuroSpace |
-| mapf | mapf | ❌ | |
+| mapf | mapf | ✅ | Complete in operations.py |
 
 ## 7. ROI & Searchlight Operations
 
@@ -231,14 +233,14 @@
 |---------|-------------|--------|-------|
 | FileFormat | FileFormat | ✅ | Complete with methods |
 | NIFTIFormat | NIFTIFormat | ✅ | Complete with nibabel backend |
-| AFNIFormat | AFNIFormat | 🚧 | HEAD/BRIK metadata + read paths implemented; AFNI write/NIML pending |
+| AFNIFormat | AFNIFormat | ✅ | HEAD/BRIK metadata + read/write paths; lightweight NIML parser helpers |
 
 ## 10. Utility Functions
 
 ### Array Operations
 | R Function | Python Function | Status | Notes |
 |-----------|-----------------|--------|-------|
-| drop | drop | ❌ | |
+| drop | drop | ✅ | Compatibility wrapper using object drop or numpy squeeze |
 | drop_dim | drop_dim | ✅ | Method of NeuroSpace |
 | add_dim | add_dim | ✅ | Method of NeuroSpace |
 | dim_of | dim_of | ✅ | Method of NeuroSpace |
@@ -260,13 +262,13 @@
 ### Data Properties
 | R Function | Python Function | Status | Notes |
 |-----------|-----------------|--------|-------|
-| values | values | 📝 | |
-| coords | coords | 📝 | |
-| indices | indices | 📝 | |
-| voxels | voxels | ❌ | |
-| lookup | lookup | ❌ | |
-| patch_set | patch_set | ❌ | |
-| num_clusters | num_clusters | ❌ | |
+| values | values | ✅ | Compatibility wrapper delegates to object values/data |
+| coords | coords | ✅ | Compatibility wrapper delegates to coordinate methods |
+| indices | indices | ✅ | Compatibility wrapper delegates to sparse/indexed objects |
+| voxels | coords | ✅ | Migration alias for coordinate extraction |
+| lookup | lookup | ✅ | Compatibility wrapper delegates to lookup/lookup_index or indexing |
+| patch_set | patch_set | ✅ | ROI patch factory implemented and tested |
+| num_clusters | num_clusters | ✅ | Compatibility wrapper delegates to clustered objects |
 
 ## 11. Constants
 
@@ -317,10 +319,11 @@
 ## Progress Summary
 
 - **Total Features**: ~165
-- **Implemented**: ~151 (92%)
+- **Implemented**: ~164
 - **In Progress**: ~0 (0%)
-- **Planned**: ~5 (3%)
-- **Not Started**: ~9 (5%)
+- **Planned**: ~0
+- **Not Started**: ~0
+- **Explicit Non-goals**: 1 (`laplace_enhance` parity)
 
 ## Phase 1 Completion (✅)
 - NeuroSpace class with all coordinate transformations
@@ -375,6 +378,8 @@
 - MetaInfo, FileMetaInfo, and NIFTIMetaInfo classes for metadata management
 - BinaryReader, BinaryWriter, and ColumnReader for low-level I/O operations
 - Enhanced read_header and read_meta_info functions
+- AFNI HEAD/BRIK read/write support, including compressed BRIK round trips
+- Lightweight AFNI NIML parser helpers for ASCII and binary sparse data/index lists
 - Comprehensive test suite covering all I/O functionality
 - Graceful degradation when nibabel is not installed
 
@@ -401,7 +406,7 @@
 
 ## Phase 9 Completion (✅)
 - FileFormat abstract base class with methods for file matching and manipulation
-- NIFTIFormat and AFNIFormat implementations (AFNIFormat reader pending)
+- NIFTIFormat and AFNIFormat implementations
 - File format constants: NIFTI, NIFTI_GZ, NIFTI_PAIR, NIFTI_PAIR_GZ, AFNI, AFNI_GZ
 - Quaternion conversion functions (matrix_to_quatern, quatern_to_matrix)
 - NIfTI header creation and manipulation (create_nifti_header, as_nifti_header)
@@ -456,19 +461,12 @@
 - Efficient memory usage for large datasets
 - Comprehensive test suite for all variants
 
-## Priority Queue
+## Remaining Future Work
 
-1. **High Priority** (Phase 14):
-   - Complete AFNI format reader implementation
-   - Test conversion from R to Python
-   - Documentation improvements
-   
-2. **Medium Priority** (Phase 15+):
-   - NeuroVecSeq advanced operations parity
-   - API compatibility shims/aliases for selected R naming conventions
-   - Performance optimizations
-   
-3. **Lower Priority** (Future):
-   - Advanced clustering algorithms
-   - GPU acceleration support
-   - Parallel processing utilities
+The current parity surface is implemented or explicitly resolved. Future work is
+quality/performance expansion rather than required neuroim2 parity closure:
+
+- Additional performance optimization for large sparse/memory-backed workloads
+- Advanced clustering algorithms beyond neuroim2 parity
+- GPU acceleration options
+- Parallel processing utilities

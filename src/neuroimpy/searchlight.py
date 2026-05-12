@@ -16,6 +16,66 @@ from .roi import ROIVolWindow, ROIVol, spherical_roi
 from .utils import LazyList
 
 
+def ellipsoid_shape(scales=(1.0, 1.0, 1.0), jitter: float = 0.0):
+    """Return a shape callback for ellipsoidal resampled searchlights."""
+    scales = np.asarray(scales, dtype=float)
+    if scales.shape != (3,) or np.any(scales <= 0):
+        raise ValueError("scales must be a length-3 positive numeric sequence")
+    if jitter < 0:
+        raise ValueError("jitter must be non-negative")
+
+    def shape_fun(mask, center, radius, iter=0, nonzero=False):
+        roi = spherical_roi(mask, center, radius, nonzero=False)
+        coords = roi.coords
+        if len(coords) == 0:
+            return coords
+        sc = scales
+        if jitter > 0:
+            sc = np.maximum(scales * (1 + np.random.normal(0, jitter, 3)), np.finfo(float).eps)
+        centered = coords - np.asarray(center)
+        keep = np.sum((centered * sc) ** 2, axis=1) <= radius ** 2
+        return coords[keep]
+
+    return shape_fun
+
+
+def cube_shape():
+    """Return a shape callback for cubic resampled searchlights."""
+    def shape_fun(mask, center, radius, iter=0, nonzero=False):
+        spc = np.asarray(mask.spacing[:3], dtype=float)
+        half_width = np.ceil(radius / spc).astype(int)
+        center_arr = np.asarray(center, dtype=int)
+        axes = [
+            np.arange(center_arr[i] - half_width[i], center_arr[i] + half_width[i] + 1)
+            for i in range(3)
+        ]
+        mesh = np.meshgrid(*axes, indexing="ij")
+        return np.column_stack([m.ravel() for m in mesh])
+
+    return shape_fun
+
+
+def blobby_shape(drop: float = 0.3, edge_fraction: float = 0.7):
+    """Return a shape callback that randomly drops edge voxels from a sphere."""
+    if drop < 0 or drop > 1:
+        raise ValueError("drop must be in [0, 1]")
+    if edge_fraction <= 0 or edge_fraction > 1:
+        raise ValueError("edge_fraction must be in (0, 1]")
+
+    def shape_fun(mask, center, radius, iter=0, nonzero=False):
+        roi = spherical_roi(mask, center, radius, nonzero=False)
+        coords = roi.coords
+        if len(coords) == 0:
+            return coords
+        dist = np.sqrt(np.sum((coords - np.asarray(center)) ** 2, axis=1))
+        threshold = np.quantile(dist, edge_fraction)
+        edge = dist >= threshold
+        drop_mask = edge & (np.random.random(len(dist)) < drop)
+        return coords[~drop_mask]
+
+    return shape_fun
+
+
 def _find_center_index(coords: np.ndarray, center_grid: np.ndarray) -> int:
     """Return the row index of the center voxel in ROI coordinates.
 
@@ -113,7 +173,7 @@ def searchlight_iterator(mask: Union[NeuroVol, LogicalNeuroVol], radius: float,
         # Eagerly compute all searchlights
         if cores > 1:
             # Use parallel processing
-            return Parallel(n_jobs=cores)(
+            return Parallel(n_jobs=cores, prefer="threads")(
                 delayed(generate_searchlight)(i) for i in range(len(indices))
             )
         else:
@@ -181,7 +241,7 @@ def searchlight_coords(mask: Union[NeuroVol, LogicalNeuroVol], radius: float,
     # For coordinates, we can parallelize the generation if cores > 1
     if cores > 1:
         # Generate all coords in parallel and wrap in LazyList
-        coords_list = Parallel(n_jobs=cores)(
+        coords_list = Parallel(n_jobs=cores, prefer="threads")(
             delayed(generate_coords)(i) for i in range(len(indices))
         )
         # Return a pre-computed LazyList
@@ -256,7 +316,7 @@ def random_searchlight(mask: Union[NeuroVol, LogicalNeuroVol],
     return searchlights
 
 
-def clustered_searchlight(mask: Union[NeuroVol, LogicalNeuroVol], radius: float,
+def clustered_searchlight(mask: Union[NeuroVol, LogicalNeuroVol], radius: float = 0,
                          cvol: Optional[NeuroVol] = None, 
                          csize: Optional[int] = None) -> Iterator[ROIVol]:
     """Create a clustered searchlight iterator.

@@ -458,8 +458,9 @@ class DenseNeuroVol(NeuroVol):
         # Handle different input types
         if indices is not None:
             # Create volume and fill only specified indices
-            self.data = np.zeros(self.shape, order='F')
-            self.data.ravel(order='F')[indices] = data
+            flat_data = np.zeros(int(np.prod(self.shape)), dtype=np.asarray(data).dtype)
+            flat_data[np.asarray(indices, dtype=int)] = data
+            self.data = flat_data.reshape(self.shape, order='F')
         else:
             # Direct initialization
             data = np.asarray(data)
@@ -583,9 +584,9 @@ class DenseNeuroVol(NeuroVol):
         if indices is None:
             return self.as_logical()
         else:
-            mask_data = np.zeros(self.shape, dtype=bool)
-            flat_mask = mask_data.reshape(-1, order='F')
+            flat_mask = np.zeros(int(np.prod(self.shape)), dtype=bool)
             flat_mask[np.asarray(indices, dtype=int)] = True
+            mask_data = flat_mask.reshape(self.shape, order='F')
             return LogicalNeuroVol(mask_data, self.space)
     
     def as_array(self) -> np.ndarray:
@@ -682,19 +683,7 @@ class SparseNeuroVol(NeuroVol):
             else:
                 mask_array = mask
 
-            # Compute indices from mask's True positions
-            # Note: We get linear indices in C-order, but need to convert them to F-order
-            # because grid_to_index uses F-order (column-major) indexing
-            c_indices = np.where(mask_array.ravel(order='C'))[0]
-
-            # Convert C-order linear indices to grid coordinates
-            shape = mask_array.shape
-            i = c_indices // (shape[1] * shape[2])
-            j = (c_indices % (shape[1] * shape[2])) // shape[2]
-            k = c_indices % shape[2]
-
-            # Convert grid coordinates to F-order linear indices
-            indices = i + j * shape[0] + k * (shape[0] * shape[1])
+            indices = np.where(mask_array.ravel(order='F'))[0]
         elif mask is None and indices is None:
             raise ValueError("Either 'indices' or 'mask' must be provided")
         elif mask is not None and indices is not None:
@@ -871,9 +860,9 @@ class LogicalNeuroVol(DenseNeuroVol):
     def __init__(self, data, space: NeuroSpace, label: str = "", indices=None):
         if indices is not None:
             # Create false volume and set specified indices to true
-            bool_data = np.zeros(space.dim, dtype=bool)
-            flat_data = bool_data.reshape(-1, order='F')
+            flat_data = np.zeros(int(np.prod(space.dim)), dtype=bool)
             flat_data[np.asarray(indices, dtype=int)] = True
+            bool_data = flat_data.reshape(space.dim, order='F')
             super().__init__(bool_data, space, label)
         else:
             # Ensure boolean type

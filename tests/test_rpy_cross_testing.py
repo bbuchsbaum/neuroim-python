@@ -84,6 +84,129 @@ def _r_read_header_vectors(file_path: str):
     return np.asarray(dim, dtype=int), np.asarray(spacing, dtype=float), np.asarray(origin, dtype=float)
 
 
+def _r_bilateral_filter_4d_array(
+    data: np.ndarray,
+    mask: np.ndarray,
+    *,
+    spatial_sigma: float,
+    intensity_sigma: float,
+    temporal_sigma: float,
+    spatial_window: int,
+    temporal_window: int,
+    temporal_spacing: float,
+    range_scale: float,
+) -> np.ndarray:
+    ro.globalenv["bf4d_vals"] = ro.FloatVector(np.asarray(data).ravel(order="F"))
+    ro.globalenv["bf4d_dims"] = ro.IntVector([int(x) for x in data.shape])
+    ro.globalenv["bf4d_mask_vals"] = ro.BoolVector(np.asarray(mask, dtype=bool).ravel(order="F"))
+    ro.globalenv["bf4d_spatial_sigma"] = float(spatial_sigma)
+    ro.globalenv["bf4d_intensity_sigma"] = float(intensity_sigma)
+    ro.globalenv["bf4d_temporal_sigma"] = float(temporal_sigma)
+    ro.globalenv["bf4d_spatial_window"] = int(spatial_window)
+    ro.globalenv["bf4d_temporal_window"] = int(temporal_window)
+    ro.globalenv["bf4d_temporal_spacing"] = float(temporal_spacing)
+    ro.globalenv["bf4d_range_scale"] = float(range_scale)
+    with localconverter(ro.default_converter + numpy2ri.converter):
+        arr = ro_conversion.get_conversion().rpy2py(
+            ro.r(
+                "local({"
+                "  arr <- array(bf4d_vals, dim=bf4d_dims);"
+                "  sp <- neuroim2::NeuroSpace(bf4d_dims);"
+                "  vec <- neuroim2::DenseNeuroVec(arr, sp);"
+                "  mask <- neuroim2::LogicalNeuroVol("
+                "    array(bf4d_mask_vals, dim=bf4d_dims[1:3]),"
+                "    neuroim2::NeuroSpace(bf4d_dims[1:3])"
+                "  );"
+                "  as.array(neuroim2::bilateral_filter_4d("
+                "    vec, mask,"
+                "    spatial_sigma=bf4d_spatial_sigma,"
+                "    intensity_sigma=bf4d_intensity_sigma,"
+                "    temporal_sigma=bf4d_temporal_sigma,"
+                "    spatial_window=bf4d_spatial_window,"
+                "    temporal_window=bf4d_temporal_window,"
+                "    temporal_spacing=bf4d_temporal_spacing,"
+                "    range_scale=bf4d_range_scale"
+                "  ))"
+                "})"
+            )
+        )
+    return np.asarray(arr)
+
+
+def _r_clip_level_outputs(data: np.ndarray):
+    ro.globalenv["clip_vals"] = ro.FloatVector(np.asarray(data).ravel(order="F"))
+    ro.globalenv["clip_dims"] = ro.IntVector([int(x) for x in data.shape])
+    ro.r(
+        "local({"
+        "  arr <- array(clip_vals, dim=clip_dims);"
+        "  sp <- neuroim2::NeuroSpace(clip_dims);"
+        "  vol <- neuroim2::DenseNeuroVol(arr, sp);"
+        "  clip_scalar <<- neuroim2::clip_level(vol);"
+        "  clip_gradual <<- as.array(neuroim2::clip_level(vol, gradual=TRUE));"
+        "  clip_mask <<- as.array(neuroim2::automask(vol, gradual=FALSE, peels=0L));"
+        "})"
+    )
+    with localconverter(ro.default_converter + numpy2ri.converter):
+        scalar = float(ro.r("clip_scalar")[0])
+        gradual = ro_conversion.get_conversion().rpy2py(ro.r("clip_gradual"))
+        mask = ro_conversion.get_conversion().rpy2py(ro.r("clip_mask"))
+    return scalar, np.asarray(gradual), np.asarray(mask, dtype=bool)
+
+
+def _r_output_aligned_space(shape, affine, voxel_sizes):
+    ro.globalenv["oas_shape"] = ro.IntVector([int(x) for x in shape])
+    ro.globalenv["oas_affine"] = ro.r.matrix(
+        ro.FloatVector(np.asarray(affine).ravel(order="F")),
+        nrow=4,
+        ncol=4,
+    )
+    ro.globalenv["oas_voxel_sizes"] = ro.FloatVector(np.atleast_1d(voxel_sizes).astype(float))
+    ro.r(
+        "local({"
+        "  o <- neuroim2::output_aligned_space("
+        "    list(shape=oas_shape, affine=oas_affine),"
+        "    voxel_sizes=oas_voxel_sizes"
+        "  );"
+        "  oas_out_shape <<- o$shape;"
+        "  oas_out_affine <<- o$affine;"
+        "})"
+    )
+    with localconverter(ro.default_converter + numpy2ri.converter):
+        out_shape = ro_conversion.get_conversion().rpy2py(ro.r("oas_out_shape"))
+        out_affine = ro_conversion.get_conversion().rpy2py(ro.r("oas_out_affine"))
+    return np.asarray(out_shape, dtype=int), np.asarray(out_affine, dtype=float)
+
+
+def _r_deoblique_space(shape, affine):
+    ro.globalenv["deob_shape"] = ro.IntVector([int(x) for x in shape])
+    ro.globalenv["deob_affine"] = ro.r.matrix(
+        ro.FloatVector(np.asarray(affine).ravel(order="F")),
+        nrow=4,
+        ncol=4,
+    )
+    ro.r(
+        "local({"
+        "  sp <- neuroim2::NeuroSpace(deob_shape, trans=deob_affine);"
+        "  d <- neuroim2::deoblique(sp);"
+        "  deob_dim <<- dim(d);"
+        "  deob_spacing <<- neuroim2::spacing(d);"
+        "  deob_origin <<- neuroim2::origin(d);"
+        "  deob_trans <<- neuroim2::trans(d);"
+        "})"
+    )
+    with localconverter(ro.default_converter + numpy2ri.converter):
+        dim = ro_conversion.get_conversion().rpy2py(ro.r("deob_dim"))
+        spacing = ro_conversion.get_conversion().rpy2py(ro.r("deob_spacing"))
+        origin = ro_conversion.get_conversion().rpy2py(ro.r("deob_origin"))
+        trans = ro_conversion.get_conversion().rpy2py(ro.r("deob_trans"))
+    return (
+        np.asarray(dim, dtype=int),
+        np.asarray(spacing, dtype=float),
+        np.asarray(origin, dtype=float),
+        np.asarray(trans, dtype=float),
+    )
+
+
 def _write_afni_pair(
     out_dir: Path,
     stem: str,
@@ -212,6 +335,64 @@ def test_rpy_cross_afni_scaling_first_brick(tmp_path):
 
     np.testing.assert_allclose(py_vol.data, base * scale)
     np.testing.assert_allclose(py_vol.data, r_arr)
+
+
+def test_rpy_cross_bilateral_filter_4d_temporal_semantics():
+    data = np.arange(3 * 3 * 2 * 3, dtype=float).reshape((3, 3, 2, 3), order="F")
+    data[1, 1, 1, 1] = 100.0
+    mask_data = np.ones((3, 3, 2), dtype=bool)
+    mask_data[0, 0, 0] = False
+    sp = pn.NeuroSpace(data.shape)
+    vec = pn.DenseNeuroVec(data, sp)
+    mask = pn.LogicalNeuroVol(mask_data, sp.drop_dim(3))
+
+    kwargs = dict(
+        spatial_sigma=1.25,
+        intensity_sigma=0.75,
+        temporal_sigma=1.1,
+        spatial_window=1,
+        temporal_window=1,
+        temporal_spacing=1.4,
+        range_scale=25.0,
+    )
+    py_out = pn.bilateral_filter_4d(vec, mask, **kwargs)
+    r_arr = _r_bilateral_filter_4d_array(data, mask_data, **kwargs)
+
+    np.testing.assert_allclose(py_out.data, r_arr, rtol=1e-10, atol=1e-10)
+    np.testing.assert_allclose(py_out.data[0, 0, 0, :], data[0, 0, 0, :])
+
+
+def test_rpy_cross_clip_level_and_automask_semantics():
+    data = np.arange(1, 513, dtype=float).reshape((8, 8, 8), order="F")
+    sp = pn.NeuroSpace(data.shape)
+    vol = pn.DenseNeuroVol(data, sp)
+
+    r_scalar, r_gradual, r_mask = _r_clip_level_outputs(data)
+
+    assert pn.clip_level(vol) == r_scalar
+    np.testing.assert_allclose(pn.clip_level(vol, gradual=True).data, r_gradual)
+    np.testing.assert_array_equal(
+        pn.automask(vol, gradual=False, peels=0).data,
+        r_mask,
+    )
+
+
+def test_rpy_cross_output_aligned_space_and_deoblique_space():
+    affine = np.diag([2.0, 3.0, 4.0, 1.0])
+    affine[:3, 3] = [10.0, 20.0, 30.0]
+    shape = (4, 5, 6)
+
+    r_shape, r_affine = _r_output_aligned_space(shape, affine, voxel_sizes=2.0)
+    py_space = pn.output_aligned_space({"shape": shape, "affine": affine}, voxel_sizes=2.0)
+    np.testing.assert_array_equal(py_space.dim, r_shape)
+    np.testing.assert_allclose(py_space.trans, r_affine)
+
+    r_dim, r_spacing, r_origin, r_trans = _r_deoblique_space(shape, affine)
+    py_deob = pn.deoblique(pn.NeuroSpace(shape, trans=affine))
+    np.testing.assert_array_equal(py_deob.dim, r_dim)
+    np.testing.assert_allclose(py_deob.spacing, r_spacing)
+    np.testing.assert_allclose(py_deob.origin, r_origin)
+    np.testing.assert_allclose(py_deob.trans, r_trans)
 
 
 @pytest.mark.parametrize(

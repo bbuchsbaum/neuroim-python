@@ -95,6 +95,14 @@ class NeuroSpace:
                     for i in range(3, ndim):
                         full_trans[i, i] = self.spacing[i] if i < len(self.spacing) else 1.0
                     self.trans = full_trans
+                elif self.trans.shape == (ndim + 1, ndim):
+                    compact = self.trans
+                    full_trans = np.eye(ndim + 1)
+                    full_trans[:3, :3] = compact[:3, :3]
+                    full_trans[:3, -1] = compact[:3, -1]
+                    for i in range(3, ndim):
+                        full_trans[i, i] = compact[i, -1]
+                    self.trans = full_trans
                 else:
                     raise ValueError(f"trans must be {ndim+1}x{ndim+1} matrix for {ndim}D space, got {self.trans.shape}")
 
@@ -112,11 +120,11 @@ class NeuroSpace:
         try:
             self.inverse = np.linalg.inv(self.trans)
         except np.linalg.LinAlgError:
-            # For 4D+ spaces, inverse might not be needed
-            if ndim > 3:
-                self.inverse = None
+            rank = np.linalg.matrix_rank(self.trans)
+            if ndim < 3 and rank >= ndim + 1:
+                self.inverse = np.linalg.pinv(self.trans)
             else:
-                raise ValueError("Transformation matrix is not invertible")
+                raise ValueError("Transformation matrix must be invertible")
         
         # Handle axes
         # Convert list of axis names to AxisSet
@@ -552,26 +560,14 @@ class NeuroSpace:
         new_origin = self.origin[dims]
         ndim_new = len(dims)
 
-        affine_col = self.trans.shape[0] - 1
-        full_trans = np.eye(self.ndim + 1)
-        base_dim = min(self.trans.shape[0], self.ndim + 1)
-        full_trans[:base_dim, :base_dim] = self.trans[:base_dim, :base_dim]
-        if self.trans.shape[0] > self.ndim + 1:
-            full_trans[:, -1] = self.trans[: self.ndim + 1, -1]
-
-        for i in range(3, self.ndim + 1):
-            if i < len(self.spacing):
-                full_trans[i, i] = self.spacing[i]
-
-        keep = list(dims) + [affine_col]
-        sub_trans = full_trans[np.ix_(keep, keep)]
-
         if ndim_new <= 3:
             new_trans = np.eye(4)
-            new_trans[:ndim_new, :ndim_new] = sub_trans[:ndim_new, :ndim_new]
-            new_trans[:ndim_new, 3] = sub_trans[:ndim_new, -1]
+            new_trans[:ndim_new, :ndim_new] = self.trans[np.ix_(dims, dims)]
+            new_trans[:ndim_new, 3] = self.trans[dims, -1]
         else:
-            new_trans = sub_trans
+            new_trans = np.eye(ndim_new + 1)
+            new_trans[:ndim_new, :ndim_new] = self.trans[np.ix_(dims, dims)]
+            new_trans[:ndim_new, -1] = self.trans[dims, -1]
 
         return NeuroSpace(new_dim, new_spacing, new_origin, trans=new_trans)
 
@@ -605,26 +601,16 @@ class NeuroSpace:
         
         new_axes = axis_set(len(new_dim), [ax for i, ax in enumerate(list(self.axes)) if i != dimnum])
 
-        affine_col = self.trans.shape[0] - 1
-        full_trans = np.eye(self.ndim + 1)
-        base_dim = min(self.trans.shape[0], self.ndim + 1)
-        full_trans[:base_dim, :base_dim] = self.trans[:base_dim, :base_dim]
-        if self.trans.shape[0] > self.ndim + 1:
-            full_trans[:, -1] = self.trans[: self.ndim + 1, -1]
-
-        for i in range(3, self.ndim + 1):
-            if i < len(self.spacing):
-                full_trans[i, i] = self.spacing[i]
-
-        keep = [i for i in range(self.ndim) if i != dimnum] + [affine_col]
-        sub_trans = full_trans[np.ix_(keep, keep)]
+        keep = [i for i in range(self.ndim) if i != dimnum]
 
         if len(new_dim) <= 3:
             new_trans = np.eye(4)
-            new_trans[:len(new_dim), :len(new_dim)] = sub_trans[:len(new_dim), :len(new_dim)]
-            new_trans[:len(new_dim), 3] = sub_trans[:len(new_dim), -1]
+            new_trans[:len(new_dim), :len(new_dim)] = self.trans[np.ix_(keep, keep)]
+            new_trans[:len(new_dim), 3] = self.trans[keep, -1]
         else:
-            new_trans = sub_trans
+            new_trans = np.eye(len(new_dim) + 1)
+            new_trans[:len(new_dim), :len(new_dim)] = self.trans[np.ix_(keep, keep)]
+            new_trans[:len(new_dim), -1] = self.trans[keep, -1]
 
         return NeuroSpace(new_dim, new_spacing, new_origin, new_axes, new_trans)
     

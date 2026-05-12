@@ -178,6 +178,22 @@ def parse_afni_extension(ext: NiftiExtension) -> Dict[str, Any]:
     return result
 
 
+def ecode_name(ecode: int) -> str:
+    """Return the registered NIfTI extension name for an extension code."""
+    return NiftiExtensionCodes.get(int(ecode), "unknown")
+
+
+def parse_extension(ext: NiftiExtension) -> Any:
+    """Parse extension content according to its code."""
+    if not isinstance(ext, NiftiExtension):
+        raise TypeError("ext must be a NiftiExtension object")
+    if ext.code == 4:
+        return parse_afni_extension(ext)
+    if ext.code == 6:
+        return ext.content.rstrip(b"\x00").decode("utf-8", errors="replace")
+    return ext.content
+
+
 def get_afni_attribute(ext: NiftiExtension, name: str) -> Optional[str]:
     """Get a named attribute from an AFNI extension.
 

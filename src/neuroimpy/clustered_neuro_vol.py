@@ -79,9 +79,16 @@ class ClusteredNeuroVol(NeuroVol):
         :param cluster_id: The ID of the cluster.
         :return: An array of data values for the specified cluster.
         """
-        if not isinstance(data, NeuroVol) or data.space != self.space:
-            raise ValueError("Data must be a NeuroVol with matching space")
-        return data[np.unravel_index(self.cluster_map[cluster_id], self.shape, order="F")]
+        if isinstance(data, NeuroVol):
+            if data.space != self.space:
+                raise ValueError("Data must have matching space")
+            data_array = data.data
+        else:
+            data_array = np.asarray(data)
+            if data_array.shape != self.shape:
+                raise ValueError("Data array must match clustered volume shape")
+
+        return data_array.ravel(order="F")[self.cluster_map[cluster_id]]
 
     def to_sparse(self) -> SparseNeuroVol:
         """
@@ -147,9 +154,9 @@ class ClusteredNeuroVol(NeuroVol):
     
     def as_dense(self) -> DenseNeuroVol:
         """Convert to DenseNeuroVol."""
-        # Create dense representation
-        dense_data = np.zeros(self.shape, dtype=self.clusters.dtype)
-        dense_data.reshape(-1, order="F")[self._mask_indices] = self.clusters
+        dense_flat = np.zeros(int(np.prod(self.shape)), dtype=self.clusters.dtype)
+        dense_flat[self._mask_indices] = self.clusters
+        dense_data = dense_flat.reshape(self.shape, order="F")
         return DenseNeuroVol(dense_data, self.space)
     
     def as_logical(self) -> LogicalNeuroVol:

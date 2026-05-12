@@ -178,8 +178,9 @@ class TestClusteredNeuroVol:
         assert cluster_mask.space == space
         
         # Verify the mask contains only the cluster 0 voxels
-        expected_mask = np.zeros((16, 16, 16), dtype=bool)
-        expected_mask.ravel(order="F")[cluster_labels == 0] = True
+        expected_flat = np.zeros(16**3, dtype=bool)
+        expected_flat[cluster_labels == 0] = True
+        expected_mask = expected_flat.reshape((16, 16, 16), order="F")
         assert np.array_equal(cluster_mask.data, expected_mask)
     
     def test_get_cluster_data(self, setup_clustered_vol):

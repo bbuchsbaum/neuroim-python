@@ -110,6 +110,28 @@ def axcodes_to_orientation(axcodes: Union[str, Sequence[str]],
     return nibo.axcodes2ornt(axcodes, **kwargs)
 
 
+def orientation_to_axcodes(ornt: np.ndarray,
+                           labels: Optional[Sequence[Tuple[str, str]]] = None) -> Tuple[str, ...]:
+    """Convert an orientation array to axis codes."""
+    kwargs = {}
+    if labels is not None:
+        kwargs["labels"] = labels
+    return tuple(nibo.ornt2axcodes(np.asarray(ornt), **kwargs))
+
+
+def orientation_transform(start_ornt: np.ndarray, end_ornt: np.ndarray) -> np.ndarray:
+    """Return the orientation transform from one orientation to another."""
+    return nibo.ornt_transform(np.asarray(start_ornt), np.asarray(end_ornt))
+
+
+def axcodes(x, labels: Optional[Sequence[Tuple[str, str]]] = None) -> Tuple[str, ...]:
+    """Return axis codes for a NeuroSpace-like object, affine, or orientation array."""
+    arr = np.asarray(getattr(x, "trans", x), dtype=float)
+    if arr.ndim == 2 and arr.shape[1] == 2:
+        return orientation_to_axcodes(arr, labels=labels)
+    return affine_to_axcodes(arr, labels=labels)
+
+
 def apply_orientation(data: np.ndarray, ornt: np.ndarray) -> np.ndarray:
     """Apply an orientation transform to a data array.
 
@@ -138,6 +160,77 @@ def apply_orientation(data: np.ndarray, ornt: np.ndarray) -> np.ndarray:
     (2, 3, 4)
     """
     return nibo.apply_orientation(data, ornt)
+
+
+def apply_affine(aff: np.ndarray, pts: np.ndarray, inplace: bool = False) -> np.ndarray:
+    """Apply a homogeneous affine transform to points.
+
+    Points are stored with coordinates on the last axis.  Vectors, matrices,
+    and higher-dimensional point arrays are returned with the same leading
+    shape.  ``inplace`` is accepted for neuroim2 API compatibility.
+    """
+    aff = np.asarray(aff, dtype=float)
+    pts = np.asarray(pts, dtype=float)
+    if aff.ndim != 2 or aff.shape[0] < 2 or aff.shape[1] < 2:
+        raise ValueError("aff must be a 2D homogeneous affine matrix")
+
+    nd_in = aff.shape[1] - 1
+    nd_out = aff.shape[0] - 1
+    if pts.ndim == 1:
+        if pts.shape[0] != nd_in:
+            raise ValueError("For vector pts, length must match affine input dimension")
+        pts_mat = pts.reshape(1, nd_in)
+        vector_input = True
+    else:
+        if pts.shape[-1] != nd_in:
+            raise ValueError("Last dimension of pts must match affine input dimension")
+        pts_mat = pts.reshape(-1, nd_in)
+        vector_input = False
+
+    linear = aff[:nd_out, :nd_in]
+    offset = aff[:nd_out, -1]
+    out = pts_mat @ linear.T + offset
+    if vector_input:
+        return out[0]
+    return out.reshape(pts.shape[:-1] + (nd_out,))
+
+
+def append_diag(aff: np.ndarray, steps: Sequence[float],
+                starts: Optional[Sequence[float]] = None) -> np.ndarray:
+    """Append diagonal axes to a homogeneous affine."""
+    aff = np.asarray(aff, dtype=float)
+    steps = np.asarray(steps, dtype=float)
+    if aff.ndim != 2 or aff.shape[0] < 2 or aff.shape[1] < 2:
+        raise ValueError("aff must be a 2D homogeneous affine matrix")
+    if steps.ndim != 1 or steps.size == 0 or not np.all(np.isfinite(steps)):
+        raise ValueError("steps must contain at least one finite numeric value")
+    if starts is None:
+        starts_arr = np.zeros_like(steps)
+    else:
+        starts_arr = np.asarray(starts, dtype=float)
+        if starts_arr.shape != steps.shape or not np.all(np.isfinite(starts_arr)):
+            raise ValueError("starts must be None or have the same finite length as steps")
+
+    old_out = aff.shape[0] - 1
+    old_in = aff.shape[1] - 1
+    n_steps = steps.size
+    out = np.zeros((old_out + n_steps + 1, old_in + n_steps + 1), dtype=float)
+    out[:old_out, :old_in] = aff[:old_out, :old_in]
+    out[:old_out, -1] = aff[:old_out, -1]
+    for i, step in enumerate(steps):
+        out[old_out + i, old_in + i] = step
+    out[old_out:old_out + n_steps, -1] = starts_arr
+    out[-1, -1] = 1.0
+    return out
+
+
+def voxel_sizes(affine: np.ndarray) -> np.ndarray:
+    """Compute voxel sizes as column norms of the affine linear block."""
+    affine = np.asarray(affine, dtype=float)
+    if affine.ndim != 2 or affine.shape[0] < 2 or affine.shape[1] < 2:
+        raise ValueError("affine must be a 2D homogeneous affine matrix")
+    linear = affine[:-1, :-1]
+    return np.sqrt(np.sum(linear * linear, axis=0))
 
 
 def orientation_inverse_affine(ornt: np.ndarray, shape: Sequence[int]) -> np.ndarray:

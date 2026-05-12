@@ -62,6 +62,9 @@ class AxisSet:
     def __repr__(self):
         return f"{self.__class__.__name__}(ndim={self.ndim})"
 
+    def __len__(self):
+        return self.ndim
+
 
 class AxisSetND(AxisSet):
     """Generic axis set for ndim > 5."""
@@ -252,12 +255,21 @@ def axis_directions(x: Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet
 def flip_axis(x: Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND], which: Union[str, int]) -> Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND]:
     if isinstance(which, str):
         which = axis_names(x).index(which)
+
+    opposite = {
+        "Left-to-Right": RIGHT_LEFT,
+        "Right-to-Left": LEFT_RIGHT,
+        "Anterior-to-Posterior": POST_ANT,
+        "Posterior-to-Anterior": ANT_POST,
+        "Inferior-to-Superior": SUP_INF,
+        "Superior-to-Inferior": INF_SUP,
+    }
     
     new_axes = []
     current_axes = list(x) if isinstance(x, AxisSetND) else [getattr(x, attr) for attr in "ijklm"[:x.ndim]]
     for i, axis in enumerate(current_axes):
         if i == which:
-            new_axes.append(NamedAxis(axis.axis, -axis.direction))
+            new_axes.append(opposite.get(axis.axis, NamedAxis(axis.axis, -axis.direction)))
         else:
             new_axes.append(axis)
     

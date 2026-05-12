@@ -286,8 +286,10 @@ class TestMappedNeuroVec:
 
     def test_mapped_neurovecseq(self):
         """Test creating mapped vector sequence from list inputs."""
-        vec1 = DenseNeuroVec(np.ones(self.space.dim + (2,)), self.space)
-        vec2 = DenseNeuroVec(np.ones(self.space.dim + (2,)) * 2, self.space)
+        seq_shape = tuple(self.space.dim[:3]) + (2,)
+        seq_space = NeuroSpace(dim=seq_shape)
+        vec1 = DenseNeuroVec(np.ones(seq_shape), seq_space)
+        vec2 = DenseNeuroVec(np.ones(seq_shape) * 2, seq_space)
         
         mapped = mapped_neurovecseq(
             [vec1, vec2],
@@ -296,9 +298,9 @@ class TestMappedNeuroVec:
         )
         
         assert isinstance(mapped, MappedNeuroVec)
-        assert mapped.shape == (self.space.dim[0], self.space.dim[1], self.space.dim[2], 4)
-        assert np.allclose(mapped.data[..., 0:2], np.ones(self.space.dim + (2,)) + 1)
-        assert np.allclose(mapped.data[..., 2:4], (np.ones(self.space.dim + (2,)) * 2) + 1)
+        assert mapped.shape == tuple(self.space.dim[:3]) + (4,)
+        assert np.allclose(mapped.data[..., 0:2], np.ones(seq_shape) + 1)
+        assert np.allclose(mapped.data[..., 2:4], (np.ones(seq_shape) * 2) + 1)
     
     def test_threshold_mapper(self):
         """Test threshold mapper utility."""

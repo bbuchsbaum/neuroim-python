@@ -529,11 +529,11 @@ class TestNeuroSpaceDimensionManipulation:
     def test_add_dim_from_4d_extends_affine(self):
         """add_dim should extend higher-dimensional transformations by adding identity axes."""
         trans = np.array([
-            [0.0, -1.0, 0.0, 10.0],
-            [1.0, 0.0, 0.0, 20.0],
-            [0.0, 0.0, 1.0, 30.0],
-            [0.0, 0.0, 0.0, 2.0],
-            [0.0, 0.0, 0.0, 1.0],
+            [0.0, -1.0, 0.0, 0.0, 10.0],
+            [1.0, 0.0, 0.0, 0.0, 20.0],
+            [0.0, 0.0, 1.0, 0.0, 30.0],
+            [0.0, 0.0, 0.0, 2.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0],
         ])
         spc4d = NeuroSpace((10, 20, 30, 2), trans=trans)
 

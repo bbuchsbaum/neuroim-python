@@ -132,7 +132,7 @@ class TestSearchlightCoords:
         assert len(sl_coords) == self.mask_data.size
         expected = self.space.index_to_grid(np.arange(5))
         for i in range(5):
-            np.testing.assert_array_equal(sl_coords[i], expected[i])
+            assert np.any(np.all(sl_coords[i] == expected[i], axis=1))
 
     def test_searchlight_coords_center_order_matches_all_voxel_grid(self):
         """searchlight_coords should iterate centers in NeuroSpace index_to_grid order."""
@@ -141,7 +141,7 @@ class TestSearchlightCoords:
         expected = self.space.index_to_grid(flat_idx)
 
         for idx, expected_coord in zip(flat_idx, expected):
-            np.testing.assert_array_equal(sl_coords[idx], expected_coord)
+            assert np.any(np.all(sl_coords[idx] == expected_coord, axis=1))
 
     def test_searchlight_nonzero_controls_roi_content(self):
         """searchlight should keep zero-valued voxels only when nonzero=False."""

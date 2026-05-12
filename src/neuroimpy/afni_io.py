@@ -7,7 +7,7 @@ attribute block format used by AFNI BRIK/HEAD datasets.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Union, Any
+from typing import BinaryIO, Dict, List, Union, Any
 import gzip
 import numpy as np
 
@@ -93,6 +93,186 @@ def read_afni_header(file_name: Union[str, Path]) -> Dict[str, Dict[str, Any]]:
         header[parsed["name"]] = parsed
 
     return header
+
+
+def parse_niml_element(element: str) -> Dict[str, Any]:
+    """Parse a NIML element header.
+
+    This is the Python counterpart of neuroim2's internal
+    ``parse_niml_element()`` helper.  It handles the compact AFNI-style tag
+    representation used by sparse data and index-list NIML blocks.
+
+    Parameters
+    ----------
+    element : str
+        Header text without angle brackets.
+
+    Returns
+    -------
+    dict
+        A mapping with ``label`` and ``attr`` keys.
+    """
+    text = element.replace("\n", "").replace('"', "").replace("/", "").strip()
+    parts = [part for part in text.split(" ") if part and part != ">"]
+    if not parts:
+        return {"label": "", "attr": None}
+
+    attrs: Dict[str, str] = {}
+    for part in parts[1:]:
+        if "=" not in part:
+            continue
+        key, val = part.split("=", 1)
+        attrs[key] = val
+
+    return {"label": parts[0], "attr": attrs or None}
+
+
+def _read_char(fconn: BinaryIO) -> str:
+    ch = fconn.read(1)
+    if ch == b"":
+        return ""
+    return ch.decode("latin1")
+
+
+def parse_niml_header(fconn: BinaryIO) -> Dict[str, Any]:
+    """Read and parse the next NIML header from a binary stream.
+
+    Parameters
+    ----------
+    fconn : binary file object
+        Open file-like object positioned before a NIML tag.
+
+    Returns
+    -------
+    dict
+        Parsed element with ``label`` and ``attr`` keys.
+    """
+    chars: List[str] = []
+    state = "BEGIN"
+    while True:
+        ch = _read_char(fconn)
+        if ch == "":
+            break
+        if ch == "<" and state == "BEGIN":
+            state = "HEADER"
+        elif ch == ">" and state == "HEADER":
+            break
+        elif state == "HEADER":
+            chars.append(ch)
+
+    return parse_niml_element("".join(chars))
+
+
+def _niml_dtype(meta: Dict[str, str]) -> tuple[int, str]:
+    dtype = str(meta.get("ni_type", "float"))
+    parts = dtype.split("*", 1)
+    if len(parts) == 2:
+        nvols = int(parts[0])
+        typ = parts[1]
+    else:
+        nvols = 1
+        typ = parts[0]
+
+    if typ not in {"int", "float", "double"}:
+        raise ValueError(f"Unrecognized NIML ni_type: {typ}")
+    return nvols, typ
+
+
+def read_niml_data(fconn: BinaryIO, meta: Dict[str, str]) -> np.ndarray:
+    """Read a NIML sparse-data payload from a binary stream.
+
+    Parameters
+    ----------
+    fconn : binary file object
+        Open file-like object positioned immediately after the opening tag.
+    meta : dict
+        Parsed NIML attributes including ``ni_type`` and ``ni_dimen``.
+
+    Returns
+    -------
+    ndarray
+        Matrix with shape ``(nvols, ni_dimen)`` matching neuroim2's
+        column-major matrix construction.
+    """
+    nvols, typ = _niml_dtype(meta)
+    nels = int(meta["ni_dimen"])
+    nvals = nvols * nels
+    form = meta.get("ni_form")
+
+    if form == "binary.lsbfirst":
+        if typ == "int":
+            dtype = np.dtype("<i4")
+        else:
+            # neuroim2 reads binary float/double NIML payloads with size = 4.
+            dtype = np.dtype("<f4")
+        values = np.frombuffer(fconn.read(nvals * dtype.itemsize), dtype=dtype, count=nvals)
+        if values.size != nvals:
+            raise ValueError(f"NIML data block is truncated: expected {nvals}, got {values.size}")
+    elif form == "binary.msbfirst":
+        if typ == "int":
+            dtype = np.dtype(">i4")
+        else:
+            dtype = np.dtype(">f4")
+        values = np.frombuffer(fconn.read(nvals * dtype.itemsize), dtype=dtype, count=nvals)
+        if values.size != nvals:
+            raise ValueError(f"NIML data block is truncated: expected {nvals}, got {values.size}")
+    else:
+        payload = bytearray()
+        while True:
+            ch = fconn.read(1)
+            if ch == b"":
+                break
+            if ch == b"<":
+                fconn.seek(-1, 1)
+                break
+            payload.extend(ch)
+        tokens = payload.decode("utf-8", errors="replace").split()
+        if len(tokens) < nvals:
+            raise ValueError(f"NIML data block is truncated: expected {nvals}, got {len(tokens)}")
+        if typ == "int":
+            values = np.asarray([int(tok) for tok in tokens[:nvals]], dtype=np.int32)
+        else:
+            values = np.asarray([float(tok) for tok in tokens[:nvals]], dtype=np.float64)
+
+    return np.asarray(values).reshape((nvols, nels), order="F")
+
+
+def _consume_niml_close_tag(fconn: BinaryIO) -> None:
+    while True:
+        ch = _read_char(fconn)
+        if ch == "":
+            return
+        if ch == "<":
+            while True:
+                ch = _read_char(fconn)
+                if ch in {"", ">"}:
+                    return
+
+
+def parse_niml_next(fconn: BinaryIO) -> Dict[str, Any]:
+    """Parse the next NIML element from a binary stream."""
+    header = parse_niml_header(fconn)
+    if header.get("attr") is not None and header.get("label") in {"SPARSE_DATA", "INDEX_LIST"}:
+        header["data"] = read_niml_data(fconn, header["attr"])
+    _consume_niml_close_tag(fconn)
+    return header
+
+
+def parse_niml_file(file_name: Union[str, Path], maxels: int = 10000) -> List[Dict[str, Any]]:
+    """Parse a NIML file into a list of element dictionaries.
+
+    This mirrors neuroim2's lightweight ``parse_niml_file()`` behavior.  It is
+    intentionally a structural parser rather than a full AFNI object model.
+    Sparse data and index-list elements receive a ``data`` matrix.
+    """
+    path = Path(file_name)
+    out: List[Dict[str, Any]] = []
+    with path.open("rb") as fconn:
+        file_size = path.stat().st_size
+        out.append(parse_niml_header(fconn))
+        while fconn.tell() < file_size and len(out) < maxels:
+            out.append(parse_niml_next(fconn))
+    return out
 
 
 def _afni_dtype_info(dtype: np.dtype) -> tuple[int, np.dtype]:

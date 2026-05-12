@@ -255,6 +255,115 @@ def bilateral_filter_vec(vec: NeuroVec, mask: Optional[LogicalNeuroVol] = None,
     return DenseNeuroVec(filtered_data, vec.space)
 
 
+def bilateral_filter_4d(
+    vec: NeuroVec,
+    mask: Optional[LogicalNeuroVol] = None,
+    spatial_sigma: float = 2,
+    intensity_sigma: float = 1,
+    temporal_sigma: float = 1,
+    spatial_window: int = 1,
+    temporal_window: int = 1,
+    temporal_spacing: float = 1,
+    range_scale: Optional[float] = None,
+) -> DenseNeuroVec:
+    """Apply a joint spatial-temporal bilateral filter to a NeuroVec.
+
+    This mirrors neuroim2's ``bilateral_filter_4d`` contract: spatial
+    neighbors are limited by ``spatial_window``, temporal neighbors by
+    ``temporal_window``, and values outside the mask are left unchanged.
+    """
+    if spatial_window < 1:
+        raise ValueError("spatial_window must be >= 1")
+    if temporal_window < 0:
+        raise ValueError("temporal_window must be >= 0")
+    if spatial_sigma <= 0:
+        raise ValueError("spatial_sigma must be positive")
+    if intensity_sigma <= 0:
+        raise ValueError("intensity_sigma must be positive")
+    if temporal_sigma <= 0:
+        raise ValueError("temporal_sigma must be positive")
+    if temporal_spacing <= 0:
+        raise ValueError("temporal_spacing must be positive")
+    if range_scale is not None and (
+        not np.isfinite(range_scale) or range_scale <= 0
+    ):
+        raise ValueError("range_scale must be None or a positive finite value")
+
+    data = vec.as_dense().data if hasattr(vec, "as_dense") else np.asarray(vec.data)
+    data = np.asarray(data, dtype=float)
+    if data.ndim != 4:
+        raise ValueError("bilateral_filter_4d expects 4D NeuroVec data")
+
+    nx, ny, nz, nt = data.shape
+    if mask is None:
+        mask_arr = np.ones((nx, ny, nz), dtype=bool)
+    else:
+        mask_arr = np.asarray(mask.data, dtype=bool)
+        if mask_arr.shape != (nx, ny, nz):
+            raise ValueError("mask spatial dimensions must match vec")
+
+    output = data.copy()
+    masked_vals = data[mask_arr, :]
+    finite_vals = masked_vals[np.isfinite(masked_vals)]
+    intensity_sd = float(range_scale) if range_scale is not None else (
+        float(np.std(finite_vals)) if finite_vals.size > 1 else 0.0
+    )
+    intensity_var = 2.0 * intensity_sigma * intensity_sigma * intensity_sd * intensity_sd
+    if not np.isfinite(intensity_var) or intensity_var < 1e-12:
+        intensity_var = 1e-12
+
+    spacing = np.asarray(vec.spacing, dtype=float)
+    if spacing.size < 3:
+        spacing = np.pad(spacing, (0, 3 - spacing.size), constant_values=1.0)
+    spatial_var = 2.0 * spatial_sigma * spatial_sigma
+    temporal_var = 2.0 * temporal_sigma * temporal_sigma
+
+    offsets = []
+    weights = []
+    for dt in range(-int(temporal_window), int(temporal_window) + 1):
+        temporal_weight = np.exp(-((dt * temporal_spacing) ** 2) / temporal_var)
+        for dx in range(-int(spatial_window), int(spatial_window) + 1):
+            dx2 = (dx * spacing[0]) ** 2
+            for dy in range(-int(spatial_window), int(spatial_window) + 1):
+                dy2 = (dy * spacing[1]) ** 2
+                for dz in range(-int(spatial_window), int(spatial_window) + 1):
+                    dz2 = (dz * spacing[2]) ** 2
+                    spatial_weight = np.exp(-(dx2 + dy2 + dz2) / spatial_var)
+                    offsets.append((dx, dy, dz, dt))
+                    weights.append(spatial_weight * temporal_weight)
+
+    coords = np.argwhere(mask_arr)
+    for x, y, z in coords:
+        for t in range(nt):
+            center = data[x, y, z, t]
+            if not np.isfinite(center):
+                continue
+
+            val_sum = 0.0
+            weight_sum = 0.0
+            for (dx, dy, dz, dt), base_weight in zip(offsets, weights):
+                xx = x + dx
+                yy = y + dy
+                zz = z + dz
+                tt = t + dt
+                if xx < 0 or xx >= nx or yy < 0 or yy >= ny or zz < 0 or zz >= nz:
+                    continue
+                if tt < 0 or tt >= nt or not mask_arr[xx, yy, zz]:
+                    continue
+
+                neighbor = data[xx, yy, zz, tt]
+                if not np.isfinite(neighbor):
+                    continue
+                diff = center - neighbor
+                weight = base_weight * np.exp(-(diff * diff) / intensity_var)
+                val_sum += weight * neighbor
+                weight_sum += weight
+
+            output[x, y, z, t] = val_sum / weight_sum if weight_sum > 0 else center
+
+    return DenseNeuroVec(output, vec.space)
+
+
 
 def box_blur(vol: NeuroVol, mask_indices: tuple, radius: int) -> np.ndarray:
     """Helper function for guided filter: applies box blur to the data.

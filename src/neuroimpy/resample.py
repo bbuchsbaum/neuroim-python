@@ -168,6 +168,22 @@ def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
     return DenseNeuroVec(resampled_data, target_4d_space)
 
 
+def resample_to(source: Union[NeuroVol, NeuroVec],
+                target: Union[NeuroVol, NeuroVec, NeuroSpace],
+                method: str = "linear",
+                engine: str = "nibabel") -> Union[DenseNeuroVol, DenseNeuroVec]:
+    """Resample a volume or vector to a target using neuroim2-style names."""
+    method_map = {"nearest": 0, "linear": 1, "cubic": 3}
+    if method not in method_map:
+        raise ValueError("method must be one of 'nearest', 'linear', or 'cubic'")
+    if engine != "nibabel":
+        raise ValueError("Only the nibabel resampling engine is supported")
+    interpolation = method_map[method]
+    if isinstance(source, NeuroVec):
+        return resample_vec(source, target, interpolation=interpolation)
+    return resample(source, target, interpolation=interpolation)
+
+
 def reorient(x: Union[NeuroSpace, NeuroVol], orient: Union[str, List[str]]) -> Union[NeuroSpace, NeuroVol]:
     """Remap the grid-to-world coordinates mapping of an image.
     

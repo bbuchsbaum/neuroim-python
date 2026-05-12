@@ -1,6 +1,7 @@
 """Tests for AFNI HEAD/BRIK support in io.py and file_format.py."""
 
 import gzip
+import struct
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -9,6 +10,7 @@ import pytest
 
 from neuroimpy import read_meta_info, read_header, read_vol, read_vec, write_vol, write_vec
 from neuroimpy import DenseNeuroVol, DenseNeuroVec, NeuroSpace
+from neuroimpy.afni_io import parse_niml_element, parse_niml_file
 from neuroimpy.meta_info import AFNIMetaInfo
 
 
@@ -86,7 +88,7 @@ def _write_afni_pair(
             "type = float-attribute\n"
             "name = IJK_TO_DICOM\n"
             f"count = {ijk_count}\n"
-            " ".join(f"{x}" for x in ijk_to_dicom)
+            + " ".join(f"{x}" for x in ijk_to_dicom)
             + "\n\n"
         )
     head_txt += (
@@ -282,3 +284,48 @@ def test_write_read_vec_afni_gz_roundtrip(tmp_path):
 
     np.testing.assert_allclose(loaded.data, data)
     np.testing.assert_allclose(vol1.data, data[..., 1])
+
+
+def test_parse_niml_element_attributes():
+    parsed = parse_niml_element('SPARSE_DATA ni_type="2*float" ni_dimen="3" ni_form="text"')
+
+    assert parsed["label"] == "SPARSE_DATA"
+    assert parsed["attr"] == {
+        "ni_type": "2*float",
+        "ni_dimen": "3",
+        "ni_form": "text",
+    }
+
+
+def test_parse_niml_file_ascii_sparse_data(tmp_path):
+    niml = tmp_path / "sparse.niml"
+    niml.write_text(
+        "<AFNI_dataset ni_form=\"text\">\n"
+        "<SPARSE_DATA ni_type=\"2*float\" ni_dimen=\"3\" ni_form=\"text\">\n"
+        "1\n2\n3\n4\n5\n6\n"
+        "</SPARSE_DATA>\n"
+        "</AFNI_dataset>\n",
+        encoding="utf-8",
+    )
+
+    parsed = parse_niml_file(niml)
+
+    assert parsed[0]["label"] == "AFNI_dataset"
+    assert parsed[1]["label"] == "SPARSE_DATA"
+    np.testing.assert_allclose(parsed[1]["data"], np.array([[1, 3, 5], [2, 4, 6]], dtype=float))
+
+
+def test_parse_niml_file_binary_lsbfirst_index_list(tmp_path):
+    niml = tmp_path / "index.niml"
+    payload = struct.pack("<4i", 1, 2, 3, 4)
+    niml.write_bytes(
+        b'<AFNI_dataset ni_form="binary.lsbfirst">\n'
+        b'<INDEX_LIST ni_type="2*int" ni_dimen="2" ni_form="binary.lsbfirst">'
+        + payload
+        + b"</INDEX_LIST>\n</AFNI_dataset>\n"
+    )
+
+    parsed = parse_niml_file(niml)
+
+    assert parsed[1]["label"] == "INDEX_LIST"
+    np.testing.assert_array_equal(parsed[1]["data"], np.array([[1, 3], [2, 4]], dtype=np.int32))

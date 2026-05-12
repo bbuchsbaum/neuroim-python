@@ -660,17 +660,24 @@ def spherical_roi(bvol, centroid: Union[List, np.ndarray], radius: float,
     mask = distances <= radius
     coords = coords[mask]
     
+    source_data = None
+    if nonzero:
+        source_data = np.array([bvol[coords[i, 0], coords[i, 1], coords[i, 2]]
+                                for i in range(len(coords))])
+
     # Extract data values
     if fill is not None:
         data = np.full(len(coords), fill)
     else:
         # Get values from volume
-        data = np.array([bvol[coords[i, 0], coords[i, 1], coords[i, 2]] 
-                         for i in range(len(coords))])
+        data = source_data
+        if data is None:
+            data = np.array([bvol[coords[i, 0], coords[i, 1], coords[i, 2]]
+                             for i in range(len(coords))])
     
     # Filter nonzero if requested
     if nonzero:
-        nonzero_mask = data != 0
+        nonzero_mask = source_data != 0
         coords = coords[nonzero_mask]
         data = data[nonzero_mask]
     

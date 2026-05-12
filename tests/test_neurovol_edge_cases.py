@@ -134,7 +134,7 @@ class TestNeuroVolEdgeCases:
         
         # Should be equivalent to dense volume
         dense_data = np.arange(125).reshape(5, 5, 5)
-        sparse_data = dense_data[mask_data]
+        sparse_data = dense_data.ravel(order="F")[mask_data.ravel(order="F")]
         
         sparse_vol = SparseNeuroVol(mask=mask, data=sparse_data, space=space)
         

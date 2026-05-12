@@ -4,6 +4,7 @@ __version__ = "0.1.0"
 
 # Import Phase 1, Phase 2, Phase 3, Phase 4, and Phase 5 components
 from .axis import *
+from .axis import find_anatomy_3d
 from .neuro_space import *
 from .neuro_vol import *
 from .neuro_vec import *
@@ -23,6 +24,10 @@ try:
     )
     from .meta_info import MetaInfo, FileMetaInfo, NIFTIMetaInfo, AFNIMetaInfo
     from .binary_io import BinaryReader, BinaryWriter, ColumnReader
+    from .afni_io import (
+        parse_niml_element, parse_niml_header, parse_niml_next,
+        parse_niml_file, read_niml_data, read_afni_header, write_afni_pair
+    )
     # NIfTI utilities
     from .nifti_utils import (
         create_nifti_header, as_nifti_header,
@@ -36,7 +41,7 @@ try:
     # NIfTI extension support
     from .nifti_extension import (
         NiftiExtensionCodes, NiftiExtension, NiftiExtensionList,
-        parse_extensions, parse_afni_extension,
+        parse_extensions, parse_extension, parse_afni_extension, ecode_name,
         get_afni_attribute, list_afni_attributes
     )
 except ImportError:
@@ -47,7 +52,7 @@ except ImportError:
 from .kernel import Kernel, gaussian_kernel, spherical_kernel, box_kernel, embed_kernel
 from .spatial_filters import (
     gaussian_blur, guided_filter, bilateral_filter,
-    bilateral_filter_vec
+    bilateral_filter_vec, bilateral_filter_4d
 )
 from .graph_filter import (
     cgb_make_graph, cgb_filter, cgb_smooth,
@@ -62,19 +67,21 @@ from .orthogonal_slices import (
 )
 
 # Import resampling and reorientation
-from .resample import resample, resample_vec, reorient
+from .resample import resample, resample_vec, resample_to, reorient
 
 # Import orientation utilities
 from .orientation import (
     affine_to_orientation, affine_to_axcodes, axcodes_to_orientation,
-    apply_orientation, orientation_inverse_affine, obliquity,
-    vox2out_vox, perm_mat, rescale_affine,
+    orientation_to_axcodes, orientation_transform, axcodes,
+    apply_orientation, apply_affine, append_diag, orientation_inverse_affine,
+    obliquity, voxel_sizes, vox2out_vox, perm_mat, rescale_affine,
 )
 
 # Import searchlight functions
 from .searchlight import (
     searchlight_iterator as searchlight, searchlight_coords, random_searchlight, 
-    bootstrap_searchlight, clustered_searchlight
+    bootstrap_searchlight, clustered_searchlight,
+    ellipsoid_shape, cube_shape, blobby_shape,
 )
 from .searchlight_high_level import (
     searchlight as searchlight_apply,
@@ -105,6 +112,9 @@ from .indexing import (
     linear_access, matricized_access, from_matvec, to_matvec, dot_reduce
 )
 
+# Import neuroim2-style generic compatibility wrappers
+from .compat import *
+
 # Import memory-mapped variants
 from .big_neuro_vec import BigNeuroVec, big_neurovecseq
 from .file_backed_neuro_vec import FileBackedNeuroVec, file_backed_neurovec
@@ -125,3 +135,22 @@ from .plotting import (
     plot_neuro_vol, plot_ortho, plot_montage, plot_overlay,
     map_to_colors, resolve_cmap,
 )
+
+# R-compatible constructor alias; Python callers can use neurovecseq directly.
+NeuroVecSeq = neurovecseq
+
+# neuroim2 compatibility aliases.  The idiomatic Python names above remain the
+# primary API; these keep mechanical export audits and migration code honest.
+createNIfTIHeader = create_nifti_header
+findAnatomy3D = find_anatomy_3d
+mapToColors = map_to_colors
+matrixToQuatern = matrix_to_quatern
+quaternToMatrix = quatern_to_matrix
+read_hyper_vec = read_neurohypervec
+
+globals()["as.array"] = as_array
+globals()["as.dense"] = as_dense
+globals()["as.mask"] = as_mask
+globals()["as.matrix"] = as_matrix
+globals()["as.sparse"] = as_sparse
+globals()["None"] = None

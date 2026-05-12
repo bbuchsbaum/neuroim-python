@@ -18,6 +18,10 @@ Added
 - R equivalence tests ensuring compatibility with neuroim2
 - Memory-mapped array support for large datasets
 - Sparse data structure optimizations
+- AFNI HEAD/BRIK read/write support, including compressed BRIK round trips
+- Lightweight AFNI NIML parser helpers
+- neuroim2 compatibility aliases for literal exported R names, including dotted generics and camelCase helpers
+- Joint spatial-temporal ``bilateral_filter_4d`` with mask-preserving behavior and R oracle coverage
 
 Fixed
 ~~~~~
@@ -27,6 +31,9 @@ Fixed
 - Resolved ROI extraction issues
 - Fixed searchlight API compatibility
 - Added spacing validation to prevent invalid NeuroSpace creation
+- Fixed Fortran-order voxel mapping in sparse masks, clustered volumes, searchlights, and split/statistical helpers
+- Fixed 1D/2D embedded affine handling while preserving invalid-transform validation
+- Improved AFNI-style ``clip_level``/``automask`` behavior and ``deoblique`` handling for ``NeuroSpace``
 
 Changed
 ~~~~~~~
@@ -56,9 +63,8 @@ Added
 
 Known Issues
 ~~~~~~~~~~~~
-- AFNI writer not yet implemented
-- Some advanced features from R package pending
-- Plotting functionality limited
+- NIML writing is not yet implemented
+- Broader cross-language assertions and large-scale performance envelopes can still be expanded
 
 [0.0.1] - 2023-12-01
 --------------------
@@ -80,7 +86,7 @@ Future Releases
 
 Planned features:
 
-- Complete AFNI format support
+- Expanded NIML write/advanced AFNI coverage
 - Parallel searchlight processing
 - Enhanced visualization tools
 - GPU acceleration options

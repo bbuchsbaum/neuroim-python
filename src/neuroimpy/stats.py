@@ -549,8 +549,9 @@ def partition(x: NeuroVol, k: int,
         labels = kmeans.fit_predict(values)
         
         # Create label array
-        label_array = np.zeros(x.shape, dtype=int)
-        label_array.ravel(order="F")[mask_indices] = labels + 1  # 1-indexed
+        label_flat = np.zeros(int(np.prod(x.shape)), dtype=int)
+        label_flat[mask_indices] = labels + 1  # 1-indexed
+        label_array = label_flat.reshape(x.shape, order="F")
         
         # Create mask volume
         from .neuro_vol import LogicalNeuroVol
@@ -640,13 +641,7 @@ def centroids(x: ClusteredNeuroVol, method: str = "center_of_mass") -> Dict[int,
     elif method == "median":
         # Compute median coordinates
         centers = {}
-        # Get the full volume indices where mask is True
-        mask_indices = np.where(x.mask.data.ravel(order="F"))[0]
-        
-        for cluster_id, cluster_data_indices in x.cluster_map.items():
-            # cluster_data_indices are indices into the masked data
-            # We need to convert them to full volume indices
-            full_volume_indices = mask_indices[cluster_data_indices]
+        for cluster_id, full_volume_indices in x.cluster_map.items():
             # Convert to 3D coordinates
             coords = np.array(np.unravel_index(full_volume_indices, x.mask.shape, order="F")).T
             # Median of each dimension

@@ -95,7 +95,7 @@ def searchlight(mask: Union[NeuroVol, LogicalNeuroVol],
     
     if cores > 1 and eager:
         # Parallel processing when searchlights are eagerly computed
-        results = Parallel(n_jobs=cores)(
+        results = Parallel(n_jobs=cores, prefer="threads")(
             delayed(process_searchlight)(sl) for sl in searchlights
         )
         # Store results
