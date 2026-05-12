@@ -1,0 +1,49 @@
+quartodoc:
+  package: neuroim
+  style: pkgdown
+  dir: reference
+  title: "API reference"
+  render_interlinks: true
+  options:
+    include_inherited: false
+  sidebar: reference/_sidebar.yml
+  sections:
+    - title: "Core data structures"
+      desc: "Spatial metadata, volumes, vectors, and hypervectors."
+      contents:
+        - NeuroSpace
+        - DenseNeuroVol
+        - SparseNeuroVol
+        - LogicalNeuroVol
+        - DenseNeuroVec
+        - SparseNeuroVec
+        - DenseNeuroHyperVec
+        - SparseNeuroHyperVec
+    - title: "Constructors and I/O"
+      desc: "Create neuroim objects and read or write common image formats."
+      contents:
+        - neurospace
+        - neurovol
+        - neurovec
+        - read_vol
+        - write_vol
+        - read_vec
+        - write_vec
+    - title: "Spatial operations"
+      desc: "Filtering, resampling, orientation, ROIs, and connected components."
+      contents:
+        - gaussian_blur
+        - bilateral_filter
+        - resample
+        - reorient
+        - spherical_roi
+        - cuboid_roi
+        - searchlight.searchlight_iterator
+        - conn_comp
+    - title: "Visualization"
+      desc: "Plotting helpers for volumes and overlays."
+      contents:
+        - plot_neuro_vol
+        - plot_ortho
+        - plot_montage
+        - plot_overlay

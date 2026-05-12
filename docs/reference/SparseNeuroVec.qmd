@@ -1,0 +1,72 @@
+# SparseNeuroVec { #neuroim.SparseNeuroVec }
+
+```python
+SparseNeuroVec(data, space, mask, label='')
+```
+
+Sparse 4D neuroimaging vector.
+
+Direct translation of R's SparseNeuroVec class.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name   | Type                                                   | Description                             | Default    |
+|--------|--------------------------------------------------------|-----------------------------------------|------------|
+| data   | [np](`numpy`).[ndarray](`numpy.ndarray`)               | 2D array (time x masked_voxels)         | _required_ |
+| space  | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`)         | 4D spatial metadata                     | _required_ |
+| mask   | [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | Mask defining which voxels are included | _required_ |
+| label  | [str](`str`)                                           | Vector label                            | `''`       |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::SparseNeuroVec
+
+## Methods
+
+| Name | Description |
+| --- | --- |
+| [as_dense](#neuroim.SparseNeuroVec.as_dense) | Convert to dense representation. |
+| [as_sparse](#neuroim.SparseNeuroVec.as_sparse) | Already sparse, return self or apply new mask. |
+| [concat](#neuroim.SparseNeuroVec.concat) | Concatenate multiple SparseNeuroVecs along time dimension. |
+| [series](#neuroim.SparseNeuroVec.series) | Extract time series for voxel(s). |
+| [sub_vector](#neuroim.SparseNeuroVec.sub_vector) | Extract subset of volumes. |
+
+### as_dense { #neuroim.SparseNeuroVec.as_dense }
+
+```python
+SparseNeuroVec.as_dense()
+```
+
+Convert to dense representation.
+
+### as_sparse { #neuroim.SparseNeuroVec.as_sparse }
+
+```python
+SparseNeuroVec.as_sparse(mask=None)
+```
+
+Already sparse, return self or apply new mask.
+
+### concat { #neuroim.SparseNeuroVec.concat }
+
+```python
+SparseNeuroVec.concat(*others)
+```
+
+Concatenate multiple SparseNeuroVecs along time dimension.
+
+### series { #neuroim.SparseNeuroVec.series }
+
+```python
+SparseNeuroVec.series(x, y=None, z=None)
+```
+
+Extract time series for voxel(s).
+
+### sub_vector { #neuroim.SparseNeuroVec.sub_vector }
+
+```python
+SparseNeuroVec.sub_vector(indices)
+```
+
+Extract subset of volumes.

@@ -1,0 +1,77 @@
+---
+title: "Get started"
+subtitle: "From a synthetic brain volume to a spatial ROI summary in five minutes."
+jupyter: python3
+---
+
+## Install
+
+```bash
+pip install neuroim
+```
+
+For a source checkout:
+
+```bash
+pip install -e .
+```
+
+## The 30-second tour
+
+Create a small volume with spatial metadata.
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parent / "src"))
+
+import numpy as np
+import neuroim as ni
+
+space = ni.NeuroSpace((24, 24, 16), spacing=(2, 2, 3))
+x, y, z = np.indices(space.dim)
+center = np.array(space.dim) // 2
+
+signal = np.exp(
+    -(((x - center[0]) ** 2 + (y - center[1]) ** 2 + (z - center[2]) ** 2) / (2 * 4**2))
+)
+vol = ni.DenseNeuroVol(signal, space)
+
+vol.shape, vol.spacing
+```
+
+Smooth the volume and define a spherical region of interest.
+
+```{python}
+smoothed = ni.gaussian_blur(vol, sigma=1)
+roi = ni.spherical_roi(vol, centroid=center, radius=4)
+
+roi_values = smoothed[roi.coords[:, 0], roi.coords[:, 1], roi.coords[:, 2]]
+
+{
+    "roi_voxels": int(roi.coords.shape[0]),
+    "mean_signal": round(float(roi_values.mean()), 3),
+    "max_signal": round(float(smoothed.data.max()), 3),
+}
+```
+
+Make a short 4D series using the same spatial frame.
+
+```{python}
+rng = np.random.default_rng(1)
+series = np.stack([signal + 0.05 * rng.normal(size=space.dim) for _ in range(6)], axis=3)
+vec = ni.DenseNeuroVec(series, space.add_dim(size=6))
+
+voxel_series = vec.series(np.array([center]))
+voxel_series.ravel()
+```
+
+## What just happened
+
+`NeuroSpace` stores image dimensions, voxel spacing, origin, and coordinate transforms. `DenseNeuroVol` attaches a 3D array to that space. `DenseNeuroVec` extends the same idea to 4D series. ROI helpers such as `spherical_roi()` return coordinate sets that can be used directly for indexing and summaries.
+
+## Next steps
+
+- [Tutorial: Core objects](tutorials/core-objects.qmd)
+- [API reference](reference/index.qmd)

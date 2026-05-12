@@ -1,0 +1,30 @@
+# read_vec { #neuroim.read_vec }
+
+```python
+read_vec(filename, indices=None, mask=None)
+```
+
+Read a 4D neuroimaging vector from file.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name     | Type                                                   | Description                                                     | Default    |
+|----------|--------------------------------------------------------|-----------------------------------------------------------------|------------|
+| filename | [str](`str`) or [Path](`pathlib.Path`)                 | Path to the 4D neuroimaging file                                | _required_ |
+| indices  | [array](`array`) - [like](`like`)                      | Indices of volumes to load (0-based) If None, loads all volumes | `None`     |
+| mask     | [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | Mask for sparse representation                                  | `None`     |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                                                                                       | Description          |
+|--------|------------------------------------------------------------------------------------------------------------|----------------------|
+|        | [DenseNeuroVec](`neuroim.neuro_vec.DenseNeuroVec`) or [SparseNeuroVec](`neuroim.neuro_vec.SparseNeuroVec`) | The loaded 4D vector |
+
+## Notes {.doc-section .doc-section-notes}
+
+Unlike R which uses 1-based indexing, Python uses 0-based indexing
+for the indices parameter.
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::read_vec

@@ -1,0 +1,37 @@
+# searchlight.searchlight_iterator { #neuroim.searchlight.searchlight_iterator }
+
+```python
+searchlight.searchlight_iterator(
+    mask,
+    radius,
+    eager=False,
+    nonzero=False,
+    cores=0,
+)
+```
+
+Create an exhaustive searchlight iterator.
+
+This function generates an exhaustive searchlight iterator that returns
+ROIVolWindow objects for each searchlight sphere within the provided mask.
+The iterator visits every non-zero voxel in the mask as a potential center voxel.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name    | Type                                                                                               | Description                                                                                                          | Default    |
+|---------|----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|------------|
+| mask    | [NeuroVol](`neuroim.neuro_vol.NeuroVol`) or [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | A NeuroVol object representing the brain mask                                                                        | _required_ |
+| radius  | [float](`float`)                                                                                   | The radius (in mm) of the spherical searchlight                                                                      | _required_ |
+| eager   | [bool](`bool`)                                                                                     | Whether to eagerly compute the searchlight ROIs. Default is False, which uses lazy evaluation                        | `False`    |
+| nonzero | [bool](`bool`)                                                                                     | Whether to include only coordinates with nonzero values in the supplied mask. Default is False                       | `False`    |
+| cores   | [int](`int`)                                                                                       | Number of cores to use for parallel computation. Default is 0, which uses a single core. (Currently not implemented) | `0`        |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                             | Description                                                                                    |
+|--------|----------------------------------|------------------------------------------------------------------------------------------------|
+|        | LazyList or list of ROIVolWindow | A deferred_list object containing ROIVolWindow objects, each representing a searchlight region |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::searchlight

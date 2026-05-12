@@ -1,0 +1,69 @@
+---
+pagetitle: "neuroim"
+toc: false
+sidebar: false
+page-layout: full
+---
+
+::: {.hero}
+# neuroim
+
+[Python data structures and algorithms for 3D, 4D, and 5D+ neuroimaging data.]{.lead}
+
+[Get started](get-started.qmd){.btn .btn-primary}
+[Browse the API](reference/index.qmd){.btn .btn-outline-secondary}
+:::
+
+## Why neuroim?
+
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-4}
+::: {.card .h-100 .p-3}
+### Spatially aware
+
+Volumes, vectors, and ROIs keep voxel data tied to `NeuroSpace`, so array operations preserve spatial metadata.
+:::
+:::
+
+::: {.g-col-12 .g-col-md-4}
+::: {.card .h-100 .p-3}
+### Memory conscious
+
+Dense, sparse, mapped, and file-backed objects let the same workflows scale from examples to large imaging series.
+:::
+:::
+
+::: {.g-col-12 .g-col-md-4}
+::: {.card .h-100 .p-3}
+### R compatible
+
+The Python API is designed to line up with the R `neuroim2` package for cross-language projects and ported analyses.
+:::
+:::
+
+:::
+
+## In 30 seconds
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parent / "src"))
+
+import numpy as np
+import neuroim as ni
+
+space = ni.NeuroSpace((16, 16, 12), spacing=(2, 2, 3))
+x, y, z = np.indices(space.dim)
+center = np.array(space.dim) // 2
+data = np.exp(-(((x - center[0]) ** 2 + (y - center[1]) ** 2 + (z - center[2]) ** 2) / 24))
+
+vol = ni.DenseNeuroVol(data, space)
+roi = ni.spherical_roi(vol, centroid=center, radius=4)
+
+vol.shape, roi.coords.shape
+```
+
+[Read the full tutorial](get-started.qmd)

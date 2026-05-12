@@ -1,0 +1,26 @@
+# neurovec { #neuroim.neurovec }
+
+```python
+neurovec(data, space=None, mask=None, label='')
+```
+
+Factory function to create appropriate NeuroVec type.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name   | Type                                                   | Description                    | Default    |
+|--------|--------------------------------------------------------|--------------------------------|------------|
+| data   | [array](`array`) - [like](`like`) or [list](`list`)    | The image data                 | _required_ |
+| space  | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`)         | 4D spatial metadata            | `None`     |
+| mask   | [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | Mask for sparse representation | `None`     |
+| label  | [str](`str`)                                           | Vector label                   | `''`       |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                     | Description                     |
+|--------|------------------------------------------|---------------------------------|
+|        | [NeuroVec](`neuroim.neuro_vec.NeuroVec`) | DenseNeuroVec or SparseNeuroVec |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::NeuroVec

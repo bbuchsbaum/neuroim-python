@@ -1,0 +1,27 @@
+# plot_neuro_vol { #neuroim.plot_neuro_vol }
+
+```python
+plot_neuro_vol(
+    vol,
+    cmap='gray',
+    zlevels=None,
+    irange=None,
+    thresh=(0, 0),
+    alpha=1,
+    bgvol=None,
+    bgcmap='gray',
+    figsize=(12, 8),
+)
+```
+
+Plot a NeuroVol as a series of 2D slices.
+
+:param vol: The NeuroVol object to display.
+:param cmap: A colormap name or matplotlib colormap object.
+:param zlevels: The series of slice indices to display. If None, 6 evenly spaced slices are chosen.
+:param irange: The intensity range for color scaling. If None, the full range of the data is used.
+:param thresh: A 2-element tuple indicating the lower and upper transparency thresholds.
+:param alpha: The level of alpha transparency.
+:param bgvol: A background volume that serves as an image underlay (optional).
+:param bgcmap: A colormap name or matplotlib colormap object for the background layer.
+:param figsize: The size of the figure in inches (width, height).

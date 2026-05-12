@@ -1,0 +1,38 @@
+# conn_comp { #neuroim.conn_comp }
+
+```python
+conn_comp(
+    x,
+    threshold=0,
+    cluster_table=True,
+    local_maxima=True,
+    local_maxima_dist=15,
+    connect='26-connect',
+)
+```
+
+Find connected components in an image.
+
+This function identifies and labels spatially connected regions in
+neuroimaging data, supporting both binary masks and thresholded volumes.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name              | Type                                     | Description                                                                                | Default        |
+|-------------------|------------------------------------------|--------------------------------------------------------------------------------------------|----------------|
+| x                 | [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | The image object                                                                           | _required_     |
+| threshold         | [float](`float`)                         | Threshold defining lower intensity bound for image mask. Default is 0.                     | `0`            |
+| cluster_table     | [bool](`bool`)                           | Whether to return cluster statistics table. Default is True.                               | `True`         |
+| local_maxima      | [bool](`bool`)                           | Whether to compute local maxima within clusters. Default is True.                          | `True`         |
+| local_maxima_dist | [float](`float`)                         | Minimum distance between local maxima in mm. Default is 15.                                | `15`           |
+| connect           | [str](`str`)                             | Connectivity pattern: "26-connect", "18-connect", or "6-connect". Default is "26-connect". | `'26-connect'` |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                                            | Description                                                                                                                                                                                                                                                                          |
+|--------|-----------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|        | [ConnCompResult](`neuroim.connected_components.ConnCompResult`) | Object containing: - index: ClusteredNeuroVol with cluster labels - size: NeuroVol with cluster sizes - voxels: List of cluster voxel coordinates - cluster_table: DataFrame with cluster statistics (if requested) - local_maxima: Array of local maxima coordinates (if requested) |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::conn_comp

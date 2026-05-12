@@ -37,6 +37,11 @@ Thumbs.db
 # Sphinx build output
 docs/build/
 
+# Quarto build output
+docs/_site/
+docs/.quarto/
+.jupyter_cache/
+
 # Session artifacts (one-time analysis/reports)
 CLAUDE.md.bak
 FEATURE_PARITY_ASSESSMENT.md

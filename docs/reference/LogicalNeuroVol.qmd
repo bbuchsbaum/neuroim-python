@@ -1,0 +1,43 @@
+# LogicalNeuroVol { #neuroim.LogicalNeuroVol }
+
+```python
+LogicalNeuroVol(data, space, label='', indices=None)
+```
+
+Logical/binary 3D neuroimaging volume.
+
+Direct translation of R's LogicalNeuroVol class.
+Extends DenseNeuroVol with boolean data.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name    | Type                                           | Description                                         | Default    |
+|---------|------------------------------------------------|-----------------------------------------------------|------------|
+| data    | [array](`array`) - [like](`like`)              | Boolean 3D array                                    | _required_ |
+| space   | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | Spatial metadata                                    | _required_ |
+| label   | [str](`str`)                                   | Volume label                                        | `''`       |
+| indices | [array](`array`) - [like](`like`)              | If provided, only these indices will be set to True | `None`     |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::LogicalNeuroVol
+
+## Attributes
+
+| Name | Description |
+| --- | --- |
+| [sum](#neuroim.LogicalNeuroVol.sum) | Number of True voxels. |
+
+## Methods
+
+| Name | Description |
+| --- | --- |
+| [as_logical](#neuroim.LogicalNeuroVol.as_logical) | Already logical, return self. |
+
+### as_logical { #neuroim.LogicalNeuroVol.as_logical }
+
+```python
+LogicalNeuroVol.as_logical()
+```
+
+Already logical, return self.

@@ -1,0 +1,116 @@
+# DenseNeuroHyperVec { #neuroim.DenseNeuroHyperVec }
+
+```python
+DenseNeuroHyperVec(data, space, label='')
+```
+
+Dense 5D+ neuroimaging hypervector.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name   | Type                                           | Description               | Default    |
+|--------|------------------------------------------------|---------------------------|------------|
+| data   | [np](`numpy`).[ndarray](`numpy.ndarray`)       | 5D+ data array            | _required_ |
+| space  | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | 5D+ spatial metadata      | _required_ |
+| label  | [str](`str`)                                   | Label for the hypervector | `''`       |
+
+## Methods
+
+| Name | Description |
+| --- | --- |
+| [apply_feature_func](#neuroim.DenseNeuroHyperVec.apply_feature_func) | Apply function across features at each voxel/time. |
+| [mean_features](#neuroim.DenseNeuroHyperVec.mean_features) | Average across feature dimension. |
+| [mean_time_features](#neuroim.DenseNeuroHyperVec.mean_time_features) | Average across both time and feature dimensions. |
+| [select_features](#neuroim.DenseNeuroHyperVec.select_features) | Select subset of features. |
+| [series](#neuroim.DenseNeuroHyperVec.series) | Extract time series for given coordinates. |
+| [squeeze_features](#neuroim.DenseNeuroHyperVec.squeeze_features) | Remove single feature dimension. |
+| [std_features](#neuroim.DenseNeuroHyperVec.std_features) | Standard deviation across features. |
+| [weighted_mean_features](#neuroim.DenseNeuroHyperVec.weighted_mean_features) | Compute weighted mean across features. |
+
+### apply_feature_func { #neuroim.DenseNeuroHyperVec.apply_feature_func }
+
+```python
+DenseNeuroHyperVec.apply_feature_func(func)
+```
+
+Apply function across features at each voxel/time.
+
+### mean_features { #neuroim.DenseNeuroHyperVec.mean_features }
+
+```python
+DenseNeuroHyperVec.mean_features()
+```
+
+Average across feature dimension.
+
+### mean_time_features { #neuroim.DenseNeuroHyperVec.mean_time_features }
+
+```python
+DenseNeuroHyperVec.mean_time_features()
+```
+
+Average across both time and feature dimensions.
+
+### select_features { #neuroim.DenseNeuroHyperVec.select_features }
+
+```python
+DenseNeuroHyperVec.select_features(indices)
+```
+
+Select subset of features.
+
+### series { #neuroim.DenseNeuroHyperVec.series }
+
+```python
+DenseNeuroHyperVec.series(coords, feature=None)
+```
+
+Extract time series for given coordinates.
+
+### squeeze_features { #neuroim.DenseNeuroHyperVec.squeeze_features }
+
+```python
+DenseNeuroHyperVec.squeeze_features()
+```
+
+Remove single feature dimension.
+
+### std_features { #neuroim.DenseNeuroHyperVec.std_features }
+
+```python
+DenseNeuroHyperVec.std_features(time_idx=None)
+```
+
+Standard deviation across features.
+
+#### Parameters {.doc-section .doc-section-parameters}
+
+| Name     | Type         | Description                                                         | Default   |
+|----------|--------------|---------------------------------------------------------------------|-----------|
+| time_idx | [int](`int`) | If provided, compute std at specific time point and return NeuroVol | `None`    |
+
+#### Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                                                                           | Description                                        |
+|--------|------------------------------------------------------------------------------------------------|----------------------------------------------------|
+|        | [DenseNeuroVol](`neuroim.neuro_vol.DenseNeuroVol`) or [np](`numpy`).[ndarray](`numpy.ndarray`) | 3D volume if time_idx provided, otherwise 4D array |
+
+### weighted_mean_features { #neuroim.DenseNeuroHyperVec.weighted_mean_features }
+
+```python
+DenseNeuroHyperVec.weighted_mean_features(weights)
+```
+
+Compute weighted mean across features.
+
+#### Parameters {.doc-section .doc-section-parameters}
+
+| Name    | Type                                     | Description              | Default    |
+|---------|------------------------------------------|--------------------------|------------|
+| weights | [np](`numpy`).[ndarray](`numpy.ndarray`) | Weights for each feature | _required_ |
+
+#### Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                               | Description         |
+|--------|----------------------------------------------------|---------------------|
+|        | [DenseNeuroVec](`neuroim.neuro_vec.DenseNeuroVec`) | 4D weighted average |

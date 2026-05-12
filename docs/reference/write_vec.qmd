@@ -1,0 +1,20 @@
+# write_vec { #neuroim.write_vec }
+
+```python
+write_vec(vec, filename, format='NIFTI', data_type=None)
+```
+
+Write a neuroimaging vector to file.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name      | Type                                     | Description                                                                                             | Default    |
+|-----------|------------------------------------------|---------------------------------------------------------------------------------------------------------|------------|
+| vec       | [NeuroVec](`neuroim.neuro_vec.NeuroVec`) | The vector to write                                                                                     | _required_ |
+| filename  | [str](`str`) or [Path](`pathlib.Path`)   | Output filename                                                                                         | _required_ |
+| format    | [str](`str`)                             | Output format (currently only "NIFTI" supported)                                                        | `'NIFTI'`  |
+| data_type | [str](`str`)                             | Output data type (e.g., "FLOAT32", "INT16") Defaults to "FLOAT" for NIfTI, inferred from input for AFNI | `None`     |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::write_vec

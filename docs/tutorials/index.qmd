@@ -1,0 +1,29 @@
+---
+title: "Tutorials"
+description: "Task-oriented guides for working with neuroim objects."
+sidebar: tutorials
+---
+
+These tutorials are the Quarto landing area for Python versions of the `neuroim2` vignettes. The first guide establishes the core mental model; the remaining R vignettes can be ported here incrementally.
+
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-6}
+::: {.card .h-100 .p-3}
+### Core objects
+
+Create spatial metadata, volumes, vectors, ROIs, and simple summaries.
+
+[Open tutorial](core-objects.qmd)
+:::
+:::
+
+::: {.g-col-12 .g-col-md-6}
+::: {.card .h-100 .p-3}
+### Migration path
+
+The R sibling package currently has vignettes for volumes, vectors, resampling, smoothing, coordinate systems, ROIs, and pipelines. Port those into this section as executable Python `.qmd` files.
+:::
+:::
+
+:::

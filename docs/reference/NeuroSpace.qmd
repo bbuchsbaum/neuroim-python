@@ -1,0 +1,13 @@
+# neurospace { #neuroim.neurospace }
+
+```python
+neurospace(dim, spacing=None, origin=None, axes=None, trans=None)
+```
+
+Create a NeuroSpace object.
+
+This is a factory function that matches R's NeuroSpace() constructor style.
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::NeuroSpace

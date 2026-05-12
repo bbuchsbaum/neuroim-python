@@ -1,0 +1,133 @@
+# resample { #neuroim.resample }
+
+`resample`
+
+Resampling and reorientation functions for neuroimaging data.
+
+This module provides functions for resampling and reorienting neuroimaging
+volumes and vectors to match different spatial configurations.
+
+## Functions
+
+| Name | Description |
+| --- | --- |
+| [reorient](#neuroim.resample.reorient) | Remap the grid-to-world coordinates mapping of an image. |
+| [resample](#neuroim.resample.resample) | Resample an image to match the space of another image. |
+| [resample_to](#neuroim.resample.resample_to) | Resample a volume or vector to a target using neuroim2-style names. |
+| [resample_vec](#neuroim.resample.resample_vec) | Resample a 4D NeuroVec to match the space of another image. |
+
+### reorient { #neuroim.resample.reorient }
+
+```python
+resample.reorient(x, orient)
+```
+
+Remap the grid-to-world coordinates mapping of an image.
+
+#### Parameters {.doc-section .doc-section-parameters}
+
+| Name   | Type                                                                                       | Description                                                                                                                                                                                                                                                            | Default    |
+|--------|--------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------|
+| x      | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) or [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | The object to reorient                                                                                                                                                                                                                                                 | _required_ |
+| orient | str or list of str                                                                         | The orientation code indicating the remapped axes. Can be a 3-letter string like "RAS" or list like ["R", "A", "S"] Each position represents: - First: "R" (Right) or "L" (Left) - Second: "A" (Anterior) or "P" (Posterior) - Third: "S" (Superior) or "I" (Inferior) | _required_ |
+
+#### Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                                                                       | Description               |
+|--------|--------------------------------------------------------------------------------------------|---------------------------|
+|        | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) or [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | A reoriented version of x |
+
+#### R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::reorient
+
+#### Examples {.doc-section .doc-section-examples}
+
+```python
+>>> # Reorient a space to RAS
+>>> space_ras = reorient(space, "RAS")
+>>>
+>>> # Or using a list
+>>> space_ras = reorient(space, ["R", "A", "S"])
+```
+
+### resample { #neuroim.resample.resample }
+
+```python
+resample.resample(source, target, interpolation=3)
+```
+
+Resample an image to match the space of another image.
+
+This function resamples a source image to match the spatial properties
+(dimensions, resolution, and orientation) of a target image or space.
+
+#### Parameters {.doc-section .doc-section-parameters}
+
+| Name          | Type                                                                                       | Description                                                                                           | Default    |
+|---------------|--------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|------------|
+| source        | [NeuroVol](`neuroim.neuro_vol.NeuroVol`)                                                   | The source volume to be resampled                                                                     | _required_ |
+| target        | [NeuroVol](`neuroim.neuro_vol.NeuroVol`) or [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | The target space to match the dimensions and orientation                                              | _required_ |
+| interpolation | [int](`int`)                                                                               | Type of interpolation to be applied: - 0: nearest neighbor - 1: trilinear - 3: cubic spline (default) | `3`        |
+
+#### Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                               | Description                                                           |
+|--------|----------------------------------------------------|-----------------------------------------------------------------------|
+|        | [DenseNeuroVol](`neuroim.neuro_vol.DenseNeuroVol`) | The resampled source image with the same spatial properties as target |
+
+#### Raises {.doc-section .doc-section-raises}
+
+| Name   | Type                         | Description                        |
+|--------|------------------------------|------------------------------------|
+|        | [ImportError](`ImportError`) | If nibabel is not installed        |
+|        | [ValueError](`ValueError`)   | If interpolation is not 0, 1, or 3 |
+
+#### R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::resample
+
+#### Examples {.doc-section .doc-section-examples}
+
+```python
+>>> # Resample to match another volume
+>>> resampled = resample(source_vol, target_vol, interpolation=1)
+>>>
+>>> # Resample to match a specific space
+>>> new_space = NeuroSpace(dim=[128, 128, 64], spacing=[2, 2, 2])
+>>> resampled = resample(source_vol, new_space)
+```
+
+### resample_to { #neuroim.resample.resample_to }
+
+```python
+resample.resample_to(source, target, method='linear', engine='nibabel')
+```
+
+Resample a volume or vector to a target using neuroim2-style names.
+
+### resample_vec { #neuroim.resample.resample_vec }
+
+```python
+resample.resample_vec(source, target, interpolation=3)
+```
+
+Resample a 4D NeuroVec to match the space of another image.
+
+#### Parameters {.doc-section .doc-section-parameters}
+
+| Name          | Type                                                                                       | Description                                             | Default    |
+|---------------|--------------------------------------------------------------------------------------------|---------------------------------------------------------|------------|
+| source        | [NeuroVec](`neuroim.neuro_vec.NeuroVec`)                                                   | The source 4D vector to be resampled                    | _required_ |
+| target        | [NeuroVec](`neuroim.neuro_vec.NeuroVec`) or [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | The target space to match (must be 4D if NeuroSpace)    | _required_ |
+| interpolation | [int](`int`)                                                                               | Type of interpolation (0: nearest, 1: linear, 3: cubic) | `3`        |
+
+#### Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                               | Description                 |
+|--------|----------------------------------------------------|-----------------------------|
+|        | [DenseNeuroVec](`neuroim.neuro_vec.DenseNeuroVec`) | The resampled source vector |
+
+#### R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::resample (for NeuroVec)

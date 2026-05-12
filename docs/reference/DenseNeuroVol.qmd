@@ -1,0 +1,110 @@
+# DenseNeuroVol { #neuroim.DenseNeuroVol }
+
+```python
+DenseNeuroVol(data, space, label='', indices=None)
+```
+
+Dense 3D neuroimaging volume.
+
+Direct translation of R's DenseNeuroVol class.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name    | Type                                           | Description                                              | Default    |
+|---------|------------------------------------------------|----------------------------------------------------------|------------|
+| data    | [array](`array`) - [like](`like`)              | 3D array of voxel values                                 | _required_ |
+| space   | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | Spatial metadata                                         | _required_ |
+| label   | [str](`str`)                                   | Volume label                                             | `''`       |
+| indices | [array](`array`) - [like](`like`)              | If provided, only these indices will be filled with data | `None`     |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::DenseNeuroVol
+
+## Methods
+
+| Name | Description |
+| --- | --- |
+| [as_array](#neuroim.DenseNeuroVol.as_array) | Convert to numpy array. |
+| [as_dense](#neuroim.DenseNeuroVol.as_dense) | Already dense, return self. |
+| [as_logical](#neuroim.DenseNeuroVol.as_logical) | Convert to logical representation. |
+| [as_mask](#neuroim.DenseNeuroVol.as_mask) | Convert to mask. |
+| [as_sparse](#neuroim.DenseNeuroVol.as_sparse) | Convert to sparse representation. |
+| [concat](#neuroim.DenseNeuroVol.concat) | Concatenate multiple volumes into a DenseNeuroVec along a new time dimension. |
+| [values](#neuroim.DenseNeuroVol.values) | Get underlying data values. |
+
+### as_array { #neuroim.DenseNeuroVol.as_array }
+
+```python
+DenseNeuroVol.as_array()
+```
+
+Convert to numpy array.
+
+#### R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::as.array
+
+### as_dense { #neuroim.DenseNeuroVol.as_dense }
+
+```python
+DenseNeuroVol.as_dense()
+```
+
+Already dense, return self.
+
+### as_logical { #neuroim.DenseNeuroVol.as_logical }
+
+```python
+DenseNeuroVol.as_logical()
+```
+
+Convert to logical representation.
+
+### as_mask { #neuroim.DenseNeuroVol.as_mask }
+
+```python
+DenseNeuroVol.as_mask(indices=None)
+```
+
+Convert to mask.
+
+#### R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::as.mask
+
+### as_sparse { #neuroim.DenseNeuroVol.as_sparse }
+
+```python
+DenseNeuroVol.as_sparse(mask=None)
+```
+
+Convert to sparse representation.
+
+### concat { #neuroim.DenseNeuroVol.concat }
+
+```python
+DenseNeuroVol.concat(*others)
+```
+
+Concatenate multiple volumes into a DenseNeuroVec along a new time dimension.
+
+#### Parameters {.doc-section .doc-section-parameters}
+
+| Name    | Type                                               | Description                        | Default   |
+|---------|----------------------------------------------------|------------------------------------|-----------|
+| *others | [DenseNeuroVol](`neuroim.neuro_vol.DenseNeuroVol`) | Additional volumes to concatenate. | `()`      |
+
+#### Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                               | Description                                                   |
+|--------|----------------------------------------------------|---------------------------------------------------------------|
+|        | [DenseNeuroVec](`neuroim.neuro_vec.DenseNeuroVec`) | 4D vector containing all volumes stacked along the time axis. |
+
+### values { #neuroim.DenseNeuroVol.values }
+
+```python
+DenseNeuroVol.values()
+```
+
+Get underlying data values.

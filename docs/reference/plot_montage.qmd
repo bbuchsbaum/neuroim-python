@@ -1,0 +1,35 @@
+# plot_montage { #neuroim.plot_montage }
+
+```python
+plot_montage(
+    vol,
+    axis=2,
+    n_slices=16,
+    cmap='gray',
+    ncols=4,
+    title=None,
+    figsize=None,
+    axes=None,
+)
+```
+
+Show multiple evenly-spaced slices along *axis* in a grid.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name     | Type                                     | Description                                                 | Default    |
+|----------|------------------------------------------|-------------------------------------------------------------|------------|
+| vol      | [np](`numpy`).[ndarray](`numpy.ndarray`) | 3-D volume array.                                           | _required_ |
+| axis     | [int](`int`)                             | Axis along which to slice (0, 1, or 2).  Default 2 (axial). | `2`        |
+| n_slices | [int](`int`)                             | Number of slices to display.                                | `16`       |
+| cmap     | [str](`str`)                             | Colormap name.                                              | `'gray'`   |
+| ncols    | [int](`int`)                             | Number of columns in the grid.                              | `4`        |
+| title    | [str](`str`)                             | Super-title for the figure.                                 | `None`     |
+| figsize  | [tuple](`tuple`)                         | Figure size.  If *None* it is computed automatically.       | `None`     |
+| axes     | array-like of Axes                       | Pre-existing axes (must have at least *n_slices* elements). | `None`     |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                | Description   |
+|--------|---------------------|---------------|
+|        | (fig, axes) : tuple |               |

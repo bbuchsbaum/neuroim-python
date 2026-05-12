@@ -1,0 +1,29 @@
+# read_vol { #neuroim.read_vol }
+
+```python
+read_vol(filename, index=0)
+```
+
+Read a 3D neuroimaging volume from file.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name     | Type                                   | Description                                                                    | Default    |
+|----------|----------------------------------------|--------------------------------------------------------------------------------|------------|
+| filename | [str](`str`) or [Path](`pathlib.Path`) | Path to the neuroimaging file                                                  | _required_ |
+| index    | [int](`int`)                           | For 4D files, which 3D volume to extract (0-based) Default is 0 (first volume) | `0`        |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                               | Description          |
+|--------|----------------------------------------------------|----------------------|
+|        | [DenseNeuroVol](`neuroim.neuro_vol.DenseNeuroVol`) | The loaded 3D volume |
+
+## Notes {.doc-section .doc-section-notes}
+
+Unlike R which uses 1-based indexing, Python uses 0-based indexing
+for the volume index parameter.
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::read_vol

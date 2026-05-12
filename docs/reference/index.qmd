@@ -1,0 +1,56 @@
+# API reference {.doc .doc-index}
+
+## Core data structures
+
+Spatial metadata, volumes, vectors, and hypervectors.
+
+| | |
+| --- | --- |
+| [NeuroSpace](NeuroSpace.qmd#neuroim.NeuroSpace) | Geometric specification of image space, mapping from grid coordinates to real coordinates. |
+| [DenseNeuroVol](DenseNeuroVol.qmd#neuroim.DenseNeuroVol) | Dense 3D neuroimaging volume. |
+| [SparseNeuroVol](SparseNeuroVol.qmd#neuroim.SparseNeuroVol) | Sparse 3D neuroimaging volume. |
+| [LogicalNeuroVol](LogicalNeuroVol.qmd#neuroim.LogicalNeuroVol) | Logical/binary 3D neuroimaging volume. |
+| [DenseNeuroVec](DenseNeuroVec.qmd#neuroim.DenseNeuroVec) | Dense 4D neuroimaging vector. |
+| [SparseNeuroVec](SparseNeuroVec.qmd#neuroim.SparseNeuroVec) | Sparse 4D neuroimaging vector. |
+| [DenseNeuroHyperVec](DenseNeuroHyperVec.qmd#neuroim.DenseNeuroHyperVec) | Dense 5D+ neuroimaging hypervector. |
+| [SparseNeuroHyperVec](SparseNeuroHyperVec.qmd#neuroim.SparseNeuroHyperVec) | Sparse 5D+ neuroimaging hypervector. |
+
+## Constructors and I/O
+
+Create neuroim objects and read or write common image formats.
+
+| | |
+| --- | --- |
+| [neurospace](neurospace.qmd#neuroim.neurospace) | Create a NeuroSpace object. |
+| [neurovol](neurovol.qmd#neuroim.neurovol) | Create a NeuroVol object. |
+| [neurovec](neurovec.qmd#neuroim.neurovec) | Factory function to create appropriate NeuroVec type. |
+| [read_vol](read_vol.qmd#neuroim.read_vol) | Read a 3D neuroimaging volume from file. |
+| [write_vol](write_vol.qmd#neuroim.write_vol) | Write a neuroimaging volume to file. |
+| [read_vec](read_vec.qmd#neuroim.read_vec) | Read a 4D neuroimaging vector from file. |
+| [write_vec](write_vec.qmd#neuroim.write_vec) | Write a neuroimaging vector to file. |
+
+## Spatial operations
+
+Filtering, resampling, orientation, ROIs, and connected components.
+
+| | |
+| --- | --- |
+| [gaussian_blur](gaussian_blur.qmd#neuroim.gaussian_blur) | Apply Gaussian blur to a volumetric image. |
+| [bilateral_filter](bilateral_filter.qmd#neuroim.bilateral_filter) | Apply bilateral filter to a volumetric image. |
+| [resample](resample.qmd#neuroim.resample) | Resampling and reorientation functions for neuroimaging data. |
+| [reorient](reorient.qmd#neuroim.reorient) | Remap the grid-to-world coordinates mapping of an image. |
+| [spherical_roi](spherical_roi.qmd#neuroim.spherical_roi) | Construct a spherical ROI from a brain volume. |
+| [cuboid_roi](cuboid_roi.qmd#neuroim.cuboid_roi) | Construct a cuboid (3D box) ROI from a brain volume. |
+| [searchlight.searchlight_iterator](searchlight.searchlight_iterator.qmd#neuroim.searchlight.searchlight_iterator) | Create an exhaustive searchlight iterator. |
+| [conn_comp](conn_comp.qmd#neuroim.conn_comp) | Find connected components in an image. |
+
+## Visualization
+
+Plotting helpers for volumes and overlays.
+
+| | |
+| --- | --- |
+| [plot_neuro_vol](plot_neuro_vol.qmd#neuroim.plot_neuro_vol) | Plot a NeuroVol as a series of 2D slices. |
+| [plot_ortho](plot_ortho.qmd#neuroim.plot_ortho) | Orthogonal 3-plane view (axial, sagittal, coronal). |
+| [plot_montage](plot_montage.qmd#neuroim.plot_montage) | Show multiple evenly-spaced slices along *axis* in a grid. |
+| [plot_overlay](plot_overlay.qmd#neuroim.plot_overlay) | Orthogonal view with a statistical overlay. |

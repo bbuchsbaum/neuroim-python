@@ -1,0 +1,65 @@
+---
+title: "Core objects"
+subtitle: "The small set of objects that most neuroim workflows build on."
+jupyter: python3
+sidebar: tutorials
+---
+
+## Spatial metadata
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import numpy as np
+import neuroim as ni
+
+space = ni.NeuroSpace((12, 14, 10), spacing=(2.0, 2.0, 2.5), origin=(-12, -14, -10))
+space.dim, space.spacing, space.origin
+```
+
+## Volumes
+
+```{python}
+x, y, z = np.indices(space.dim)
+data = x + 0.5 * y + 0.25 * z
+vol = ni.DenseNeuroVol(data.astype(float), space)
+
+vol.shape, float(vol.data.mean())
+```
+
+## Regions of interest
+
+```{python}
+center = np.array(space.dim) // 2
+roi = ni.spherical_roi(vol, centroid=center, radius=3)
+roi_values = vol[roi.coords[:, 0], roi.coords[:, 1], roi.coords[:, 2]]
+
+int(roi.coords.shape[0]), round(float(roi_values.mean()), 3)
+```
+
+## 4D vectors
+
+```{python}
+rng = np.random.default_rng(42)
+timepoints = 8
+series = np.stack(
+    [data + 0.1 * t + rng.normal(scale=0.02, size=space.dim) for t in range(timepoints)],
+    axis=3,
+)
+vec = ni.DenseNeuroVec(series, space.add_dim(size=timepoints))
+
+center_series = vec.series(np.array([center])).ravel()
+center_series[:4]
+```
+
+## File I/O
+
+The main I/O functions are `read_vol()`, `write_vol()`, `read_vec()`, and `write_vec()`. They preserve both array data and spatial metadata for supported formats.
+
+```python
+ni.write_vol(vol, "example.nii.gz")
+loaded = ni.read_vol("example.nii.gz")
+```

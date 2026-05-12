@@ -1,5 +1,5 @@
-# Minimal makefile for Sphinx documentation
-#
+# Documentation makefile. Quarto is the primary site; Sphinx targets remain
+# available for the legacy docs/source tree during migration.
 
 # You can set these variables from the command line, and also
 # from the environment for the first two.
@@ -7,8 +7,20 @@ SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = source
 BUILDDIR      = build
+QUARTO_PYTHON ?= $(shell command -v python)
+export QUARTO_PYTHON
 
-# Put it first so that "make" without argument is like "make help".
+.PHONY: help quarto quarto-preview html
+
+quarto:
+	quartodoc build && quarto render
+
+quarto-preview:
+	quartodoc build && quarto preview --no-browser
+
+html:
+	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 

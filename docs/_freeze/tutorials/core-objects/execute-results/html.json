@@ -1,0 +1,12 @@
+{
+  "hash": "a1cb08ea87c9155bae22e949b1af20f3",
+  "result": {
+    "engine": "jupyter",
+    "markdown": "---\ntitle: \"Core objects\"\nsubtitle: \"The small set of objects that most neuroim workflows build on.\"\njupyter: python3\nsidebar: tutorials\n---\n\n## Spatial metadata\n\n::: {#13103e07 .cell execution_count=1}\n``` {.python .cell-code}\nfrom pathlib import Path\nimport sys\n\nsys.path.insert(0, str(Path.cwd().parents[1] / \"src\"))\n\nimport numpy as np\nimport neuroim as ni\n\nspace = ni.NeuroSpace((12, 14, 10), spacing=(2.0, 2.0, 2.5), origin=(-12, -14, -10))\nspace.dim, space.spacing, space.origin\n```\n\n::: {.cell-output .cell-output-display execution_count=1}\n```\n(array([12, 14, 10]), array([2. , 2. , 2.5]), array([-12., -14., -10.]))\n```\n:::\n:::\n\n\n## Volumes\n\n::: {#400af4ae .cell execution_count=2}\n``` {.python .cell-code}\nx, y, z = np.indices(space.dim)\ndata = x + 0.5 * y + 0.25 * z\nvol = ni.DenseNeuroVol(data.astype(float), space)\n\nvol.shape, float(vol.data.mean())\n```\n\n::: {.cell-output .cell-output-display execution_count=2}\n```\n((12, 14, 10), 9.875)\n```\n:::\n:::\n\n\n## Regions of interest\n\n::: {#38e441c0 .cell execution_count=3}\n``` {.python .cell-code}\ncenter = np.array(space.dim) // 2\nroi = ni.spherical_roi(vol, centroid=center, radius=3)\nroi_values = vol[roi.coords[:, 0], roi.coords[:, 1], roi.coords[:, 2]]\n\nint(roi.coords.shape[0]), round(float(roi_values.mean()), 3)\n```\n\n::: {.cell-output .cell-output-display execution_count=3}\n```\n(11, 10.75)\n```\n:::\n:::\n\n\n## 4D vectors\n\n::: {#d54125cc .cell execution_count=4}\n``` {.python .cell-code}\nrng = np.random.default_rng(42)\ntimepoints = 8\nseries = np.stack(\n    [data + 0.1 * t + rng.normal(scale=0.02, size=space.dim) for t in range(timepoints)],\n    axis=3,\n)\nvec = ni.DenseNeuroVec(series, space.add_dim(size=timepoints))\n\ncenter_series = vec.series(np.array([center])).ravel()\ncenter_series[:4]\n```\n\n::: {.cell-output .cell-output-display execution_count=4}\n```\narray([10.77315016, 10.83354596, 10.94226207, 11.05259565])\n```\n:::\n:::\n\n\n## File I/O\n\nThe main I/O functions are `read_vol()`, `write_vol()`, `read_vec()`, and `write_vec()`. They preserve both array data and spatial metadata for supported formats.\n\n```python\nni.write_vol(vol, \"example.nii.gz\")\nloaded = ni.read_vol(\"example.nii.gz\")\n```\n\n",
+    "supporting": [
+      "core-objects_files"
+    ],
+    "filters": [],
+    "includes": {}
+  }
+}

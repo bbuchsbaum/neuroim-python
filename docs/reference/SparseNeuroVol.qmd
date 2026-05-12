@@ -1,0 +1,94 @@
+# SparseNeuroVol { #neuroim.SparseNeuroVol }
+
+```python
+SparseNeuroVol(data, space, indices=None, label='', mask=None)
+```
+
+Sparse 3D neuroimaging volume.
+
+Direct translation of R's SparseNeuroVol class.
+Uses scipy.sparse for efficient storage.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name    | Type                                           | Description                       | Default    |
+|---------|------------------------------------------------|-----------------------------------|------------|
+| data    | [array](`array`) - [like](`like`)              | Non-zero values                   | _required_ |
+| space   | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | Spatial metadata                  | _required_ |
+| indices | [array](`array`) - [like](`like`)              | Linear indices of non-zero values | `None`     |
+| label   | [str](`str`)                                   | Volume label                      | `''`       |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::SparseNeuroVol
+
+## Attributes
+
+| Name | Description |
+| --- | --- |
+| [data](#neuroim.SparseNeuroVol.data) | Get non-zero values. |
+| [indices](#neuroim.SparseNeuroVol.indices) | Get indices of non-zero values. |
+| [nnz](#neuroim.SparseNeuroVol.nnz) | Number of non-zero elements. |
+
+## Methods
+
+| Name | Description |
+| --- | --- |
+| [as_array](#neuroim.SparseNeuroVol.as_array) | Convert to numpy array. |
+| [as_dense](#neuroim.SparseNeuroVol.as_dense) | Convert to dense representation. |
+| [as_logical](#neuroim.SparseNeuroVol.as_logical) | Convert to logical representation. |
+| [as_numeric](#neuroim.SparseNeuroVol.as_numeric) | Get non-zero values only. |
+| [as_sparse](#neuroim.SparseNeuroVol.as_sparse) | Already sparse, optionally apply new mask. |
+| [values](#neuroim.SparseNeuroVol.values) | Get all values (including zeros). |
+
+### as_array { #neuroim.SparseNeuroVol.as_array }
+
+```python
+SparseNeuroVol.as_array()
+```
+
+Convert to numpy array.
+
+### as_dense { #neuroim.SparseNeuroVol.as_dense }
+
+```python
+SparseNeuroVol.as_dense()
+```
+
+Convert to dense representation.
+
+### as_logical { #neuroim.SparseNeuroVol.as_logical }
+
+```python
+SparseNeuroVol.as_logical()
+```
+
+Convert to logical representation.
+
+### as_numeric { #neuroim.SparseNeuroVol.as_numeric }
+
+```python
+SparseNeuroVol.as_numeric()
+```
+
+Get non-zero values only.
+
+#### R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::as.numeric
+
+### as_sparse { #neuroim.SparseNeuroVol.as_sparse }
+
+```python
+SparseNeuroVol.as_sparse(mask=None)
+```
+
+Already sparse, optionally apply new mask.
+
+### values { #neuroim.SparseNeuroVol.values }
+
+```python
+SparseNeuroVol.values()
+```
+
+Get all values (including zeros).

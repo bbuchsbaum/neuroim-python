@@ -1,0 +1,29 @@
+# neurovol { #neuroim.neurovol }
+
+```python
+neurovol(data, space, label='', indices=None)
+```
+
+Create a NeuroVol object.
+
+Factory function that creates the appropriate NeuroVol subclass
+based on the input data.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name    | Type                                           | Description                                        | Default    |
+|---------|------------------------------------------------|----------------------------------------------------|------------|
+| data    | [array](`array`) - [like](`like`)              | Volume data                                        | _required_ |
+| space   | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | Spatial metadata                                   | _required_ |
+| label   | [str](`str`)                                   | Volume label                                       | `''`       |
+| indices | [array](`array`) - [like](`like`)              | For sparse volumes, the indices of non-zero values | `None`     |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                     | Description                                       |
+|--------|------------------------------------------|---------------------------------------------------|
+|        | [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | DenseNeuroVol, SparseNeuroVol, or LogicalNeuroVol |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::NeuroVol

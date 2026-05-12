@@ -1,0 +1,66 @@
+# SparseNeuroHyperVec { #neuroim.SparseNeuroHyperVec }
+
+```python
+SparseNeuroHyperVec(data, mask, space, label='')
+```
+
+Sparse 5D+ neuroimaging hypervector.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name   | Type                                                   | Description                                                       | Default    |
+|--------|--------------------------------------------------------|-------------------------------------------------------------------|------------|
+| data   | [np](`numpy`).[ndarray](`numpy.ndarray`)               | Sparse data array with shape (n_features, n_timepoints, n_voxels) | _required_ |
+| mask   | [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | 3D mask indicating which voxels contain data                      | _required_ |
+| space  | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`)         | 5D+ spatial metadata                                              | _required_ |
+| label  | [str](`str`)                                           | Label for the hypervector                                         | `''`       |
+
+## Methods
+
+| Name | Description |
+| --- | --- |
+| [apply_feature_func](#neuroim.SparseNeuroHyperVec.apply_feature_func) | Apply function across features at each voxel/time. |
+| [as_dense](#neuroim.SparseNeuroHyperVec.as_dense) | Convert to dense representation. |
+| [mean_features](#neuroim.SparseNeuroHyperVec.mean_features) | Average across feature dimension. |
+| [select_features](#neuroim.SparseNeuroHyperVec.select_features) | Select subset of features. |
+| [series](#neuroim.SparseNeuroHyperVec.series) | Extract time series for given coordinates. |
+
+### apply_feature_func { #neuroim.SparseNeuroHyperVec.apply_feature_func }
+
+```python
+SparseNeuroHyperVec.apply_feature_func(func)
+```
+
+Apply function across features at each voxel/time.
+
+### as_dense { #neuroim.SparseNeuroHyperVec.as_dense }
+
+```python
+SparseNeuroHyperVec.as_dense()
+```
+
+Convert to dense representation.
+
+### mean_features { #neuroim.SparseNeuroHyperVec.mean_features }
+
+```python
+SparseNeuroHyperVec.mean_features()
+```
+
+Average across feature dimension.
+
+### select_features { #neuroim.SparseNeuroHyperVec.select_features }
+
+```python
+SparseNeuroHyperVec.select_features(indices)
+```
+
+Select subset of features.
+
+### series { #neuroim.SparseNeuroHyperVec.series }
+
+```python
+SparseNeuroHyperVec.series(coords, feature=None)
+```
+
+Extract time series for given coordinates.

@@ -1,0 +1,31 @@
+# bilateral_filter { #neuroim.bilateral_filter }
+
+```python
+bilateral_filter(vol, mask=None, spatial_sigma=2, intensity_sigma=1, window=1)
+```
+
+Apply bilateral filter to a volumetric image.
+
+This function smooths a volumetric image using a bilateral filter.
+The bilateral filter considers both spatial closeness and intensity
+similarity for smoothing.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name            | Type                                                   | Description                                                                                                               | Default    |
+|-----------------|--------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|------------|
+| vol             | [NeuroVol](`neuroim.neuro_vol.NeuroVol`)               | The image volume to be smoothed                                                                                           | _required_ |
+| mask            | [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | Image mask defining the region where filtering is applied. If not provided, the entire volume is considered.              | `None`     |
+| spatial_sigma   | [float](`float`)                                       | Standard deviation of the spatial Gaussian kernel (default is 2)                                                          | `2`        |
+| intensity_sigma | [float](`float`)                                       | Standard deviation of the intensity Gaussian kernel (default is 1)                                                        | `1`        |
+| window          | [int](`int`)                                           | Number of voxels around the center voxel to include on each side. For example, window=1 for a 3x3x3 kernel (default is 1) | `1`        |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                               | Description        |
+|--------|----------------------------------------------------|--------------------|
+|        | [DenseNeuroVol](`neuroim.neuro_vol.DenseNeuroVol`) | The smoothed image |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::bilateral_filter

@@ -45,6 +45,10 @@ dev = [
     "mypy>=0.900",
 ]
 docs = [
+    "quartodoc>=0.7",
+    "jupyter",
+    "nbclient",
+    "nbformat>=5.7.0",
     "sphinx>=7.0",
     "pydata-sphinx-theme>=0.15",
     "numpydoc>=1.6",

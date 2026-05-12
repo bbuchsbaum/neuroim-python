@@ -1,0 +1,34 @@
+# reorient { #neuroim.reorient }
+
+```python
+reorient(x, orient)
+```
+
+Remap the grid-to-world coordinates mapping of an image.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name   | Type                                                                                       | Description                                                                                                                                                                                                                                                            | Default    |
+|--------|--------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------|
+| x      | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) or [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | The object to reorient                                                                                                                                                                                                                                                 | _required_ |
+| orient | str or list of str                                                                         | The orientation code indicating the remapped axes. Can be a 3-letter string like "RAS" or list like ["R", "A", "S"] Each position represents: - First: "R" (Right) or "L" (Left) - Second: "A" (Anterior) or "P" (Posterior) - Third: "S" (Superior) or "I" (Inferior) | _required_ |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                                                                       | Description               |
+|--------|--------------------------------------------------------------------------------------------|---------------------------|
+|        | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) or [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | A reoriented version of x |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::reorient
+
+## Examples {.doc-section .doc-section-examples}
+
+```python
+>>> # Reorient a space to RAS
+>>> space_ras = reorient(space, "RAS")
+>>>
+>>> # Or using a list
+>>> space_ras = reorient(space, ["R", "A", "S"])
+```

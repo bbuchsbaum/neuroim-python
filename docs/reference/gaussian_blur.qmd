@@ -1,0 +1,30 @@
+# gaussian_blur { #neuroim.gaussian_blur }
+
+```python
+gaussian_blur(vol, mask=None, sigma=2, window=1)
+```
+
+Apply Gaussian blur to a volumetric image.
+
+This function applies an isotropic discrete Gaussian kernel to smooth
+a volumetric image (3D brain MRI data). The blurring is performed within
+a specified image mask, with customizable kernel parameters.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name   | Type                                                   | Description                                                                                                                  | Default    |
+|--------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|------------|
+| vol    | [NeuroVol](`neuroim.neuro_vol.NeuroVol`)               | The image volume to be smoothed                                                                                              | _required_ |
+| mask   | [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | Image mask defining the region where blurring is applied. If not provided, the entire volume is processed.                   | `None`     |
+| sigma  | [float](`float`)                                       | Standard deviation of the Gaussian kernel (default is 2)                                                                     | `2`        |
+| window | [int](`int`)                                           | Number of voxels to include on each side of the center voxel. For example, window=1 results in a 3x3x3 kernel (default is 1) | `1`        |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                                               | Description        |
+|--------|----------------------------------------------------|--------------------|
+|        | [DenseNeuroVol](`neuroim.neuro_vol.DenseNeuroVol`) | The smoothed image |
+
+## R Equivalent {.doc-section .doc-section-r-equivalent}
+
+neuroim2::gaussian_blur

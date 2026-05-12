@@ -1,0 +1,37 @@
+# plot_overlay { #neuroim.plot_overlay }
+
+```python
+plot_overlay(
+    base_vol,
+    overlay_vol,
+    alpha=0.5,
+    base_cmap='gray',
+    overlay_cmap='hot',
+    threshold=None,
+    coords=None,
+    figsize=(12, 4),
+    axes=None,
+)
+```
+
+Orthogonal view with a statistical overlay.
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name         | Type                                     | Description                                                          | Default    |
+|--------------|------------------------------------------|----------------------------------------------------------------------|------------|
+| base_vol     | [np](`numpy`).[ndarray](`numpy.ndarray`) | 3-D base and overlay volumes (same shape).                           | _required_ |
+| overlay_vol  | [np](`numpy`).[ndarray](`numpy.ndarray`) | 3-D base and overlay volumes (same shape).                           | _required_ |
+| alpha        | [float](`float`)                         | Overlay transparency.                                                | `0.5`      |
+| base_cmap    | [str](`str`)                             | Colormaps for base and overlay.                                      | `'gray'`   |
+| overlay_cmap | [str](`str`)                             | Colormaps for base and overlay.                                      | `'gray'`   |
+| threshold    | [float](`float`)                         | If given, overlay voxels with ``abs(value) < threshold`` are hidden. | `None`     |
+| coords       | tuple of int                             | ``(x, y, z)`` crosshair.  Defaults to volume centre.                 | `None`     |
+| figsize      | [tuple](`tuple`)                         | Figure size.                                                         | `(12, 4)`  |
+| axes         | array-like of Axes                       | Three pre-existing axes.                                             | `None`     |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                | Description   |
+|--------|---------------------|---------------|
+|        | (fig, axes) : tuple |               |

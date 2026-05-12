@@ -1,0 +1,31 @@
+# plot_ortho { #neuroim.plot_ortho }
+
+```python
+plot_ortho(
+    vol,
+    coords=None,
+    title=None,
+    cmap='gray',
+    figsize=(12, 4),
+    axes=None,
+)
+```
+
+Orthogonal 3-plane view (axial, sagittal, coronal).
+
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name    | Type                                     | Description                                                                              | Default    |
+|---------|------------------------------------------|------------------------------------------------------------------------------------------|------------|
+| vol     | [np](`numpy`).[ndarray](`numpy.ndarray`) | 3-D volume array.                                                                        | _required_ |
+| coords  | tuple of int                             | ``(x, y, z)`` voxel coordinates for the crosshair.  If *None* the volume centre is used. | `None`     |
+| title   | [str](`str`)                             | Super-title for the figure.                                                              | `None`     |
+| cmap    | [str](`str`)                             | Colormap name.                                                                           | `'gray'`   |
+| figsize | [tuple](`tuple`)                         | Figure size in inches.                                                                   | `(12, 4)`  |
+| axes    | array-like of Axes                       | Three pre-existing axes to draw into.  When provided *figsize* is ignored.               | `None`     |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name   | Type                | Description                                  |
+|--------|---------------------|----------------------------------------------|
+|        | (fig, axes) : tuple | Matplotlib Figure and ndarray of three Axes. |
