@@ -309,6 +309,78 @@ class ROIExtractionResult:
             return None
         return int(self.values.shape[0])
 
+    def map_to_volume(
+        self, *, dtype: Any = np.float64, fill: float = 0.0
+    ) -> "NeuroVol":
+        """Project this ROI extraction back into a spatially-shaped container.
+
+        - 1-D ``values`` (e.g. from :func:`~neuroim.roi.values_roi`) produces
+          a 3-D :class:`~neuroim.neuro_vol.DenseNeuroVol` with one scalar
+          per ROI voxel; voxels outside the ROI are ``fill``.
+        - 2-D ``values`` shaped ``(n_timepoints, n_voxels)`` (e.g. from
+          :func:`~neuroim.NeuroVec.series_roi`) produces a 4-D
+          :class:`~neuroim.neuro_vec.DenseNeuroVec` whose time axis matches
+          ``values.shape[0]``.
+
+        The returned container carries this result's :class:`Receipt` as
+        ``.provenance``, so a downstream
+        :meth:`~neuroim.neuro_vol.NeuroVol.to_nibabel` /
+        :meth:`~neuroim.neuro_vec.NeuroVec.to_nibabel` call embeds the
+        Receipt in the NIfTI header (see PAIN-6 / Scenario 05 spec).
+        """
+        from .neuro_space import NeuroSpace
+        from .neuro_vec import DenseNeuroVec
+        from .neuro_vol import DenseNeuroVol
+
+        coords = np.ascontiguousarray(self.coords, dtype=int)
+        values = np.asarray(self.values)
+
+        spatial_dim = tuple(int(d) for d in self.space.dim[:3])
+        if values.ndim == 1:
+            out = np.full(spatial_dim, fill, dtype=dtype)
+            if values.size:
+                out[coords[:, 0], coords[:, 1], coords[:, 2]] = values
+            spatial_space = (
+                self.space
+                if self.space.ndim == 3
+                else NeuroSpace.from_affine(self.space.affine, spatial_dim)
+            )
+            container = DenseNeuroVol(out, spatial_space)
+        elif values.ndim == 2:
+            nt = int(values.shape[0])
+            out = np.full(spatial_dim + (nt,), fill, dtype=dtype)
+            if values.size:
+                # values is (nt, n_voxels) — scatter each row into out[..., t]
+                out[coords[:, 0], coords[:, 1], coords[:, 2], :] = values.T
+            shape4 = spatial_dim + (nt,)
+            if self.space.ndim == 4:
+                vec_space = NeuroSpace.from_affine(self.space.affine, shape4)
+            elif self.space.ndim == 3:
+                vec_space = NeuroSpace.from_affine(self.space.affine, shape4)
+            else:
+                raise ValueError(
+                    f"map_to_volume cannot project 2-D values from a "
+                    f"{self.space.ndim}-D space"
+                )
+            container = DenseNeuroVec(out, vec_space)
+        else:
+            raise ValueError(
+                f"ROIExtractionResult.map_to_volume expects values.ndim in (1, 2); "
+                f"got {values.ndim}"
+            )
+
+        container.provenance = self.provenance
+        return container
+
+    def to_nibabel(self, *, cls: Any = None) -> Any:
+        """Convert this ROI extraction to a nibabel image via :meth:`map_to_volume`.
+
+        The Receipt rides along as a NIfTI 'comment' header extension; a
+        ``neuroim.read_image`` of the resulting file re-hydrates
+        ``.provenance``.  See ``docs/spec/receipt-nifti-extension.md``.
+        """
+        return self.map_to_volume().to_nibabel(cls=cls)
+
     def require_compatible(self, other: Any) -> None:
         """Assert that ``other`` shares this result's space (and mask, when
         applicable).  Raises ``ValueError`` with a structured Receipt diff on

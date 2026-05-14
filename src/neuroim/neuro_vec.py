@@ -397,6 +397,20 @@ class NeuroVec(ABC):
             seed=None,
             source_affine=self.space.trans,
         )
+
+        # Provenance threading (ME-9): if self carries a Receipt
+        # (e.g. from a prior concat / from_nibabel), compose it into the
+        # ROI extraction's output Receipt so the full pipeline is
+        # reconstructible.  Receipt.merge raises on input_space_hash
+        # disagreement — that's the upstream-tamper / silent-mismatch
+        # catch the mission claim depends on.
+        upstream = getattr(self, "provenance", None)
+        if upstream is not None:
+            receipt = upstream.merge(
+                receipt,
+                method_name=f"{upstream.method_name}+{_method_name}",
+            )
+
         return ROIExtractionResult(
             values=np.ascontiguousarray(values),
             coords=coords,
