@@ -20,5 +20,13 @@ _spec.loader.exec_module(_module)
 RealisticBOLD = _module.RealisticBOLD
 make_realistic_bold = _module.make_realistic_bold
 to_nibabel = _module.to_nibabel
+make_atlas = _module.make_atlas
+make_rotated_atlas = _module.make_rotated_atlas
 
-__all__ = ["RealisticBOLD", "make_realistic_bold", "to_nibabel"]
+__all__ = [
+    "RealisticBOLD",
+    "make_realistic_bold",
+    "to_nibabel",
+    "make_atlas",
+    "make_rotated_atlas",
+]
