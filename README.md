@@ -6,6 +6,7 @@ A modern Python library for neuroimaging data analysis, providing efficient data
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://img.shields.io/badge/tests-1220%20passing-green)](tests/)
 [![Coverage](https://img.shields.io/badge/coverage-85%25-yellowgreen)](tests/)
+[![Scenario evidence](https://img.shields.io/badge/scenario%20evidence-make%20verify--evidence-green)](docs/scenarios.md)
 
 ## Features
 

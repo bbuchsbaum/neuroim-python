@@ -360,6 +360,7 @@ class NeuroVec(ABC):
         import warnings as _warnings
         from .roi import ROIVol, ROICoords
         from .results import ROIExtractionResult, make_receipt
+        from .verify import assert_same_space
 
         if return_legacy:
             _warnings.warn(
@@ -378,6 +379,8 @@ class NeuroVec(ABC):
             coords = roi.coords
         else:
             raise TypeError(f"roi must be ROIVol or ROICoords, got {type(roi)}")
+
+        assert_same_space(self.space, roi.space)
 
         # Use the series method with coordinate matrix
         values = self.series_at_coords(coords, out_of_bounds="zero")
@@ -401,6 +404,53 @@ class NeuroVec(ABC):
             mask_hash=receipt.mask_hash,
             provenance=receipt,
         )
+
+    def temporal_snr(self, *, mask=None):
+        """Compute a masked 3-D temporal SNR map with provenance.
+
+        The result is a :class:`~neuroim.neuro_vol.DenseNeuroVol` on this
+        vector's spatial frame.  If ``mask`` is supplied, its space must be
+        compatible with the vector's spatial space; voxels outside the mask
+        and zero-variance voxels are set to zero.
+        """
+        from .neuro_vol import DenseNeuroVol
+        from .results import make_receipt
+        from . import verify as _verify
+
+        mask_data = None
+        if mask is not None:
+            _verify.assert_same_space(self, mask)
+            mask_data = np.asarray(mask.data, dtype=bool)
+
+        data = np.asarray(self.to_dense().data, dtype=np.float64)
+        if data.ndim != 4:
+            raise ValueError(f"expected 4D BOLD, got {data.ndim}D")
+
+        spatial_shape = data.shape[:3]
+        if mask_data is None:
+            mask_data = np.ones(spatial_shape, dtype=bool)
+        elif mask_data.shape != spatial_shape:
+            raise ValueError(
+                f"mask shape {mask_data.shape} does not match BOLD spatial shape {spatial_shape}"
+            )
+
+        mean = data.mean(axis=3)
+        std = data.std(axis=3)
+        tsnr = np.zeros(spatial_shape, dtype=np.float64)
+        valid = mask_data & (std > 0)
+        tsnr[valid] = mean[valid] / std[valid]
+
+        spatial = self.spatial_space
+        receipt = make_receipt(
+            input_space=spatial,
+            mask_data=mask_data,
+            n_voxels=int(np.count_nonzero(mask_data)),
+            method_name="temporal_snr",
+            radius=None,
+            seed=None,
+            source_affine=spatial.trans,
+        )
+        return DenseNeuroVol(tsnr, spatial, label="temporal_snr", provenance=receipt)
 
     @abstractmethod
     def as_sparse(self, mask=None) -> "SparseNeuroVec":
