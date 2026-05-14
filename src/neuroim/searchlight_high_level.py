@@ -83,12 +83,26 @@ def searchlight(mask: MaskLike,
     _warn_legacy_return(return_legacy)
 
     # Use mask as data if not provided
+    data_supplied = data is not None
     if data is None:
         data = mask
-        
+
     # Convert to LogicalNeuroVol if needed
     if not isinstance(mask, LogicalNeuroVol):
         mask = mask.as_logical()
+
+    # PAIN-10: validate that the supplied data carrier and the mask live in
+    # the same spatial frame *before* sampling neighborhoods.  Without this
+    # check, searchlight_apply silently scatters data bytes through a
+    # mask that points at a different space - the same shape of bug as
+    # PAIN-5 (series_roi) at a different surface.  ``assert_same_space``
+    # routes through ``NeuroSpace.compatible_with`` and uses spatial-only
+    # semantics, so a 4-D BOLD's spatial space is correctly compared
+    # against a 3-D mask in the same world frame.
+    if data_supplied:
+        from .verify import assert_same_space
+
+        assert_same_space(data, mask)
     
     # Create result volume with same space as mask
     result_data = np.full(mask.data.shape, np.nan, dtype=np.float64)

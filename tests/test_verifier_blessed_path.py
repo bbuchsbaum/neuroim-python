@@ -109,19 +109,13 @@ VERIFIER_MANIFEST: dict[str, dict[str, Any]] = {
             "PAIN-5; tracked here until a fix lands."
         ),
     },
-    # High-level searchlight: mask + data inputs but no verifier call today.
+    # Low-level searchlight iterator has only a mask; no separate data
+    # carrier exists to compare.
     "neuroim.searchlight": {
-        "status": "gap",
-        "reason": (
-            "Top-level searchlight(mask, data=...) does not invoke "
-            "verify.assert_same_space; mismatched spaces produce silently "
-            "wrong indexing."
-        ),
+        "status": "exempt",
+        "reason": "low-level iterator over one mask; searchlight_apply owns data/mask gating.",
     },
-    "neuroim.searchlight_apply": {
-        "status": "gap",
-        "reason": "downstream of searchlight; same gap.",
-    },
+    "neuroim.searchlight_apply": {"status": "verified"},
 }
 
 
@@ -312,6 +306,14 @@ def _invocation_for(qualified_name: str, vec, vol, mask, roi) -> Optional[Callab
     if qualified_name == "neuroim.SparseNeuroVol.as_sparse":
         sparse_vol = vol.as_sparse()
         return lambda: sparse_vol.as_sparse(mask)
+    if qualified_name == "neuroim.searchlight_apply":
+        return lambda: ni.searchlight_apply(
+            mask,
+            radius=1.0,
+            method=lambda x: float(np.mean(x)),
+            data=vec,
+            eager=True,
+        )
     if qualified_name == "neuroim.values_roi":
         return lambda: ni.values_roi(vol, roi)
     if qualified_name == "neuroim.series_roi":
