@@ -96,10 +96,7 @@ VERIFIER_MANIFEST: dict[str, dict[str, Any]] = {
         "status": "gap",
         "reason": "see neuroim.DenseNeuroVec.as_sparse",
     },
-    "neuroim.MappedNeuroVec.as_sparse": {
-        "status": "gap",
-        "reason": "see neuroim.DenseNeuroVec.as_sparse",
-    },
+    "neuroim.MappedNeuroVec.as_sparse": {"status": "verified"},
     "neuroim.DenseNeuroVol.as_sparse": {"status": "verified"},
     "neuroim.SparseNeuroVol.as_sparse": {"status": "verified"},
     # NeuroHyperVec factory: takes data + optional mask; a foreign-affine
@@ -307,6 +304,9 @@ def _invocation_for(qualified_name: str, vec, vol, mask, roi) -> Optional[Callab
     if qualified_name == "neuroim.SparseNeuroVec.as_sparse":
         sparse = vec.to_sparse(mask.data)
         return lambda: sparse.as_sparse(mask)
+    if qualified_name == "neuroim.MappedNeuroVec.as_sparse":
+        mapped = ni.MappedNeuroVec(vec, lambda x: x)
+        return lambda: mapped.as_sparse(mask)
     if qualified_name == "neuroim.DenseNeuroVol.as_sparse":
         return lambda: vol.as_sparse(mask)
     if qualified_name == "neuroim.SparseNeuroVol.as_sparse":

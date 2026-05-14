@@ -131,7 +131,6 @@ class MappedNeuroVec(NeuroVec):
         return SparseNeuroVec(
             data=mapped_data,
             space=source_sparse.space,
-            indices=source_sparse.indices,
             mask=source_sparse.mask,
         )
 
