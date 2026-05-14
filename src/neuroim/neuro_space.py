@@ -132,8 +132,8 @@ class NeuroSpace:
                         f"trans must be {ndim+1}x{ndim+1} matrix for {ndim}D space, got {self.trans.shape}"
                     )
 
-            # Extract spacing and origin from transformation matrix if not provided explicitly
-            # Note: This matches R's behavior where trans takes precedence
+            # Extract spacing and origin from the affine when not provided explicitly;
+            # when trans is supplied, it takes precedence over the scalar inputs.
             if trans is not None and not _spacing_provided:
                 object.__setattr__(
                     self,
@@ -442,6 +442,16 @@ class NeuroSpace:
         center_grid = (self.dim - 1) / 2.0
         return self.grid_to_coord(center_grid.reshape(1, -1))[0]
 
+    def _spatial_affine(self) -> np.ndarray:
+        """Return the 4x4 spatial sub-affine of an N-D ``trans`` matrix.
+
+        Used to honor 3-D spatial queries on 4-D and 5-D NeuroSpaces
+        (e.g. world-mm seeding into a 4-D BOLD).  Assumes the time / extra
+        axes are separable from the spatial 3x3 block — the standard case
+        for neuroimaging.
+        """
+        return self.trans[np.ix_([0, 1, 2, -1], [0, 1, 2, -1])]
+
     # Coordinate transformation methods
     def coord_to_grid(self, coords: np.ndarray) -> np.ndarray:
         """Convert real-world coordinates to grid indices.
@@ -449,34 +459,37 @@ class NeuroSpace:
         Parameters
         ----------
         coords : ndarray
-            Real-world coordinates, shape (n, ndim) or (ndim,)
+            Real-world coordinates, shape ``(n, ndim)`` or ``(ndim,)``.
+            On a 4-D or 5-D space, ``(n, 3)`` is also accepted and
+            interpreted as a spatial-only query that returns 3-D grid
+            indices.
 
         Returns
         -------
         ndarray
-            Grid indices (0-based), same shape as input
-
-        Notes
-        -----
-        Unlike R which uses 1-based indexing, Python uses 0-based indexing."""
+            Grid indices (0-based), matching the trailing input dim.
+        """
         coords = np.atleast_2d(coords)
-        if coords.shape[1] != self.ndim:
+        spatial_query = self.ndim > 3 and coords.shape[1] == 3
+        if not spatial_query and coords.shape[1] != self.ndim:
             raise ValueError(
-                f"Coordinates must have {self.ndim} dimensions, got {coords.shape[1]}"
+                f"Coordinates must have {self.ndim} dimensions "
+                f"(or 3 for spatial-only on a {self.ndim}-D space), "
+                f"got {coords.shape[1]}"
             )
 
+        if spatial_query:
+            spatial = self._spatial_affine()
+            homogeneous = np.column_stack([coords, np.ones(len(coords))])
+            transformed = homogeneous @ np.linalg.inv(spatial).T
+            return transformed[:, :3]
+
         if self.ndim <= 3:
-            # Apply inverse transformation
             homogeneous = np.column_stack([coords, np.ones(len(coords))])
             transformed = homogeneous @ self.inverse.T
-            grid_coords = transformed[:, : self.ndim]
-        else:
-            # For 4D+ spaces, use simple scaling
-            grid_coords = (coords - self.origin) / self.spacing
+            return transformed[:, : self.ndim]
 
-        # Return continuous grid coordinates (not rounded)
-        # This allows accurate round-trip transformations
-        return grid_coords
+        return (coords - self.origin) / self.spacing
 
     def grid_to_coord(self, grid: np.ndarray) -> np.ndarray:
         """Convert grid indices to real-world coordinates.
@@ -484,26 +497,36 @@ class NeuroSpace:
         Parameters
         ----------
         grid : ndarray
-            Grid indices (0-based), shape (n, ndim) or (ndim,)
+            Grid indices (0-based), shape ``(n, ndim)`` or ``(ndim,)``.
+            On a 4-D or 5-D space, ``(n, 3)`` is also accepted and
+            interpreted as a spatial-only query that returns 3-D world
+            coordinates.
 
         Returns
         -------
         ndarray
-            Real-world coordinates, same shape as input"""
+            Real-world coordinates, matching the trailing input dim.
+        """
         grid = np.atleast_2d(grid)
-        if grid.shape[1] != self.ndim:
+        spatial_query = self.ndim > 3 and grid.shape[1] == 3
+        if not spatial_query and grid.shape[1] != self.ndim:
             raise ValueError(
-                f"Grid indices must have {self.ndim} dimensions, got {grid.shape[1]}"
+                f"Grid indices must have {self.ndim} dimensions "
+                f"(or 3 for spatial-only on a {self.ndim}-D space), "
+                f"got {grid.shape[1]}"
             )
 
+        if spatial_query:
+            spatial = self._spatial_affine()
+            homogeneous = np.column_stack([grid, np.ones(len(grid))])
+            return (homogeneous @ spatial.T)[:, :3]
+
         if self.ndim <= 3:
-            # Apply transformation
             homogeneous = np.column_stack([grid, np.ones(len(grid))])
             transformed = homogeneous @ self.trans.T
             return transformed[:, : self.ndim]
-        else:
-            # For 4D+ spaces, use simple scaling
-            return grid * self.spacing + self.origin
+
+        return grid * self.spacing + self.origin
 
     def grid_to_world(self, coords: VoxelCoord) -> WorldCoord:
         """Convert voxel-grid coordinates to world coordinates.
