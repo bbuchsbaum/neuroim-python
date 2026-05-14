@@ -618,6 +618,9 @@ def NeuroHyperVec(data: Union[np.ndarray, str], space: NeuroSpace,
     data = np.asarray(data)
 
     if mask is not None:
+        from .verify import assert_same_space
+
+        assert_same_space(space, mask)
         # Sparse representation
         return SparseNeuroHyperVec(data, mask, space, label)
     else:

@@ -89,26 +89,24 @@ VERIFIER_MANIFEST: dict[str, dict[str, Any]] = {
     "neuroim.DenseNeuroVec.as_sparse": {"status": "verified"},
     "neuroim.SparseNeuroVec.as_sparse": {"status": "verified"},
     "neuroim.BigNeuroVec.as_sparse": {
-        "status": "gap",
-        "reason": "see neuroim.DenseNeuroVec.as_sparse",
+        "status": "exempt",
+        "reason": (
+            "mask is typed as an ndarray selector, not a LogicalNeuroVol "
+            "spatial contract; no affine-bearing foreign mask is accepted."
+        ),
     },
     "neuroim.FileBackedNeuroVec.as_sparse": {
-        "status": "gap",
-        "reason": "see neuroim.DenseNeuroVec.as_sparse",
+        "status": "exempt",
+        "reason": (
+            "mask is typed as an ndarray selector, not a LogicalNeuroVol "
+            "spatial contract; FileBackedNeuroVec constructs its own mask "
+            "volume on self.vol_space."
+        ),
     },
     "neuroim.MappedNeuroVec.as_sparse": {"status": "verified"},
     "neuroim.DenseNeuroVol.as_sparse": {"status": "verified"},
     "neuroim.SparseNeuroVol.as_sparse": {"status": "verified"},
-    # NeuroHyperVec factory: takes data + optional mask; a foreign-affine
-    # mask would propagate into the resulting hypervec without a check.
-    "neuroim.NeuroHyperVec": {
-        "status": "gap",
-        "reason": (
-            "Constructor accepts data + optional LogicalNeuroVol mask but "
-            "does not invoke verify.assert_same_space.  Same bug class as "
-            "PAIN-5; tracked here until a fix lands."
-        ),
-    },
+    "neuroim.NeuroHyperVec": {"status": "verified"},
     # Low-level searchlight iterator has only a mask; no separate data
     # carrier exists to compare.
     "neuroim.searchlight": {
@@ -314,6 +312,10 @@ def _invocation_for(qualified_name: str, vec, vol, mask, roi) -> Optional[Callab
             data=vec,
             eager=True,
         )
+    if qualified_name == "neuroim.NeuroHyperVec":
+        hyper_space = ni.NeuroSpace(dim=[8, 8, 4, 3, 2])
+        data = np.zeros((2, 3, int(mask.sum)), dtype=np.float32)
+        return lambda: ni.NeuroHyperVec(data, hyper_space, mask=mask)
     if qualified_name == "neuroim.values_roi":
         return lambda: ni.values_roi(vol, roi)
     if qualified_name == "neuroim.series_roi":
