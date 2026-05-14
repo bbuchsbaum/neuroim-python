@@ -32,6 +32,14 @@ __all__ = [
     "SearchlightResult",
     "hash_ndarray",
     "hash_neurospace",
+    "make_receipt",
+    "receipt_for",
+    "OpParams",
+    "RoiOpParams",
+    "SearchlightParams",
+    "TemporalReductionParams",
+    "ConcatParams",
+    "ResampleParams",
     "RECEIPT_NIFTI_PREFIX",
 ]
 
@@ -387,6 +395,125 @@ class ROIExtractionResult:
         mismatch.  ``other`` may be a result object, a ``NeuroSpace``, or a
         ``Receipt``."""
         _require_compatible(self.provenance, other, self_label="ROIExtractionResult")
+
+
+@dataclass(frozen=True)
+class OpParams:
+    """Structural per-operation parameters used when constructing a Receipt.
+
+    Subclass per operation family so call sites cannot silently omit fields
+    that an op should always record.  Use :func:`receipt_for` rather than
+    hand-listing kwargs into :func:`make_receipt` — it is the single
+    structural path the structural-provenance contract relies on.
+    """
+
+    method_name: str
+    radius: Optional[float] = None
+    seed: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class RoiOpParams(OpParams):
+    """Op-params for ROI extraction (``series_roi``, ``values_roi``,
+    ``series_roi_world``)."""
+
+
+@dataclass(frozen=True)
+class SearchlightParams(OpParams):
+    """Op-params for searchlight analyses; ``radius`` is required."""
+
+    def __post_init__(self) -> None:
+        if self.radius is None:
+            raise ValueError("SearchlightParams requires a numeric radius")
+
+
+@dataclass(frozen=True)
+class TemporalReductionParams(OpParams):
+    """Op-params for temporal reductions (``temporal_snr``, future
+    generic reducers)."""
+
+
+@dataclass(frozen=True)
+class ConcatParams(OpParams):
+    """Op-params for time-axis concat across inputs."""
+
+
+@dataclass(frozen=True)
+class ResampleParams(OpParams):
+    """Op-params for spatial resampling between two NeuroSpaces.
+
+    ``interpolation`` is the numeric order passed to the underlying
+    resampler (0=nearest, 1=linear, 3=cubic).  Records the policy on
+    the Receipt so a downstream consumer can tell *how* the data
+    arrived in the target space.
+    """
+
+    interpolation: int = 1
+
+
+def receipt_for(
+    carrier: Any,
+    *,
+    mask: Any = None,
+    n_voxels: int,
+    params: OpParams,
+    upstream: Any = None,
+) -> Receipt:
+    """Structural Receipt factory — call this from every result-producing op.
+
+    ``carrier`` is the input data (a :class:`~neuroim.NeuroVec`, :class:`
+    ~neuroim.NeuroVol`, or :class:`~neuroim.NeuroSpace`).  Its ``space``
+    becomes the ``input_space`` and its ``trans`` becomes the
+    ``source_affine``, so call sites stop hand-deriving those two.
+
+    ``params`` is a typed :class:`OpParams` subclass naming the op and its
+    parameters.  ``mask`` is the per-call mask payload (ndarray, mask vol,
+    or ``None``).  ``n_voxels`` is the count the op produced/consumed.
+
+    Existing :func:`make_receipt` remains as a thin shim for ad-hoc
+    receipt construction; new internal call sites should use
+    :func:`receipt_for` and an :class:`OpParams` subclass instead.
+    """
+    space = _carrier_space(carrier)
+    source_affine = getattr(space, "trans", None) if space is not None else None
+    receipt = make_receipt(
+        input_space=space,
+        mask_data=mask,
+        n_voxels=int(n_voxels),
+        method_name=params.method_name,
+        radius=params.radius,
+        seed=params.seed,
+        source_affine=source_affine,
+    )
+
+    # Structural chain: when ``upstream`` carries a Receipt, merge it into
+    # the new receipt so a multi-op pipeline (e.g. resample -> temporal_snr)
+    # records every stage in ``method_name``.  Accepts a Receipt directly or
+    # any object exposing ``.provenance``.
+    upstream_receipt = None
+    if isinstance(upstream, Receipt):
+        upstream_receipt = upstream
+    elif upstream is not None:
+        upstream_receipt = getattr(upstream, "provenance", None)
+    if isinstance(upstream_receipt, Receipt):
+        receipt = upstream_receipt.merge(
+            receipt,
+            method_name=f"{upstream_receipt.method_name}+{params.method_name}",
+        )
+    return receipt
+
+
+def _carrier_space(carrier: Any) -> Any:
+    """Extract a NeuroSpace from a carrier, or pass through if ``carrier``
+    already is one.  Returns ``None`` for non-space-bearing inputs."""
+    if carrier is None:
+        return None
+    inner = getattr(carrier, "space", None)
+    if inner is not None:
+        return inner
+    if hasattr(carrier, "trans") and hasattr(carrier, "dim"):
+        return carrier
+    return None
 
 
 def make_receipt(

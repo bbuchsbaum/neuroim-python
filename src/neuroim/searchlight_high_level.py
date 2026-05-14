@@ -158,14 +158,16 @@ def searchlight(mask: MaskLike,
         center_indices = np.zeros((0, 3), dtype=int)
         values = np.zeros(0, dtype=np.float64)
 
-    receipt = make_receipt(
-        input_space=getattr(data, "space", mask.space),
-        mask_data=mask.data,
-        radius=float(radius),
+    from .results import SearchlightParams, receipt_for
+
+    receipt = receipt_for(
+        data if data is not None else mask,
+        mask=mask.data,
         n_voxels=int(center_indices.shape[0]),
-        method_name=getattr(method, "__name__", repr(method)),
-        seed=None,
-        source_affine=mask.space.trans,
+        params=SearchlightParams(
+            method_name=getattr(method, "__name__", repr(method)),
+            radius=float(radius),
+        ),
     )
 
     # Provenance threading (ME-9): if the upstream ``data`` carries a Receipt

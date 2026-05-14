@@ -317,15 +317,13 @@ def _roi_coords_and_space(roi):
 
 
 def _roi_extraction_result(values, coords, space, input_space, method_name):
-    from .results import ROIExtractionResult, make_receipt
+    from .results import ROIExtractionResult, RoiOpParams, receipt_for
 
-    receipt = make_receipt(
-        input_space=input_space,
-        mask_data=coords,
+    receipt = receipt_for(
+        input_space,
+        mask=coords,
         n_voxels=int(coords.shape[0]),
-        method_name=method_name,
-        seed=None,
-        source_affine=getattr(input_space, "trans", None),
+        params=RoiOpParams(method_name=method_name),
     )
     return ROIExtractionResult(
         values=np.ascontiguousarray(values),

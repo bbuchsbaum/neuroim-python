@@ -388,14 +388,13 @@ class NeuroVec(ABC):
             return values
 
         coords = np.ascontiguousarray(coords, dtype=int)
-        receipt = make_receipt(
-            input_space=self.space,
-            mask_data=coords,
+        from .results import RoiOpParams, receipt_for
+
+        receipt = receipt_for(
+            self,
+            mask=coords,
             n_voxels=int(coords.shape[0]),
-            method_name=_method_name,
-            radius=_radius,
-            seed=None,
-            source_affine=self.space.trans,
+            params=RoiOpParams(method_name=_method_name, radius=_radius),
         )
 
         # Provenance threading (ME-9): if self carries a Receipt
@@ -428,7 +427,6 @@ class NeuroVec(ABC):
         and zero-variance voxels are set to zero.
         """
         from .neuro_vol import DenseNeuroVol
-        from .results import make_receipt
         from . import verify as _verify
 
         mask_data = None
@@ -455,15 +453,23 @@ class NeuroVec(ABC):
         tsnr[valid] = mean[valid] / std[valid]
 
         spatial = self.spatial_space
-        receipt = make_receipt(
-            input_space=spatial,
-            mask_data=mask_data,
+        from .results import TemporalReductionParams, receipt_for
+
+        receipt = receipt_for(
+            spatial,
+            mask=mask_data,
             n_voxels=int(np.count_nonzero(mask_data)),
-            method_name="temporal_snr",
-            radius=None,
-            seed=None,
-            source_affine=spatial.trans,
+            params=TemporalReductionParams(method_name="temporal_snr"),
         )
+        upstream = getattr(self, "provenance", None)
+        if upstream is not None:
+            try:
+                receipt = upstream.merge(
+                    receipt,
+                    method_name=f"{upstream.method_name}+temporal_snr",
+                )
+            except ValueError:
+                pass
         return DenseNeuroVol(tsnr, spatial, label="temporal_snr", provenance=receipt)
 
     @abstractmethod

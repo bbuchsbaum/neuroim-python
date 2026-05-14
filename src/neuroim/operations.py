@@ -75,18 +75,17 @@ def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
     # Provenance threading (ME-9): attach a Receipt that composes any
     # upstream Receipts on the inputs.  When inputs lack provenance, fall
     # back to a fresh "concat" Receipt anchored on the first input's space.
-    from .results import make_receipt
+    from .results import ConcatParams, receipt_for
 
     upstream_receipts = [
         getattr(v, "provenance", None) for v in vecs
     ]
     upstream_receipts = [r for r in upstream_receipts if r is not None]
-    base = make_receipt(
-        input_space=concat_space,
-        mask_data=None,
+    base = receipt_for(
+        concat_space,
+        mask=None,
         n_voxels=int(np.prod(spatial_shape)),
-        method_name="concat",
-        source_affine=concat_space.trans,
+        params=ConcatParams(method_name="concat"),
     )
     if upstream_receipts:
         merged = upstream_receipts[0]

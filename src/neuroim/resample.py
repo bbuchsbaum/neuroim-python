@@ -24,6 +24,22 @@ from .axis import (
     NamedAxis, LEFT_RIGHT, RIGHT_LEFT, ANT_POST, POST_ANT,
     INF_SUP, SUP_INF
 )
+from .results import ResampleParams, hash_neurospace, receipt_for
+
+
+def _resample_method_name(
+    source_space: NeuroSpace,
+    target_space: NeuroSpace,
+    interpolation: int,
+    *,
+    vector: bool = False,
+) -> str:
+    op = "resample_vec" if vector else "resample"
+    return (
+        f"{op}(order={interpolation},"
+        f"source={hash_neurospace(source_space)},"
+        f"target={hash_neurospace(target_space)})"
+    )
 
 def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
              interpolation: int = 3) -> DenseNeuroVol:
@@ -116,13 +132,35 @@ def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
     if preserve_clusters:
         labels = np.rint(resampled_data).astype(source.clusters.dtype)
         mask = labels != 0
-        return ClusteredNeuroVol(
+        out = ClusteredNeuroVol(
             LogicalNeuroVol(mask, target_space),
             labels.ravel(order="F")[mask.ravel(order="F")],
             label_map=dict(source.label_map),
         )
+        out.provenance = receipt_for(
+            target_space,
+            n_voxels=int(np.prod(tuple(int(d) for d in target_space.dim[:3]))),
+            params=ResampleParams(
+                method_name=_resample_method_name(
+                    source.space, target_space, interpolation
+                ),
+                interpolation=int(interpolation),
+            ),
+        )
+        return out
 
-    return DenseNeuroVol(resampled_data.astype(np.float32), target_space)
+    out = DenseNeuroVol(resampled_data.astype(np.float32), target_space)
+    out.provenance = receipt_for(
+        target_space,
+        n_voxels=int(np.prod(tuple(int(d) for d in target_space.dim[:3]))),
+        params=ResampleParams(
+            method_name=_resample_method_name(
+                source.space, target_space, interpolation
+            ),
+            interpolation=int(interpolation),
+        ),
+    )
+    return out
 
 def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
                  interpolation: int = 3) -> DenseNeuroVec:
@@ -181,7 +219,21 @@ def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
     else:
         target_4d_space = target.space
 
-    return DenseNeuroVec(resampled_data, target_4d_space)
+    out = DenseNeuroVec(resampled_data, target_4d_space)
+    out.provenance = receipt_for(
+        target_3d_space,
+        n_voxels=int(np.prod(tuple(int(d) for d in target_3d_space.dim[:3]))),
+        params=ResampleParams(
+            method_name=_resample_method_name(
+                source.space.drop_dim(3),
+                target_3d_space,
+                interpolation,
+                vector=True,
+            ),
+            interpolation=int(interpolation),
+        ),
+    )
+    return out
 
 def resample_to(source: Union[NeuroVol, NeuroVec],
                 target: Union[NeuroVol, NeuroVec, NeuroSpace],
