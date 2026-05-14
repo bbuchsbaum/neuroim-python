@@ -162,6 +162,90 @@ class TestNeuroVecSeries:
         series_mat = self.vec.series(np.array([idx1, idx2]))
         assert series_mat.shape == (5, 2)
 
+    def test_pythonic_series_methods_match_legacy_dispatcher(self):
+        """Explicit series methods match the deprecated dispatcher."""
+        coords = np.array([[5, 5, 5], [7, 7, 7]])
+        idx = np.array([
+            np.ravel_multi_index((5, 5, 5), (10, 10, 10), order="F"),
+            np.ravel_multi_index((7, 7, 7), (10, 10, 10), order="F"),
+        ])
+
+        np.testing.assert_array_equal(
+            self.vec.series_at(5, 5, 5),
+            self.vec.data[5, 5, 5, :],
+        )
+        np.testing.assert_array_equal(
+            self.vec.series_at_coords(coords),
+            self.vec.series(coords),
+        )
+        np.testing.assert_array_equal(
+            self.vec.series_at_indices(idx),
+            self.vec.series(idx),
+        )
+
+        with pytest.warns(DeprecationWarning, match="series_at"):
+            self.vec.series(coords)
+
+    def test_explicit_series_methods_raise_on_out_of_bounds(self):
+        """Explicit Pythonic series methods reject silent OOB indexing."""
+        with pytest.raises(IndexError, match="coordinate out of bounds"):
+            self.vec.series_at(-1, 0, 0)
+
+        coords = np.array([[5, 5, 5], [10, 0, 0]])
+        with pytest.raises(IndexError, match="coordinates out of bounds"):
+            self.vec.series_at_coords(coords)
+
+        bad_idx = np.array([0, np.prod(self.vec.shape[:3])])
+        with pytest.raises(IndexError, match="linear indices out of bounds"):
+            self.vec.series_at_indices(bad_idx)
+
+    def test_explicit_series_methods_zero_fill_when_requested(self):
+        """Zero-fill OOB behavior is opt-in for explicit series methods."""
+        coords = np.array([[5, 5, 5], [10, 0, 0]])
+        coord_result = self.vec.series_at_coords(coords, out_of_bounds="zero")
+        assert coord_result.shape == (5, 2)
+        np.testing.assert_array_equal(coord_result[:, 0], [1, 2, 3, 4, 5])
+        np.testing.assert_array_equal(coord_result[:, 1], np.zeros(5))
+
+        idx = np.array([
+            np.ravel_multi_index((5, 5, 5), self.vec.shape[:3], order="F"),
+            np.prod(self.vec.shape[:3]),
+        ])
+        index_result = self.vec.series_at_indices(idx, out_of_bounds="zero")
+        assert index_result.shape == (5, 2)
+        np.testing.assert_array_equal(index_result[:, 0], [1, 2, 3, 4, 5])
+        np.testing.assert_array_equal(index_result[:, 1], np.zeros(5))
+
+        np.testing.assert_array_equal(
+            self.vec.series_at(-1, 0, 0, out_of_bounds="zero"),
+            np.zeros(5),
+        )
+
+    def test_series_at_world_matches_voxel_lookup(self):
+        """World-coordinate shortcut routes through the spatial contract."""
+        np.testing.assert_array_equal(
+            self.vec.series_at_world(np.array([5.0, 5.0, 5.0])),
+            self.vec.series_at(5, 5, 5),
+        )
+
+        with pytest.raises(ValueError, match="outside the image grid"):
+            self.vec.series_at_world(np.array([-1.0, 0.0, 0.0]))
+
+    def test_series_roi_world_returns_typed_single_voxel_result(self):
+        """World-coordinate ROI shortcut returns the typed ROI result."""
+        result = self.vec.series_roi_world(np.array([5.0, 5.0, 5.0]))
+        assert result.values.shape == (5, 1)
+        np.testing.assert_array_equal(result.values[:, 0], self.vec.series_at(5, 5, 5))
+        np.testing.assert_array_equal(result.coords, np.array([[5, 5, 5]]))
+        assert result.provenance.method_name == "series_roi_world"
+        assert result.provenance.radius == 0.0
+
+    def test_series_roi_world_records_radius_in_receipt(self):
+        """Spherical world-coordinate ROI provenance records the caller radius."""
+        result = self.vec.series_roi_world(np.array([5.0, 5.0, 5.0]), radius=2.0)
+        assert result.provenance.method_name == "series_roi_world"
+        assert result.provenance.radius == 2.0
+
 
 class TestNeuroVecArithmetic:
     """Test NeuroVec arithmetic operations."""
@@ -210,16 +294,18 @@ class TestNeuroVecConversions:
         mask = self.dense_vec.data[..., 0] != 0
         mask_vol = LogicalNeuroVol(mask, NeuroSpace(dim=[10, 10, 10]))
         
-        sparse_vec = self.dense_vec.as_sparse(mask_vol)
+        sparse_vec = self.dense_vec.to_sparse(mask_vol)
         assert isinstance(sparse_vec, SparseNeuroVec)
+        with pytest.warns(DeprecationWarning, match="to_sparse"):
+            self.dense_vec.as_sparse(mask_vol)
         
         # Check a few values
         for i in range(5):
             for j in range(5):
                 for k in range(5):
                     if mask[i, j, k]:
-                        ts_dense = self.dense_vec.series(i, j, k)
-                        ts_sparse = sparse_vec.series(i, j, k)
+                        ts_dense = self.dense_vec.series_at(i, j, k)
+                        ts_sparse = sparse_vec.series_at(i, j, k)
                         np.testing.assert_array_almost_equal(ts_dense, ts_sparse)
     
     def test_sparse_to_dense_conversion(self):
@@ -227,19 +313,21 @@ class TestNeuroVecConversions:
         # Create sparse vector
         mask = self.dense_vec.data[..., 0] != 0
         mask_vol = LogicalNeuroVol(mask, NeuroSpace(dim=[10, 10, 10]))
-        sparse_vec = self.dense_vec.as_sparse(mask_vol)
+        sparse_vec = self.dense_vec.to_sparse(mask_vol)
         
         # Convert back to dense
-        dense_vec2 = sparse_vec.as_dense()
+        dense_vec2 = sparse_vec.to_dense()
         assert isinstance(dense_vec2, DenseNeuroVec)
+        with pytest.warns(DeprecationWarning, match="to_dense"):
+            sparse_vec.as_dense()
         
         # Check values match where mask is true
         for i in range(10):
             for j in range(10):
                 for k in range(10):
                     if mask[i, j, k]:
-                        ts1 = self.dense_vec.series(i, j, k)
-                        ts2 = dense_vec2.series(i, j, k)
+                        ts1 = self.dense_vec.series_at(i, j, k)
+                        ts2 = dense_vec2.series_at(i, j, k)
                         np.testing.assert_array_almost_equal(ts1, ts2)
 
 
@@ -265,10 +353,12 @@ class TestNeuroVecMethods:
     
     def test_sub_vector(self):
         """Test sub_vector extraction."""
-        sub = self.vec.sub_vector([1, 2])
+        sub = self.vec.subvolumes([1, 2])
         assert sub.shape == (10, 10, 10, 2)
         np.testing.assert_array_equal(sub.data[..., 0], self.vec.data[..., 1])
         np.testing.assert_array_equal(sub.data[..., 1], self.vec.data[..., 2])
+        with pytest.warns(DeprecationWarning, match="subvolumes"):
+            self.vec.sub_vector([1, 2])
     
     def test_concat(self):
         """Test vector concatenation."""

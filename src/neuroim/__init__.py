@@ -262,6 +262,9 @@ from .indexing import (
 # Import the explicit neuroim2-style migration namespace without star-exporting it.
 from . import compat as compat
 
+# Receipt-based compatibility verification (ME-2).
+from . import verify as verify
+
 # Import memory-mapped variants
 from .big_neuro_vec import BigNeuroVec, big_neurovecseq
 from .file_backed_neuro_vec import FileBackedNeuroVec, file_backed_neurovec
@@ -371,4 +374,15 @@ __all__ = [
     "plot_overlay",
     "ConnCompResult",
     "compat",
+    "verify",
 ]
+
+
+def __dir__():
+    """Return the curated public namespace for interactive discovery.
+
+    Non-canonical helpers remain importable from their implementation
+    submodules, and some are still present at package scope for compatibility,
+    but autocomplete should advertise the Python-native public surface.
+    """
+    return sorted({*__all__, "__version__"})

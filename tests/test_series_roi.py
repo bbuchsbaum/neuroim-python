@@ -59,6 +59,16 @@ class TestSeriesROI:
         np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])  # Linear
         np.testing.assert_array_equal(series[:, 1], [2, 4, 6, 8, 10])  # Double
         np.testing.assert_array_equal(series[:, 2], [1, 4, 9, 16, 25])  # Square
+
+    def test_series_roi_rejects_roi_space_mismatch(self):
+        """series_roi catches masks/coordinates declared in a different space."""
+        trans = np.eye(4)
+        trans[0, 3] = 12.0
+        shifted = NeuroSpace(dim=[10, 10, 10], trans=trans)
+        roi = ROICoords(self.roi_coords.coords, shifted)
+
+        with pytest.raises(ValueError, match="spatial contract mismatch"):
+            self.vec.series_roi(roi)
     
     def test_series_roi_single_voxel(self):
         """Test series_roi with single voxel ROI."""

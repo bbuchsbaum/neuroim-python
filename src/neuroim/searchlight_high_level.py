@@ -151,6 +151,20 @@ def searchlight(mask: MaskLike,
         seed=None,
         source_affine=mask.space.trans,
     )
+
+    # Provenance threading (ME-9): if the upstream ``data`` carries a Receipt
+    # (e.g., from a prior ``concat``), compose it into the searchlight's
+    # output Receipt so the full pipeline is reconstructible.
+    upstream = getattr(data, "provenance", None) if data is not None else None
+    if upstream is not None:
+        try:
+            receipt = upstream.merge(
+                receipt,
+                method_name=f"{upstream.method_name}+searchlight",
+            )
+        except ValueError:
+            raise
+
     return SearchlightResult(
         values=np.ascontiguousarray(values),
         centers=center_indices,

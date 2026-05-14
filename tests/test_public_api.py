@@ -80,6 +80,21 @@ def test_star_import_uses_curated_all_namespace():
     assert "as_array" not in namespace
 
 
+def test_dir_tracks_curated_public_surface():
+    public_dir = {name for name in dir(ni) if not name.startswith("_")}
+    allowed = set(ni.__all__)
+
+    assert public_dir <= allowed
+    assert len(public_dir) <= len(ni.__all__) + 5
+
+    # Non-canonical helpers should stay discoverable through their submodules,
+    # not through the interactive package root.
+    assert "AxisSet" not in public_dir
+    assert "FileFormat" not in public_dir
+    assert "gaussian_blur" not in public_dir
+    assert "neurovol" not in public_dir
+
+
 # ME-4 additional guard: the prior `from .module import *` patterns leaked
 # typing helpers (`Any`, `Optional`, `Union`), abstract bases (`ABC`,
 # `abstractmethod`), and numpy (`np`) into the top-level namespace.  This

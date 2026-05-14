@@ -15,7 +15,8 @@ new code reads provenance and metadata.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field, replace
+import json
+from dataclasses import asdict, dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
@@ -31,7 +32,14 @@ __all__ = [
     "SearchlightResult",
     "hash_ndarray",
     "hash_neurospace",
+    "RECEIPT_NIFTI_PREFIX",
 ]
+
+
+# Marker prefix used to mark a NIfTI 'comment' extension (ecode 6) as a
+# neuroim Receipt payload, so we can recognise it on read without false
+# positives on user comments. Format: ``<prefix><utf-8 json>``.
+RECEIPT_NIFTI_PREFIX = "neuroim/receipt/v1:"
 
 
 def hash_ndarray(arr: Optional[np.ndarray]) -> str:
@@ -101,6 +109,44 @@ class Receipt:
                 out[f] = (a, b)
         return out
 
+    def to_json(self) -> str:
+        """Serialize this Receipt to a JSON string.
+
+        All Receipt fields are JSON-friendly scalars (strings, ints, floats,
+        or None), so this is lossless and stable across Python versions.
+        """
+        return json.dumps(asdict(self), sort_keys=True)
+
+    @classmethod
+    def from_json(cls, payload: str) -> "Receipt":
+        """Re-hydrate a Receipt from a :meth:`to_json` payload."""
+        data = json.loads(payload)
+        return cls(**{field: data[field] for field in cls.__dataclass_fields__})
+
+    def to_nifti_extension_bytes(self) -> bytes:
+        """Serialize this Receipt to a NIfTI 'comment' extension payload.
+
+        The payload is the marker prefix :data:`RECEIPT_NIFTI_PREFIX`
+        followed by the JSON form, encoded as UTF-8.  ``from_nifti_extension``
+        recovers the Receipt; foreign comment extensions are silently
+        ignored on read.
+        """
+        return (RECEIPT_NIFTI_PREFIX + self.to_json()).encode("utf-8")
+
+    @classmethod
+    def from_nifti_extension_bytes(cls, payload: bytes) -> Optional["Receipt"]:
+        """Recover a Receipt from a NIfTI 'comment' extension payload.
+
+        Returns ``None`` if the payload does not carry the neuroim marker.
+        """
+        text = payload.rstrip(b"\x00").decode("utf-8", errors="replace")
+        if not text.startswith(RECEIPT_NIFTI_PREFIX):
+            return None
+        try:
+            return cls.from_json(text[len(RECEIPT_NIFTI_PREFIX):])
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return None
+
     def merge(self, other: "Receipt", *, method_name: Optional[str] = None) -> "Receipt":
         """Combine two upstream receipts into one downstream receipt.
 
@@ -119,7 +165,11 @@ class Receipt:
             side if the other is empty).
         """
         space_diff = self.input_space_hash != other.input_space_hash
-        mask_diff = self.mask_hash != other.mask_hash
+        # mask_hash "none" is a wildcard: a stage that didn't apply a mask
+        # is compatible with a downstream stage that does.  Mismatch only
+        # qualifies as a silent-bug case when BOTH sides have real masks.
+        both_have_masks = self.mask_hash != "none" and other.mask_hash != "none"
+        mask_diff = both_have_masks and self.mask_hash != other.mask_hash
         if space_diff or mask_diff:
             details = []
             if space_diff:
@@ -139,9 +189,17 @@ class Receipt:
             parts = [p for p in (self.method_name, other.method_name) if p]
             method_name = "+".join(parts) if parts else ""
 
+        # Adopt the more-specific mask: when one side is "none" the other
+        # wins; when both are real and equal (the only case left after the
+        # check above) we use self's hash.
+        if self.mask_hash == "none":
+            merged_mask = other.mask_hash
+        else:
+            merged_mask = self.mask_hash
         return replace(
             self,
             method_name=method_name,
+            mask_hash=merged_mask,
             n_voxels=max(self.n_voxels, other.n_voxels),
             seed=self.seed if self.seed == other.seed else None,
             source_affine_hash=(
@@ -177,7 +235,13 @@ class SearchlightResult:
     method_name: str = ""
 
     def map_to_volume(self, *, dtype: Any = np.float64, fill: float = np.nan) -> "NeuroVol":
-        """Place each scalar value at its searchlight centre in a NeuroVol."""
+        """Place each scalar value at its searchlight centre in a NeuroVol.
+
+        The returned :class:`~neuroim.neuro_vol.DenseNeuroVol` carries this
+        result's :class:`Receipt` as ``vol.provenance``, so a downstream
+        :meth:`~neuroim.neuro_vol.NeuroVol.to_nibabel` call can embed the
+        Receipt in the NIfTI header (see PAIN-6 / Scenario 05).
+        """
         from .neuro_vol import DenseNeuroVol
 
         if self.space.ndim != 3:
@@ -186,14 +250,24 @@ class SearchlightResult:
             )
         out = np.full(tuple(int(d) for d in self.space.dim[:3]), fill, dtype=dtype)
         if self.centers.size == 0:
-            return DenseNeuroVol(out, self.space)
-        ix, iy, iz = self.centers[:, 0], self.centers[:, 1], self.centers[:, 2]
-        out[ix, iy, iz] = self.values
-        return DenseNeuroVol(out, self.space)
+            vol = DenseNeuroVol(out, self.space)
+        else:
+            ix, iy, iz = self.centers[:, 0], self.centers[:, 1], self.centers[:, 2]
+            out[ix, iy, iz] = self.values
+            vol = DenseNeuroVol(out, self.space)
+        vol.provenance = self.provenance
+        return vol
 
     def to_nibabel(self, *, cls: Any = None) -> Any:
         """Convert this searchlight map to a nibabel image via map_to_volume."""
         return self.map_to_volume().to_nibabel(cls=cls)
+
+    def require_compatible(self, other: Any) -> None:
+        """Assert that ``other`` shares this result's space (and mask, when
+        applicable).  Raises ``ValueError`` with a structured Receipt diff on
+        mismatch.  ``other`` may be a result object, a ``NeuroSpace``, or a
+        ``Receipt``."""
+        _require_compatible(self.provenance, other, self_label="SearchlightResult")
 
     def to_dataframe(self):
         """Optional pandas projection.  pandas is imported lazily so the
@@ -235,6 +309,13 @@ class ROIExtractionResult:
             return None
         return int(self.values.shape[0])
 
+    def require_compatible(self, other: Any) -> None:
+        """Assert that ``other`` shares this result's space (and mask, when
+        applicable).  Raises ``ValueError`` with a structured Receipt diff on
+        mismatch.  ``other`` may be a result object, a ``NeuroSpace``, or a
+        ``Receipt``."""
+        _require_compatible(self.provenance, other, self_label="ROIExtractionResult")
+
 
 def make_receipt(
     *,
@@ -259,3 +340,36 @@ def make_receipt(
             None if source_affine is None else np.asarray(source_affine, dtype=float)
         ),
     )
+
+
+def _require_compatible(
+    self_receipt: Receipt, other: Any, *, self_label: str = "result"
+) -> None:
+    """Shared body for ``Result.require_compatible``.  Accepts another result
+    object, a NeuroSpace, or a Receipt as ``other``."""
+    if isinstance(other, Receipt):
+        other_receipt = other
+    elif hasattr(other, "provenance") and isinstance(other.provenance, Receipt):
+        other_receipt = other.provenance
+    else:
+        # Treat as a NeuroSpace-like; check space hash only.
+        from .neuro_space import NeuroSpace  # noqa: F401  (type hint)
+
+        space_hash = hash_neurospace(other)
+        if self_receipt.input_space_hash != space_hash:
+            raise ValueError(
+                f"{self_label}: input space differs from supplied space\n"
+                f"  expected input_space_hash = {self_receipt.input_space_hash!r}\n"
+                f"  got                       = {space_hash!r}"
+            )
+        return
+
+    diff = self_receipt.diff(other_receipt)
+    blocking = {k: v for k, v in diff.items() if k in {"input_space_hash", "mask_hash"}}
+    if blocking:
+        lines = [
+            f"{k}: self={a!r} vs other={b!r}" for k, (a, b) in blocking.items()
+        ]
+        raise ValueError(
+            f"{self_label}: receipts disagree on space/mask:\n  " + "\n  ".join(lines)
+        )

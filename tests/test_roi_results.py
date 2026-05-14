@@ -103,3 +103,15 @@ def test_values_roi_result_matches_volume_values():
     assert result.n_timepoints is None
     assert result.space is roi.space
     assert result.provenance.method_name == "values_roi"
+
+
+def test_values_roi_rejects_roi_space_mismatch():
+    space = NeuroSpace(dim=(4, 4, 3))
+    shape = tuple(space.dim)
+    vol = DenseNeuroVol(np.zeros(shape, dtype=np.float32), space)
+    shifted_affine = np.eye(4)
+    shifted_affine[1, 3] = 5.0
+    roi = ROICoords(_make_roi().coords, NeuroSpace(dim=(4, 4, 3), trans=shifted_affine))
+
+    with pytest.raises(ValueError, match="spatial contract mismatch"):
+        values_roi(vol, roi)

@@ -167,7 +167,7 @@ def apply_affine(aff: np.ndarray, pts: np.ndarray, inplace: bool = False) -> np.
 
     Points are stored with coordinates on the last axis.  Vectors, matrices,
     and higher-dimensional point arrays are returned with the same leading
-    shape.  ``inplace`` is accepted for neuroim2 API compatibility.
+    shape.  ``inplace`` is accepted as a deprecated migration shim.
     """
     aff = np.asarray(aff, dtype=float)
     pts = np.asarray(pts, dtype=float)

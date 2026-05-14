@@ -66,7 +66,40 @@ def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
         origin=first.origin,
         axes=first.space.axes,
     )
-    return DenseNeuroVec(concat_data, concat_space)
+    out = DenseNeuroVec(concat_data, concat_space)
+
+    # Provenance threading (ME-9): attach a Receipt that composes any
+    # upstream Receipts on the inputs.  When inputs lack provenance, fall
+    # back to a fresh "concat" Receipt anchored on the first input's space.
+    from .results import make_receipt
+
+    upstream_receipts = [
+        getattr(v, "provenance", None) for v in vecs
+    ]
+    upstream_receipts = [r for r in upstream_receipts if r is not None]
+    base = make_receipt(
+        input_space=concat_space,
+        mask_data=None,
+        n_voxels=int(np.prod(spatial_shape)),
+        method_name="concat",
+        source_affine=concat_space.trans,
+    )
+    if upstream_receipts:
+        merged = upstream_receipts[0]
+        for r in upstream_receipts[1:]:
+            try:
+                merged = merged.merge(r)
+            except ValueError:
+                # Inputs disagree on space/mask: keep the conflict surfaced in
+                # the receipt by leaving the merge field bare; concat itself
+                # already asserts spatial-shape compatibility above.
+                break
+        try:
+            base = base.merge(merged, method_name="concat")
+        except ValueError:
+            pass
+    out.provenance = base
+    return out
 
 
 def scale_series(vec: NeuroVecLike, method: str = "zscore") -> DenseNeuroVec:

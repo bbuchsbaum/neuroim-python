@@ -60,13 +60,14 @@ bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
 mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
 
 roi = ni.spherical_roi(mask, centroid=(4, 4, 2), radius=2)
-time_by_voxel = bold.series_roi(roi)
+extraction = bold.series_roi(roi)
+# extraction is an ROIExtractionResult: values, coords, space, and a content-addressable Receipt.
 
 mean_data = np.zeros(mask.shape, dtype=np.float32)
-mean_data[tuple(roi.coords.T)] = time_by_voxel.mean(axis=0)
+mean_data[tuple(roi.coords.T)] = extraction.values.mean(axis=0)
 mean_map = ni.NeuroVol.from_array(mean_data, space=mask.space)
 
-time_by_voxel.shape, mean_map.to_nibabel().shape
+extraction.values.shape, mean_map.to_nibabel().shape
 ```
 
 [Read the full tutorial](get-started.qmd)

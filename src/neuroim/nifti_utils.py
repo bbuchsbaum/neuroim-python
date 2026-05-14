@@ -315,7 +315,7 @@ def as_nifti_header(vol: NeuroVol, file_name: str,
         header['dim'][i + 1] = int(vol.space.dim[i])
     
     # Set voxel dimensions (pixdim)
-    header['pixdim'][0] = 1.0  # qfac goes here later
+    header['pixdim'][0] = 1.0
     for i in range(ndim):
         header['pixdim'][i + 1] = float(vol.space.spacing[i])
     

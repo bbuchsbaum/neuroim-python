@@ -347,6 +347,12 @@ def values_roi(x, roi, *, return_legacy: bool = False):
     """
     _warn_legacy_return(return_legacy)
     coords, roi_space = _roi_coords_and_space(roi)
+    input_space = getattr(x, "space", None)
+    if input_space is not None:
+        from .verify import assert_same_space
+
+        assert_same_space(input_space, roi_space)
+
     data = x.as_dense().data if hasattr(x, "as_dense") else getattr(x, "data", None)
     if data is None:
         raise TypeError("x must provide volume data or as_dense().data")
@@ -375,7 +381,7 @@ def values_roi(x, roi, *, return_legacy: bool = False):
         values,
         coords,
         roi_space,
-        getattr(x, "space", roi_space),
+        input_space if input_space is not None else roi_space,
         "values_roi",
     )
 

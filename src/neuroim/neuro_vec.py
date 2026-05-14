@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 import numpy as np
+import warnings as _warnings
 from typing import Any, Union, Tuple, List, Optional
 from scipy import sparse
 
@@ -14,6 +15,20 @@ from .neuro_vol import (
     _restore_nibabel_xforms,
 )
 from .axis import drop_axis
+
+
+def _warn_legacy_method(name: str, replacement: str) -> None:
+    _warnings.warn(
+        f"NeuroVec.{name}() is deprecated; use {replacement} instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+def _call_without_legacy_warning(func, *args, **kwargs):
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore", DeprecationWarning)
+        return func(*args, **kwargs)
 
 
 class NeuroVec(ABC):
@@ -41,7 +56,7 @@ class NeuroVec(ABC):
 
         ``lazy`` is accepted as part of the public adapter contract.  The
         current minimal implementation avoids ``get_fdata()`` and reads from
-        ``dataobj`` directly; storage-backend laziness is handled by later work.
+        ``dataobj`` directly when available.
         """
         if not hasattr(img, "shape") or not hasattr(img, "affine"):
             raise TypeError("from_nibabel expects an image with shape and affine")
@@ -69,7 +84,7 @@ class NeuroVec(ABC):
         import nibabel as nib
 
         img_cls = cls or nib.Nifti1Image
-        data = self.as_dense().data if hasattr(self, "as_dense") else self.data
+        data = self.to_dense().data if hasattr(self, "to_dense") else self.data
         header = getattr(self, "_nibabel_header", None)
         if header is not None:
             header = header.copy()
@@ -99,7 +114,202 @@ class NeuroVec(ABC):
         -------
         np.ndarray
             Time series for the specified voxel"""
-        return self.series(x, y, z)
+        return self.series_at(x, y, z)
+
+    def _validate_out_of_bounds_mode(self, out_of_bounds: str) -> None:
+        if out_of_bounds not in {"raise", "zero"}:
+            raise ValueError("out_of_bounds must be 'raise' or 'zero'")
+
+    def _spatial_shape(self) -> Tuple[int, int, int]:
+        return tuple(int(d) for d in self.shape[:3])
+
+    def _time_length(self) -> int:
+        return int(self.shape[3])
+
+    @property
+    def spatial_space(self) -> NeuroSpace:
+        """Return the 3-D spatial subspace for world/voxel queries."""
+        return self.space if self.space.ndim == 3 else self.space.drop_dim(3)
+
+    def _coords_valid_mask(self, coords: np.ndarray) -> np.ndarray:
+        shape = self._spatial_shape()
+        return (
+            (coords[:, 0] >= 0)
+            & (coords[:, 0] < shape[0])
+            & (coords[:, 1] >= 0)
+            & (coords[:, 1] < shape[1])
+            & (coords[:, 2] >= 0)
+            & (coords[:, 2] < shape[2])
+        )
+
+    def _indices_valid_mask(self, indices: np.ndarray) -> np.ndarray:
+        total = int(np.prod(self._spatial_shape()))
+        return (indices >= 0) & (indices < total)
+
+    def _raise_oob(self, label: str, values: np.ndarray, valid_mask: np.ndarray) -> None:
+        if np.all(valid_mask):
+            return
+        bad = values[~valid_mask]
+        preview = bad[:5].tolist()
+        suffix = "" if bad.shape[0] <= 5 else f" ... (+{bad.shape[0] - 5} more)"
+        raise IndexError(
+            f"{label} out of bounds for spatial shape {self._spatial_shape()}: "
+            f"{preview}{suffix}"
+        )
+
+    def series_at(
+        self, x: int, y: int, z: int, *, out_of_bounds: str = "raise"
+    ) -> np.ndarray:
+        """Extract the time series at one voxel coordinate.
+
+        ``out_of_bounds='raise'`` is the default safety contract.  Use
+        ``out_of_bounds='zero'`` only for algorithms that intentionally need
+        sparse/searchlight-style zero-fill semantics.
+        """
+        self._validate_out_of_bounds_mode(out_of_bounds)
+        coord = np.asarray([[x, y, z]], dtype=int)
+        valid = self._coords_valid_mask(coord)
+        if not valid[0]:
+            if out_of_bounds == "zero":
+                return np.zeros(self._time_length())
+            self._raise_oob("coordinate", coord, valid)
+
+        impl = getattr(self, "_series", None)
+        if impl is not None:
+            return impl(x, y, z)
+        return _call_without_legacy_warning(self.series, x, y, z)
+
+    def series_at_coords(
+        self, coords: np.ndarray, *, out_of_bounds: str = "raise"
+    ) -> np.ndarray:
+        """Extract time-by-voxel series at an ``N x 3`` coordinate matrix."""
+        self._validate_out_of_bounds_mode(out_of_bounds)
+        coords = np.asarray(coords, dtype=int)
+        if coords.ndim != 2 or coords.shape[1] != 3:
+            raise ValueError("coords must be an N x 3 coordinate matrix")
+        valid = self._coords_valid_mask(coords)
+        if not np.all(valid):
+            if out_of_bounds == "zero":
+                result = np.zeros((self._time_length(), coords.shape[0]))
+                if np.any(valid):
+                    result[:, valid] = self.series_at_coords(
+                        coords[valid], out_of_bounds="raise"
+                    )
+                return result
+            self._raise_oob("coordinates", coords, valid)
+
+        impl = getattr(self, "_series", None)
+        if impl is not None:
+            return impl(coords)
+        return _call_without_legacy_warning(self.series, coords)
+
+    def series_at_indices(
+        self, indices: np.ndarray, *, out_of_bounds: str = "raise"
+    ) -> np.ndarray:
+        """Extract time-by-voxel series at Fortran-order linear indices.
+
+        The linear-index contract is column-major/Fortran-order, matching
+        ``numpy.ravel_multi_index(..., order="F")`` and the storage contract
+        documented for ``VoxelSeriesStore``.
+        """
+        self._validate_out_of_bounds_mode(out_of_bounds)
+        indices = np.asarray(indices, dtype=int)
+        scalar = indices.ndim == 0
+        flat = np.atleast_1d(indices)
+        valid = self._indices_valid_mask(flat)
+        if not np.all(valid):
+            if out_of_bounds == "zero":
+                if scalar:
+                    return np.zeros(self._time_length())
+                result = np.zeros((self._time_length(), flat.shape[0]))
+                if np.any(valid):
+                    result[:, valid] = self.series_at_indices(
+                        flat[valid], out_of_bounds="raise"
+                    )
+                return result
+            self._raise_oob("linear indices", flat, valid)
+
+        impl = getattr(self, "_series", None)
+        if impl is not None:
+            return impl(int(flat[0])) if scalar else impl(flat)
+        return _call_without_legacy_warning(
+            self.series, int(flat[0]) if scalar else flat
+        )
+
+    def _voxel_from_world(self, world_xyz: np.ndarray) -> np.ndarray:
+        world = np.asarray(world_xyz, dtype=float)
+        if world.shape != (3,):
+            raise ValueError(f"world_xyz must have shape (3,); got {world.shape}")
+        return np.asarray(self.space.world_to_grid(world), dtype=int)
+
+    def _raise_world_oob(self, world_xyz: np.ndarray, voxel: np.ndarray) -> None:
+        raise ValueError(
+            f"world coord {tuple(float(x) for x in world_xyz)} mm maps to voxel "
+            f"{tuple(int(v) for v in voxel)} which is outside the image grid "
+            f"of shape {self._spatial_shape()}."
+        )
+
+    def series_at_world(
+        self, world_xyz: np.ndarray, *, out_of_bounds: str = "raise"
+    ) -> np.ndarray:
+        """Extract one voxel time series at a 3-D world-coordinate seed."""
+        voxel = self._voxel_from_world(world_xyz)
+        try:
+            return self.series_at(
+                int(voxel[0]),
+                int(voxel[1]),
+                int(voxel[2]),
+                out_of_bounds=out_of_bounds,
+            )
+        except IndexError as exc:
+            if out_of_bounds == "zero":
+                raise
+            self._raise_world_oob(np.asarray(world_xyz, dtype=float), voxel)
+            raise exc  # pragma: no cover - _raise_world_oob always raises
+
+    def series_roi_world(
+        self,
+        center_xyz: np.ndarray,
+        radius: float = 0.0,
+        *,
+        return_legacy: bool = False,
+    ):
+        """Extract a typed ROI time-series result around a world-coordinate seed."""
+        from .roi import ROICoords
+
+        center = self._voxel_from_world(center_xyz)
+        if radius < 0:
+            raise ValueError("radius must be non-negative")
+        try:
+            self.series_at(int(center[0]), int(center[1]), int(center[2]))
+        except IndexError as exc:
+            self._raise_world_oob(np.asarray(center_xyz, dtype=float), center)
+            raise exc  # pragma: no cover - _raise_world_oob always raises
+
+        if radius == 0:
+            coords = center[None, :]
+        else:
+            spacing = np.asarray(self.spatial_space.spacing[:3], dtype=float)
+            voxel_radius = np.ceil(radius / spacing).astype(int)
+            lower = np.maximum(0, center - voxel_radius)
+            upper = np.minimum(np.asarray(self._spatial_shape()), center + voxel_radius + 1)
+            grids = np.meshgrid(
+                range(lower[0], upper[0]),
+                range(lower[1], upper[1]),
+                range(lower[2], upper[2]),
+                indexing="ij",
+            )
+            candidates = np.column_stack([g.ravel() for g in grids])
+            distances = np.sqrt(np.sum(((candidates - center) * spacing) ** 2, axis=1))
+            coords = candidates[distances <= radius]
+
+        roi = ROICoords(coords, space=self.spatial_space)
+        return self.series_roi(
+            roi,
+            return_legacy=return_legacy,
+            _method_name="series_roi_world",
+            _radius=float(radius),
+        )
 
     @abstractmethod
     def series(self, x, y=None, z=None) -> np.ndarray:
@@ -120,7 +330,14 @@ class NeuroVec(ABC):
             Time series data"""
         pass
 
-    def series_roi(self, roi, *, return_legacy: bool = False):
+    def series_roi(
+        self,
+        roi,
+        *,
+        return_legacy: bool = False,
+        _method_name: str = "series_roi",
+        _radius: Optional[float] = None,
+    ):
         """Extract time series for all voxels in an ROI.
 
         Parameters
@@ -163,7 +380,7 @@ class NeuroVec(ABC):
             raise TypeError(f"roi must be ROIVol or ROICoords, got {type(roi)}")
 
         # Use the series method with coordinate matrix
-        values = self.series(coords)
+        values = self.series_at_coords(coords, out_of_bounds="zero")
         if return_legacy:
             return values
 
@@ -172,7 +389,8 @@ class NeuroVec(ABC):
             input_space=self.space,
             mask_data=coords,
             n_voxels=int(coords.shape[0]),
-            method_name="series_roi",
+            method_name=_method_name,
+            radius=_radius,
             seed=None,
             source_affine=self.space.trans,
         )
@@ -189,10 +407,22 @@ class NeuroVec(ABC):
         """Convert to sparse representation."""
         pass
 
+    def to_dense(self) -> "DenseNeuroVec":
+        """Convert to dense representation."""
+        return _call_without_legacy_warning(self.as_dense)
+
+    def to_sparse(self, mask=None) -> "SparseNeuroVec":
+        """Convert to sparse representation."""
+        return _call_without_legacy_warning(self.as_sparse, mask)
+
     @abstractmethod
     def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "NeuroVec":
         """Extract subset of volumes."""
         pass
+
+    def subvolumes(self, indices: Union[int, slice, np.ndarray]) -> "NeuroVec":
+        """Extract a subset of volumes along the time axis."""
+        return _call_without_legacy_warning(self.sub_vector, indices)
 
     def vols(self, indices=None):
         """Extract volumes as list or single volume."""
@@ -212,9 +442,9 @@ class NeuroVec(ABC):
             if vec.shape[:3] != self.shape[:3]:
                 raise ValueError("All NeuroVecs must have same spatial dimensions")
         # Default: convert to dense and delegate
-        dense_self = self.as_dense() if not isinstance(self, DenseNeuroVec) else self
+        dense_self = self.to_dense() if not isinstance(self, DenseNeuroVec) else self
         dense_others = [
-            v.as_dense() if not isinstance(v, DenseNeuroVec) else v for v in others
+            v.to_dense() if not isinstance(v, DenseNeuroVec) else v for v in others
         ]
         return dense_self.concat(*dense_others)
 
@@ -378,7 +608,8 @@ class DenseNeuroVec(NeuroVec):
         self.label = label
 
     def as_dense(self) -> "DenseNeuroVec":
-        """Already dense, return self."""
+        """Deprecated alias for :meth:`to_dense`."""
+        _warn_legacy_method("as_dense", "to_dense()")
         return self
 
     def __getitem__(self, key):
@@ -426,9 +657,17 @@ class DenseNeuroVec(NeuroVec):
         -------
         np.ndarray
             Time series for the specified voxel"""
-        return self.series(x, y, z)
+        return self.series_at(x, y, z)
 
     def series(self, x, y=None, z=None) -> np.ndarray:
+        """Deprecated dispatcher for voxel time-series extraction."""
+        _warn_legacy_method(
+            "series",
+            "series_at(), series_at_coords(), or series_at_indices()",
+        )
+        return self._series(x, y, z)
+
+    def _series(self, x, y=None, z=None) -> np.ndarray:
         """Extract time series for voxel(s)."""
         if y is not None and z is not None:
             # Single voxel
@@ -473,6 +712,11 @@ class DenseNeuroVec(NeuroVec):
             raise ValueError("Invalid input for series extraction")
 
     def as_sparse(self, mask=None) -> "SparseNeuroVec":
+        """Deprecated alias for :meth:`to_sparse`."""
+        _warn_legacy_method("as_sparse", "to_sparse()")
+        return self._as_sparse(mask)
+
+    def _as_sparse(self, mask=None) -> "SparseNeuroVec":
         """Convert to sparse representation."""
         if mask is None:
             # Use all non-zero voxels
@@ -502,6 +746,11 @@ class DenseNeuroVec(NeuroVec):
         return SparseNeuroVec(sparse_data.T, self.space, mask, self.label)
 
     def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "DenseNeuroVec":
+        """Deprecated alias for :meth:`subvolumes`."""
+        _warn_legacy_method("sub_vector", "subvolumes()")
+        return self._sub_vector(indices)
+
+    def _sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "DenseNeuroVec":
         """Extract subset of volumes."""
         if isinstance(indices, int):
             indices = [indices]
@@ -718,6 +967,14 @@ class SparseNeuroVec(NeuroVec):
         return dense
 
     def series(self, x, y=None, z=None) -> np.ndarray:
+        """Deprecated dispatcher for voxel time-series extraction."""
+        _warn_legacy_method(
+            "series",
+            "series_at(), series_at_coords(), or series_at_indices()",
+        )
+        return self._series(x, y, z)
+
+    def _series(self, x, y=None, z=None) -> np.ndarray:
         """Extract time series for voxel(s)."""
         if y is not None and z is not None:
             # Single voxel
@@ -760,20 +1017,35 @@ class SparseNeuroVec(NeuroVec):
             raise ValueError("Invalid input for series extraction")
 
     def as_sparse(self, mask=None) -> "SparseNeuroVec":
+        """Deprecated alias for :meth:`to_sparse`."""
+        _warn_legacy_method("as_sparse", "to_sparse()")
+        return self._as_sparse(mask)
+
+    def _as_sparse(self, mask=None) -> "SparseNeuroVec":
         """Already sparse, return self or apply new mask."""
         if mask is None:
             return self
         else:
             # Apply additional mask by converting to dense, then back to sparse with new mask
-            dense = self.as_dense()
-            return dense.as_sparse(mask)
+            dense = self.to_dense()
+            return dense.to_sparse(mask)
 
     def as_dense(self) -> DenseNeuroVec:
+        """Deprecated alias for :meth:`to_dense`."""
+        _warn_legacy_method("as_dense", "to_dense()")
+        return self._as_dense()
+
+    def _as_dense(self) -> DenseNeuroVec:
         """Convert to dense representation."""
         dense_data = self._to_dense_array()
         return DenseNeuroVec(dense_data, self.space, self.label)
 
     def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "SparseNeuroVec":
+        """Deprecated alias for :meth:`subvolumes`."""
+        _warn_legacy_method("sub_vector", "subvolumes()")
+        return self._sub_vector(indices)
+
+    def _sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "SparseNeuroVec":
         """Extract subset of volumes."""
         if isinstance(indices, int):
             indices = [indices]
@@ -828,7 +1100,7 @@ class SparseNeuroVec(NeuroVec):
             return SparseNeuroVec(result_data, self.space, self.mask, self.label)
         elif isinstance(other, DenseNeuroVec):
             # Convert to dense for operation
-            return self.as_dense()._arithmetic_op(other, op)
+            return self.to_dense()._arithmetic_op(other, op)
         elif isinstance(other, NeuroVol):
             # Vector-volume operation
             if other.shape != self.shape[:3]:

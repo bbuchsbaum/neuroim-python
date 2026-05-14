@@ -68,7 +68,14 @@ class NeuroVol(ABC):
         return vol
 
     def to_nibabel(self, cls=None):
-        """Convert this volume to a nibabel image."""
+        """Convert this volume to a nibabel image.
+
+        When ``self.provenance`` is a :class:`~neuroim.results.Receipt`, it
+        is embedded as a NIfTI 'comment' header extension (ecode 6) carrying
+        the marker prefix and JSON payload — so a clean-process round-trip
+        via :func:`~neuroim.io.read_image` recovers the Receipt (PAIN-6 /
+        Scenario 05).
+        """
         import nibabel as nib
 
         img_cls = cls or nib.Nifti1Image
@@ -78,6 +85,7 @@ class NeuroVol(ABC):
             header = header.copy()
         img = img_cls(data, self.space.affine, header=header)
         _restore_nibabel_xforms(img, self)
+        _embed_receipt_extension(img, getattr(self, "provenance", None))
         return img
 
     # Abstract methods that subclasses must implement
@@ -110,6 +118,21 @@ class NeuroVol(ABC):
     def as_logical(self) -> "LogicalNeuroVol":
         """Convert to logical/binary representation.        """
         pass
+
+    # ME-5: Pythonic aliases for the R-shaped ``as_*`` verbs.  These are the
+    # canonical names; ``as_dense`` / ``as_sparse`` / ``as_logical`` remain as
+    # compatibility shims.
+    def to_dense(self) -> "DenseNeuroVol":
+        """Pythonic alias for :meth:`as_dense`."""
+        return self.as_dense()
+
+    def to_sparse(self, mask=None) -> "SparseNeuroVol":
+        """Pythonic alias for :meth:`as_sparse`."""
+        return self.as_sparse(mask)
+
+    def to_logical(self) -> "LogicalNeuroVol":
+        """Pythonic alias for :meth:`as_logical`."""
+        return self.as_logical()
 
     # Properties from NeuroSpace
     @property
@@ -379,7 +402,15 @@ class DenseNeuroVol(NeuroVol):
     indices : array-like, optional
         If provided, only these indices will be filled with data    """
 
-    def __init__(self, data, space: NeuroSpace, label: str = "", indices=None):
+    def __init__(
+        self,
+        data,
+        space: NeuroSpace,
+        label: str = "",
+        indices=None,
+        *,
+        provenance=None,
+    ):
         super().__init__(space)
 
         # Handle different input types
@@ -434,6 +465,11 @@ class DenseNeuroVol(NeuroVol):
                 )
 
         self.label = label
+        # Optional provenance Receipt for derived maps (temporal reductions,
+        # future map-producing reducers).  ROI/searchlight typed results
+        # already carry receipts via dedicated result objects; for volumes
+        # produced inside neuroim the receipt rides directly on the volume.
+        self.provenance = provenance
 
     def __getitem__(self, key):
         """Extract values using various indexing methods."""
@@ -744,7 +780,7 @@ class SparseNeuroVol(NeuroVol):
             return SparseNeuroVol(new_data, self.space, self.indices, self.label)
         elif isinstance(other, SparseNeuroVol):
             # For sparse-sparse operations, we need to handle index union
-            # Convert both to dense for now
+            # Convert both operands to dense to align sparse index sets.
             dense1 = self.as_dense()
             dense2 = other.as_dense()
             result = dense1._arithmetic_op(dense2, op)
@@ -891,6 +927,9 @@ def _attach_nibabel_metadata(obj, img) -> None:
     if hasattr(img, "get_sform"):
         _, code = img.get_sform(coded=True)
         obj._nibabel_sform_code = int(code)
+    receipt = _extract_receipt_extension(img)
+    if receipt is not None:
+        obj.provenance = receipt
 
 
 def _restore_nibabel_xforms(img, obj) -> None:
@@ -898,3 +937,61 @@ def _restore_nibabel_xforms(img, obj) -> None:
         img.set_qform(obj.space.affine, code=obj._nibabel_qform_code)
     if hasattr(img, "set_sform") and hasattr(obj, "_nibabel_sform_code"):
         img.set_sform(obj.space.affine, code=obj._nibabel_sform_code)
+
+
+def _embed_receipt_extension(img, receipt) -> None:
+    """Attach a Receipt to ``img.header.extensions`` as a 'comment' extension.
+
+    No-op when ``receipt`` is ``None`` or when the image header does not
+    support extensions (non-NIfTI back ends).
+    """
+    if receipt is None:
+        return
+    header = getattr(img, "header", None)
+    extensions = getattr(header, "extensions", None)
+    if extensions is None:
+        return
+    try:
+        from nibabel.nifti1 import Nifti1Extension
+    except ImportError:  # pragma: no cover
+        return
+    payload = receipt.to_nifti_extension_bytes()
+    extensions[:] = [ext for ext in extensions if not _is_receipt_extension(ext)]
+    extensions.append(Nifti1Extension(6, payload))
+
+
+def _is_receipt_extension(ext) -> bool:
+    try:
+        if int(ext.get_code()) != 6:
+            return False
+        content = bytes(ext.get_content())
+    except Exception:  # pragma: no cover
+        return False
+    from .results import RECEIPT_NIFTI_PREFIX
+
+    return content.rstrip(b"\x00").decode("utf-8", errors="replace").startswith(
+        RECEIPT_NIFTI_PREFIX
+    )
+
+
+def _extract_receipt_extension(img):
+    """Recover a :class:`~neuroim.results.Receipt` from a nibabel image's
+    'comment' extension, or ``None`` if no marker extension is present.
+    """
+    header = getattr(img, "header", None)
+    extensions = getattr(header, "extensions", None)
+    if not extensions:
+        return None
+    from .results import Receipt
+
+    for ext in extensions:
+        try:
+            if int(ext.get_code()) != 6:
+                continue
+            content = bytes(ext.get_content())
+        except Exception:  # pragma: no cover
+            continue
+        receipt = Receipt.from_nifti_extension_bytes(content)
+        if receipt is not None:
+            return receipt
+    return None
