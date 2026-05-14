@@ -8,6 +8,7 @@ from typing import Dict, Optional
 
 from .neuro_space import NeuroSpace
 from .clustered_neuro_vol import ClusteredNeuroVol
+from .results import Receipt
 
 class ClusteredNeuroVec:
     """4D neuroimaging data with cluster assignments and shared time-series per cluster.
@@ -43,6 +44,7 @@ class ClusteredNeuroVec:
         cvol: ClusteredNeuroVol,
         ts: np.ndarray,
         label: str = "",
+        provenance: Optional[Receipt] = None,
     ):
         if not isinstance(cvol, ClusteredNeuroVol):
             raise TypeError("cvol must be a ClusteredNeuroVol")
@@ -61,12 +63,28 @@ class ClusteredNeuroVec:
         self.ts = ts
         self.cl_map = cvol.clusters
         self.label = label
+        self.provenance = provenance
 
         # sorted unique cluster IDs for column mapping
         self._cluster_ids = np.sort(np.array(list(cvol.cluster_map.keys())))
         self._id_to_col: Dict[int, int] = {
             int(cid): col for col, cid in enumerate(self._cluster_ids)
         }
+
+    @classmethod
+    def from_neurovec(
+        cls,
+        vec,
+        cvol: ClusteredNeuroVol,
+        *,
+        label: str = "",
+    ) -> "ClusteredNeuroVec":
+        """Extract per-cluster mean time series from a NeuroVec.
+
+        This factory mirrors :meth:`neuroim.NeuroVec.parcel_means` for users
+        who discover the clustered container first.
+        """
+        return vec.parcel_means(cvol, label=label)
 
     # ------------------------------------------------------------------
     # Accessors

@@ -102,6 +102,12 @@ class FileBackedNeuroVec(NeuroVec):
                 f"Volume {idx} has inconsistent shape: "
                 f"{vol.shape} vs expected {self.vol_shape}"
             )
+        try:
+            vol.space.compatible_with(self.vol_space)
+        except ValueError as exc:
+            raise ValueError(
+                f"Volume {idx} has inconsistent affine/space: {exc}"
+            ) from None
 
         # Add to cache
         self._cache[idx] = vol.data

@@ -12,6 +12,7 @@ from .neuro_vol import (
     DenseNeuroVol,
     LogicalNeuroVol,
     _attach_nibabel_metadata,
+    _embed_receipt_extension,
     _restore_nibabel_xforms,
 )
 from .axis import drop_axis
@@ -80,7 +81,15 @@ class NeuroVec(ABC):
         return vec
 
     def to_nibabel(self, cls=None):
-        """Convert this vector to a nibabel image."""
+        """Convert this vector to a nibabel image.
+
+        When ``self.provenance`` is a :class:`~neuroim.results.Receipt`, it
+        is embedded as a NIfTI 'comment' header extension (ecode 6, marker
+        prefix ``neuroim/receipt/v1:``) — matching the NeuroVol path so a
+        clean-process round-trip via :func:`~neuroim.io.read_image`
+        recovers it on ``.provenance``.  See
+        ``docs/spec/receipt-nifti-extension.md``.
+        """
         import nibabel as nib
 
         img_cls = cls or nib.Nifti1Image
@@ -90,6 +99,7 @@ class NeuroVec(ABC):
             header = header.copy()
         img = img_cls(data, self.space.affine, header=header)
         _restore_nibabel_xforms(img, self)
+        _embed_receipt_extension(img, getattr(self, "provenance", None))
         return img
 
     @abstractmethod
@@ -471,6 +481,56 @@ class NeuroVec(ABC):
             except ValueError:
                 pass
         return DenseNeuroVol(tsnr, spatial, label="temporal_snr", provenance=receipt)
+
+    def parcel_means(self, atlas, *, label: str = ""):
+        """Extract per-parcel mean BOLD time series from an atlas.
+
+        ``atlas`` may be an integer-labelled :class:`DenseNeuroVol` or an
+        already-built :class:`ClusteredNeuroVol`.  The returned
+        :class:`ClusteredNeuroVec` stores a ``(n_time, n_clusters)`` matrix,
+        sorted by ascending cluster id, and carries a provenance
+        :class:`Receipt` recording the input space and atlas label payload.
+        """
+        from .clustered_neuro_vec import ClusteredNeuroVec
+        from .clustered_neuro_vol import ClusteredNeuroVol
+        from .results import RoiOpParams, receipt_for
+        from .verify import assert_same_space
+
+        if isinstance(atlas, ClusteredNeuroVol):
+            cvol = atlas
+            atlas_payload = cvol.as_dense().data
+        elif isinstance(atlas, DenseNeuroVol):
+            atlas_payload = np.asarray(atlas.data, dtype=np.int32)
+            mask = LogicalNeuroVol(atlas_payload > 0, atlas.space)
+            cvol = ClusteredNeuroVol(mask, atlas_payload)
+        else:
+            raise TypeError(
+                "atlas must be a DenseNeuroVol or ClusteredNeuroVol, "
+                f"got {type(atlas).__name__}"
+            )
+
+        assert_same_space(self, cvol)
+
+        data = np.asarray(self.to_dense().data, dtype=np.float64)
+        if data.ndim != 4:
+            raise ValueError(f"parcel_means expects 4D data, got {data.ndim}D")
+        nx, ny, nz, nt = data.shape
+        flat = data.reshape(nx * ny * nz, nt, order="F")
+
+        cluster_ids = np.sort(np.array(list(cvol.cluster_map.keys())))
+        ts = np.empty((nt, cluster_ids.size), dtype=np.float64)
+        for col, cid in enumerate(cluster_ids):
+            indices = cvol.cluster_map[int(cid)]
+            ts[:, col] = flat[indices, :].mean(axis=0)
+
+        receipt = receipt_for(
+            self,
+            mask=np.asarray(atlas_payload, dtype=np.int32),
+            n_voxels=int(cvol.num_clusters()),
+            params=RoiOpParams(method_name="parcel_means"),
+            upstream=self,
+        )
+        return ClusteredNeuroVec(cvol, ts, label=label, provenance=receipt)
 
     @abstractmethod
     def as_sparse(self, mask=None) -> "SparseNeuroVec":

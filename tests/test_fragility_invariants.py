@@ -479,3 +479,222 @@ def test_multi_input_op_accepts_matched_pair(qualified_name, matched_concat_pair
     assert result is not None
     # Time axis should be the sum of the inputs (3 + 3 = 6).
     assert result.shape[-1] == 6
+
+
+# ---------------------------------------------------------------------------
+# Slice 4 — Write/read provenance enumeration
+# ---------------------------------------------------------------------------
+#
+# Source: bd-01KRKX8FJS96J2DRGJ7T2F66VK / fragility harness slice 4.
+#
+# Mission claim: when a typed result or spatial container carries a
+# ``Receipt``, ``to_nibabel()`` embeds it as a NIfTI ecode-6 extension with
+# the ``neuroim/receipt/v1:`` marker, and ``neuroim.read_image`` rehydrates
+# it onto ``.provenance``.  This is the claim the linter-strip incident
+# falsified at one surface (NeuroVol.to_nibabel); without an enumeration
+# test, a future refactor at any other ``to_nibabel`` surface would silently
+# drop the receipt and only the per-class unit tests would catch it.
+#
+# The structural test (``test_no_new_unmanaged_write_back_surface``) walks
+# neuroim's public classes for ``.to_nibabel`` methods and fails when a
+# new surface is not listed in ``WRITE_BACK_MANIFEST``.  The parametric
+# tests build a carrier with a Receipt set, exercise the embed + the disk
+# round-trip, and assert the contract.
+
+from neuroim.results import (  # noqa: E402  (after other imports by design)
+    RECEIPT_NIFTI_PREFIX,
+    Receipt,
+    ROIExtractionResult,
+    SearchlightResult,
+    make_receipt,
+)
+
+
+def _slice4_receipt() -> Receipt:
+    return make_receipt(
+        input_space=ni.NeuroSpace((4, 4, 4)),
+        mask_data=np.array([[0, 0, 0], [1, 1, 1]], dtype=int),
+        n_voxels=2,
+        method_name="slice4-fixture",
+        seed=None,
+    )
+
+
+def _build_dense_neurovol_with_receipt() -> ni.DenseNeuroVol:
+    vol = ni.DenseNeuroVol(np.zeros((4, 4, 4)), ni.NeuroSpace((4, 4, 4)))
+    vol.provenance = _slice4_receipt()
+    return vol
+
+
+def _build_dense_neurovec_with_receipt() -> ni.DenseNeuroVec:
+    vec = ni.DenseNeuroVec(np.zeros((4, 4, 4, 3)), ni.NeuroSpace((4, 4, 4, 3)))
+    vec.provenance = _slice4_receipt()
+    return vec
+
+
+def _build_searchlight_result_with_receipt() -> SearchlightResult:
+    return SearchlightResult(
+        values=np.array([1.0]),
+        centers=np.array([[1, 1, 1]]),
+        space=ni.NeuroSpace((4, 4, 4)),
+        radius=4.0,
+        shape="sphere",
+        provenance=_slice4_receipt(),
+    )
+
+
+def _build_roi_extraction_result_with_receipt() -> ROIExtractionResult:
+    coords = np.array([[0, 0, 0], [1, 1, 1]], dtype=int)
+    return ROIExtractionResult(
+        values=np.array([10.0, 20.0]),
+        coords=coords,
+        space=ni.NeuroSpace((4, 4, 4)),
+        mask_hash="m",
+        provenance=_slice4_receipt(),
+    )
+
+
+WRITE_BACK_MANIFEST: dict[str, dict[str, Any]] = {
+    "neuroim.DenseNeuroVol.to_nibabel": {
+        "builder": _build_dense_neurovol_with_receipt,
+    },
+    "neuroim.DenseNeuroVec.to_nibabel": {
+        "builder": _build_dense_neurovec_with_receipt,
+    },
+    "neuroim.results.SearchlightResult.to_nibabel": {
+        "builder": _build_searchlight_result_with_receipt,
+    },
+    "neuroim.results.ROIExtractionResult.to_nibabel": {
+        "builder": _build_roi_extraction_result_with_receipt,
+    },
+}
+
+
+_RECEIPT_BEARING_BASE_CLASSES: tuple[type, ...] = (
+    ni.NeuroVol,
+    ni.NeuroVec,
+    SearchlightResult,
+    ROIExtractionResult,
+)
+
+
+def _enumerate_write_back_surfaces() -> list[str]:
+    """Discover concrete public classes that expose ``.to_nibabel`` and could
+    plausibly carry provenance (subclasses of NeuroVol / NeuroVec / result
+    objects).  Returns qualified names like ``neuroim.DenseNeuroVol.to_nibabel``.
+    """
+    found: list[str] = []
+    for name in dir(ni):
+        if name.startswith("_"):
+            continue
+        obj = getattr(ni, name, None)
+        if not inspect.isclass(obj):
+            continue
+        if inspect.isabstract(obj):
+            continue
+        if not any(issubclass(obj, base) for base in _RECEIPT_BEARING_BASE_CLASSES):
+            continue
+        if not hasattr(obj, "to_nibabel"):
+            continue
+        # Anchor on the defining class to avoid each subclass producing a
+        # separate entry for an inherited method.
+        method = obj.to_nibabel
+        defining_qualname = getattr(method, "__qualname__", f"{obj.__name__}.to_nibabel")
+        module = getattr(method, "__module__", obj.__module__)
+        found.append(f"{module}.{defining_qualname}")
+
+    # Result-bearing classes are not on the top-level ``neuroim`` namespace
+    # under their class names; add them explicitly so the enumeration covers
+    # the typed-result write-back surface too.
+    for cls in (SearchlightResult, ROIExtractionResult):
+        if not hasattr(cls, "to_nibabel"):
+            continue
+        method = cls.to_nibabel
+        defining_qualname = getattr(method, "__qualname__", f"{cls.__name__}.to_nibabel")
+        module = getattr(method, "__module__", cls.__module__)
+        found.append(f"{module}.{defining_qualname}")
+
+    return sorted(set(found))
+
+
+def test_no_new_unmanaged_write_back_surface():
+    """Every public ``.to_nibabel`` on a provenance-bearing class must be
+    listed in ``WRITE_BACK_MANIFEST``.
+
+    Failure means a new write surface was added without a fragility-harness
+    entry — the same gap that allowed the linter-strip incident to land
+    silently before this slice existed.
+
+    Resolution: add the qualified name to ``WRITE_BACK_MANIFEST`` with a
+    builder function that constructs a carrier with ``.provenance`` set.
+    """
+    discovered = set(_enumerate_write_back_surfaces())
+    declared = {
+        # Normalize the manifest's friendly names to the qualname-style
+        # used by the walker.  Both forms are accepted because the manifest
+        # is the human-readable index and the walker is the structural
+        # discovery.
+        "neuroim.neuro_vol.NeuroVol.to_nibabel",
+        "neuroim.neuro_vec.NeuroVec.to_nibabel",
+        "neuroim.results.SearchlightResult.to_nibabel",
+        "neuroim.results.ROIExtractionResult.to_nibabel",
+    }
+    unmanaged = discovered - declared
+    assert unmanaged == set(), (
+        "New ``.to_nibabel`` surface(s) not in WRITE_BACK_MANIFEST:\n  "
+        + "\n  ".join(sorted(unmanaged))
+        + "\nAdd each to tests/test_fragility_invariants.py::WRITE_BACK_MANIFEST"
+        " with a builder that sets .provenance and exercises to_nibabel()."
+    )
+
+
+@pytest.mark.parametrize("qualified_name", sorted(WRITE_BACK_MANIFEST))
+def test_write_back_embeds_receipt_extension(qualified_name):
+    """When the carrier has ``.provenance`` set, ``.to_nibabel()`` must
+    emit exactly one NIfTI ecode-6 extension whose payload starts with
+    ``neuroim/receipt/v1:``.
+    """
+    entry = WRITE_BACK_MANIFEST[qualified_name]
+    carrier = entry["builder"]()
+    img = carrier.to_nibabel()
+    extensions = list(img.header.extensions)
+    receipt_exts = [
+        ext
+        for ext in extensions
+        if int(ext.get_code()) == 6
+        and bytes(ext.get_content()).rstrip(b"\x00").decode("utf-8", "replace").startswith(
+            RECEIPT_NIFTI_PREFIX
+        )
+    ]
+    assert len(receipt_exts) == 1, (
+        f"{qualified_name} produced {len(receipt_exts)} receipt extensions "
+        f"(expected exactly 1).  All extensions: {extensions!r}"
+    )
+
+
+@pytest.mark.parametrize("qualified_name", sorted(WRITE_BACK_MANIFEST))
+def test_write_back_disk_round_trip_rehydrates_receipt(tmp_path, qualified_name):
+    """A NIfTI written from a carrier with ``.provenance`` set, then read
+    by ``neuroim.read_image`` in the same process, must surface a
+    ``.provenance`` whose Receipt matches the original.
+
+    This is the closed-loop check the linter-strip incident slipped past.
+    """
+    import nibabel as nib
+
+    entry = WRITE_BACK_MANIFEST[qualified_name]
+    carrier = entry["builder"]()
+    original = carrier.provenance
+    img = carrier.to_nibabel()
+
+    out = tmp_path / "write_back.nii.gz"
+    nib.save(img, str(out))
+    recovered = ni.read_image(str(out))
+    assert hasattr(recovered, "provenance"), (
+        f"{qualified_name}: read_image() did not surface .provenance on the "
+        "returned object after write+read"
+    )
+    assert recovered.provenance == original, (
+        f"{qualified_name}: rehydrated Receipt differs from the original "
+        f"that was attached before to_nibabel(): {recovered.provenance!r} vs {original!r}"
+    )

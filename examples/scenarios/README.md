@@ -61,6 +61,7 @@ NN_<name>/
 | 08 | **Pickle / multiprocessing handoff** — send a derived map through a worker/cache boundary | **win on inspectability** | none — typed `DenseNeuroVol.provenance` survives a fresh-process pickle round-trip; bare nibabel requires a manual manifest. See `08_pickle_multiprocessing_handoff/REPORT.md`. |
 | 09 | **Native-to-template provenance** — resample native BOLD to template, then compute tSNR | **safety win, originally falsified inspectability; now fixed and guarded** | 1 — **PAIN-9 (P1) closed**: `resample_vec` now records source/target space hashes and interpolation order, and downstream derived-map receipts thread the normalization step. See `09_native_to_template_provenance/REPORT.md`. |
 | 10 | **Searchlight space mismatch** — compute a local mean searchlight map with a shifted same-shape mask | **safety win, originally falsified the mission claim; now fixed and guarded** | 2 — **PAIN-10 (P0) closed**: `searchlight_apply` now calls `assert_same_space(data, mask)` before sampling, mirroring the PAIN-5 fix at `series_roi`. **PAIN-11 (P2) open**: deprecated `NeuroVec.series()` call still internal. See `10_searchlight_space_mismatch/REPORT.md`. |
+| 12 | **File-backed affine drift** — compute tSNR from one 3-D file per time point, with one shifted same-shape volume | **falsifies a mission-bearing backend-safety claim** | 1 — **PAIN-12 (P0)**: `FileBackedNeuroVec` should reject per-volume affine drift, not only shape drift. See `12_file_backed_affine_drift/REPORT.md`. |
 
 ## Running
 
