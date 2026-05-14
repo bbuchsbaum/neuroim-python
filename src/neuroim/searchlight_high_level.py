@@ -114,8 +114,10 @@ def searchlight(mask: MaskLike,
     def process_searchlight(sl):
         """Process a single searchlight and return (center_idx, result)."""
         # Extract data from the searchlight region
-        if hasattr(data, 'series'):
+        if hasattr(data, "series_at_coords"):
             # For NeuroVec, extract time series
+            sl_data = data.series_at_coords(sl.coords)
+        elif hasattr(data, 'series'):
             sl_data = data.series(sl.coords)
         else:
             # For NeuroVol, extract values
