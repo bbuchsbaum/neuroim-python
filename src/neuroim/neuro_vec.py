@@ -120,7 +120,7 @@ class NeuroVec(ABC):
             Time series data"""
         pass
 
-    def series_roi(self, roi, *, return_legacy: bool = True):
+    def series_roi(self, roi, *, return_legacy: bool = False):
         """Extract time series for all voxels in an ROI.
 
         Parameters
@@ -128,17 +128,30 @@ class NeuroVec(ABC):
         roi : ROIVol or ROICoords
             The region of interest
         return_legacy : bool, optional
-            If True, return the historical time-by-voxel ndarray.  If False,
-            return a typed ROIExtractionResult with coordinates, space, and
-            provenance.
+            Default ``False`` returns a typed
+            :class:`~neuroim.results.ROIExtractionResult`.  Pass ``True`` for
+            the historical time-by-voxel ndarray; this opt-in emits a
+            :class:`DeprecationWarning` and will be removed in the next
+            minor.
 
         Returns
         -------
-        np.ndarray or ROIExtractionResult
-            Time series matrix (time x voxels), or a typed result object.
+        ROIExtractionResult or np.ndarray
+            Typed result by default; bare time-by-voxel ndarray with
+            ``return_legacy=True``.
         """
+        import warnings as _warnings
         from .roi import ROIVol, ROICoords
         from .results import ROIExtractionResult, make_receipt
+
+        if return_legacy:
+            _warnings.warn(
+                "return_legacy=True is deprecated and will be removed in the "
+                "next minor release; consume the typed ROIExtractionResult "
+                "instead (.values, .coords, .provenance).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         if isinstance(roi, ROIVol):
             # Extract coordinates from ROIVol - it's directly stored in roi.coords

@@ -10,7 +10,6 @@ from scipy.spatial.distance import euclidean
 from .neuro_space import NeuroSpace
 from .neuro_vol import SparseNeuroVol
 
-
 class Kernel:
     """A class representing a filter kernel for spatial operations.
 
@@ -28,9 +27,6 @@ class Kernel:
     coords : np.ndarray
         Matrix of coordinate locations corresponding to voxels
 
-    R Equivalent
-    ------------
-    neuroim2::Kernel
     """
 
     def __init__(
@@ -77,9 +73,6 @@ class Kernel:
         np.ndarray
             Voxel locations
 
-        R Equivalent
-        ------------
-        neuroim2::voxels
         """
         if center_voxel is None:
             return self.voxels.copy()
@@ -88,7 +81,6 @@ class Kernel:
 
     def __repr__(self):
         return f"Kernel(width={self.width}, n_weights={len(self.weights)})"
-
 
 def gaussian_kernel(
     vdim: Tuple[float, ...], kdim: Tuple[int, ...], sigma: float, normalize: bool = True
@@ -111,9 +103,6 @@ def gaussian_kernel(
     Kernel
         Gaussian kernel object
 
-    R Equivalent
-    ------------
-    neuroim2::GaussianKernel
     """
     # Convert to arrays
     vdim = np.asarray(vdim)
@@ -146,7 +135,6 @@ def gaussian_kernel(
 
     return Kernel(width=tuple(kdim), weights=weights, voxels=voxel_ind, coords=coords)
 
-
 def spherical_kernel(
     vdim: Tuple[float, ...], radius: float, weight_func: Optional[Callable] = None
 ) -> Kernel:
@@ -167,9 +155,6 @@ def spherical_kernel(
     Kernel
         Spherical kernel object
 
-    R Equivalent
-    ------------
-    neuroim2::SphericalKernel
     """
     # Convert to arrays
     vdim = np.asarray(vdim)
@@ -211,7 +196,6 @@ def spherical_kernel(
 
     return Kernel(width=tuple(kdim), weights=weights, voxels=voxel_ind, coords=coords)
 
-
 def box_kernel(kdim: Tuple[int, ...]) -> Kernel:
     """Create a box (uniform) kernel.
 
@@ -225,9 +209,6 @@ def box_kernel(kdim: Tuple[int, ...]) -> Kernel:
     Kernel
         Box kernel object with uniform weights
 
-    R Equivalent
-    ------------
-    neuroim2::BoxKernel
     """
     # Ensure odd dimensions
     kdim = np.array([k if k % 2 == 1 else k + 1 for k in kdim])
@@ -247,7 +228,6 @@ def box_kernel(kdim: Tuple[int, ...]) -> Kernel:
     coords = voxel_ind.astype(float)
 
     return Kernel(width=tuple(kdim), weights=weights, voxels=voxel_ind, coords=coords)
-
 
 def embed_kernel(
     kernel: Kernel, space: NeuroSpace, center_voxel: np.ndarray, weight: float = 1.0
@@ -270,9 +250,6 @@ def embed_kernel(
     SparseNeuroVol
         Sparse volume with kernel embedded
 
-    R Equivalent
-    ------------
-    neuroim2::embed_kernel
     """
     # Get absolute voxel locations
     vox = np.floor(kernel.get_voxels(center_voxel)).astype(int)

@@ -3,6 +3,8 @@
 Includes ROI, ROICoords, ROIVol, ROIVec, and ROIVolWindow.
 """
 
+import warnings
+
 import numpy as np
 from typing import Union, Tuple, Optional, List
 from abc import ABC, abstractmethod
@@ -10,6 +12,17 @@ from .neuro_space import NeuroSpace
 from .typing import MaskLike, NeuroVolLike
 
 _VolumeInput = Union[NeuroVolLike, MaskLike]
+
+_LEGACY_DEPRECATION_MSG = (
+    "return_legacy=True is deprecated and will be removed in the next minor "
+    "release; consume the typed ROIExtractionResult instead (.values, "
+    ".coords, .provenance)."
+)
+
+
+def _warn_legacy_return(return_legacy: bool) -> None:
+    if return_legacy:
+        warnings.warn(_LEGACY_DEPRECATION_MSG, DeprecationWarning, stacklevel=3)
 
 class ROI(ABC):
     """Abstract base class for Region of Interest (ROI) objects.
@@ -275,7 +288,7 @@ class ROIVolWindow(ROIVol):
         Opaque 1D index of the center voxel in parent space
         using the parent space indexing convention.
     center_index : int
-        Location in coordinate matrix of center voxel (1-based in R, 0-based here)
+        Zero-based row in ``coords`` of the center voxel.
         
     """
     
@@ -323,12 +336,16 @@ def _roi_extraction_result(values, coords, space, input_space, method_name):
     )
 
 
-def values_roi(x, roi, *, return_legacy: bool = True):
+def values_roi(x, roi, *, return_legacy: bool = False):
     """Extract volume values for all voxels in an ROI.
 
-    ``return_legacy=True`` preserves the historical bare-ndarray projection.
-    ``return_legacy=False`` returns an ROIExtractionResult with provenance.
+    Default: returns an :class:`~neuroim.results.ROIExtractionResult` with
+    values, coords, space, and a provenance :class:`~neuroim.results.Receipt`.
+    Pass ``return_legacy=True`` for the historical bare-ndarray projection;
+    this opt-in emits a :class:`DeprecationWarning` and will be removed in
+    the next minor.
     """
+    _warn_legacy_return(return_legacy)
     coords, roi_space = _roi_coords_and_space(roi)
     data = x.as_dense().data if hasattr(x, "as_dense") else getattr(x, "data", None)
     if data is None:
@@ -363,8 +380,14 @@ def values_roi(x, roi, *, return_legacy: bool = True):
     )
 
 
-def series_roi(x, roi, *, return_legacy: bool = True):
-    """Extract time series for all voxels in an ROI."""
+def series_roi(x, roi, *, return_legacy: bool = False):
+    """Extract time series for all voxels in an ROI.
+
+    Default: typed :class:`~neuroim.results.ROIExtractionResult`.  Pass
+    ``return_legacy=True`` for the historical time-by-voxel ndarray; this
+    opt-in emits a :class:`DeprecationWarning` and will be removed in the
+    next minor.
+    """
     if hasattr(x, "series_roi"):
         return x.series_roi(roi, return_legacy=return_legacy)
     return values_roi(x, roi, return_legacy=return_legacy)
@@ -499,7 +522,7 @@ def square_roi(
     nonzero : bool
         If True, keep only nonzero voxels
     fixdim : int
-        Fixed dimension (1, 2, or 3 in R; 0, 1, or 2 in Python)
+        Fixed dimension (0, 1, or 2).
         
     Returns
     -------

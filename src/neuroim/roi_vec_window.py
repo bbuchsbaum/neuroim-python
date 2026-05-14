@@ -12,7 +12,6 @@ from typing import Optional
 
 from .neuro_space import NeuroSpace
 
-
 class ROIVecWindow:
     """Windowed ROI for 4D data (time series within a spatial ROI).
 
@@ -47,9 +46,6 @@ class ROIVecWindow:
     >>> win.time_series(0).shape
     (100,)
 
-    R Equivalent
-    ------------
-    neuroim2::ROIVecWindow
     """
 
     def __init__(

@@ -315,9 +315,9 @@ class NeuroVol(ABC):
             return np.nanmean(values)
         return np.mean(values)
 
-    # Compatibility aliases from neuroim2 naming
+    # Compatibility aliases retained as deprecated shims (see neuroim.compat for migration policy).
     def vol_mean(self, na_rm: bool = False) -> float:
-        """Alias for mean() for neuroim2 API compatibility."""
+        """Deprecated alias for :meth:`mean`; retained for migration only."""
         return self.mean(na_rm=na_rm)
 
     def min(self, na_rm: bool = False) -> float:
@@ -842,7 +842,6 @@ class LogicalNeuroVol(DenseNeuroVol):
         return DenseNeuroVol(result, self.space, self.label)
 
 
-# Factory function to match R's constructor style
 def neurovol(data, space: NeuroSpace, label: str = "", indices=None) -> NeuroVol:
     """Create a NeuroVol object.
 

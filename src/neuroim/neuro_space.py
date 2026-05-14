@@ -834,7 +834,6 @@ class NeuroSpace:
         )
 
 
-# Factory function to match R's constructor style
 def neurospace(
     dim: Union[Tuple[int, ...], List[int]],
     spacing: Optional[Union[Tuple[float, ...], List[float]]] = None,
@@ -842,7 +841,5 @@ def neurospace(
     axes: Optional[Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D]] = None,
     trans: Optional[np.ndarray] = None,
 ) -> NeuroSpace:
-    """Create a NeuroSpace object.
-
-    This is a factory function that matches R's NeuroSpace() constructor style."""
+    """Construct a :class:`NeuroSpace` from spacing/origin/axes or a 4x4 affine."""
     return NeuroSpace(dim, spacing, origin, axes, trans)

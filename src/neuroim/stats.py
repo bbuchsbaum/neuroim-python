@@ -14,7 +14,6 @@ from .neuro_space import NeuroSpace
 from .roi import ROIVol
 from .clustered_neuro_vol import ClusteredNeuroVol
 
-
 def split_blocks(
     x: Union[NeuroVol, NeuroVec],
     indices: Optional[np.ndarray] = None,
@@ -46,9 +45,6 @@ def split_blocks(
     list of NeuroVol or NeuroVec
         List of blocks, one for each unique block ID
 
-    R Equivalent
-    ------------
-    neuroim2::split_blocks
     """
     # Handle nblocks convenience parameter
     if nblocks is not None:
@@ -133,7 +129,6 @@ def split_blocks(
 
     return blocks
 
-
 def split_clusters(
     x: Union[NeuroVol, NeuroVec],
     clusters: Union[ClusteredNeuroVol, NeuroVol, None] = None,
@@ -158,9 +153,6 @@ def split_clusters(
     list of ROIVol
         List of ROI volumes, one for each cluster
 
-    R Equivalent
-    ------------
-    neuroim2::split_clusters
     """
     # Handle mask + k convenience API: auto-generate clusters
     if clusters is None and mask is not None and k is not None:
@@ -254,7 +246,6 @@ def split_clusters(
 
     return rois
 
-
 def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
     """Split a NeuroVec by factor levels and fill a new NeuroVec.
 
@@ -273,9 +264,6 @@ def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
     dict
         Dictionary mapping factor levels to NeuroVec objects
 
-    R Equivalent
-    ------------
-    neuroim2::split_fill
     """
     # Determine number of volumes (time dimension)
     # For all NeuroVec types, time is last dimension (x, y, z, time)
@@ -336,7 +324,6 @@ def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
 
     return result
 
-
 def split_reduce(
     x: NeuroVec, fac: np.ndarray, FUN: Callable[[np.ndarray], float]
 ) -> NeuroVol:
@@ -360,9 +347,6 @@ def split_reduce(
     NeuroVol
         Volume containing reduced values
 
-    R Equivalent
-    ------------
-    neuroim2::split_reduce
     """
     # Determine number of volumes (time dimension)
     # For all NeuroVec types, time is last dimension (x, y, z, time)
@@ -443,7 +427,6 @@ def split_reduce(
 
     return DenseNeuroVol(out_data, vol_space)
 
-
 def split_scale(
     x: NeuroVec, fac: np.ndarray, center: bool = True, scale: bool = True
 ) -> NeuroVec:
@@ -468,9 +451,6 @@ def split_scale(
     NeuroVec
         Scaled NeuroVec
 
-    R Equivalent
-    ------------
-    neuroim2::split_scale
     """
     # Determine number of volumes (time dimension)
     # For all NeuroVec types, time is last dimension (x, y, z, time)
@@ -540,7 +520,6 @@ def split_scale(
 
         return SparseNeuroVec(scaled_data, x.space, x.mask, x.label)
 
-
 def partition(
     x: NeuroVol, k: int, method: str = "kmeans", mask: Optional[LogicalNeuroVol] = None
 ) -> ClusteredNeuroVol:
@@ -565,9 +544,6 @@ def partition(
     ClusteredNeuroVol
         Clustered volume with partition labels
 
-    R Equivalent
-    ------------
-    neuroim2::partition
     """
     from sklearn.cluster import KMeans
 
@@ -609,7 +585,6 @@ def partition(
     else:
         raise ValueError(f"Unknown method: {method}")
 
-
 def map_values(x: NeuroVol, lookup: Dict[float, float]) -> NeuroVol:
     """Map values in a volume using a lookup table.
 
@@ -627,9 +602,6 @@ def map_values(x: NeuroVol, lookup: Dict[float, float]) -> NeuroVol:
     NeuroVol
         Volume with mapped values
 
-    R Equivalent
-    ------------
-    neuroim2::map_values
     """
     # Create copy of data
     mapped_data = x.data.copy()
@@ -649,7 +621,6 @@ def map_values(x: NeuroVol, lookup: Dict[float, float]) -> NeuroVol:
     else:
         # Use type() to preserve the exact class, including subclasses
         return type(x)(mapped_data, x.space)
-
 
 def centroids(
     x: ClusteredNeuroVol, method: str = "center_of_mass"
@@ -671,9 +642,6 @@ def centroids(
     dict
         Dictionary mapping cluster IDs to centroid coordinates
 
-    R Equivalent
-    ------------
-    neuroim2::centroids
     """
     if method == "center_of_mass":
         # Use existing method

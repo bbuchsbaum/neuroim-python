@@ -10,7 +10,6 @@ from .neuro_vol import NeuroVol, DenseNeuroVol, LogicalNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec
 from .kernel import Kernel, gaussian_kernel
 
-
 def gaussian_blur(
     vol: NeuroVol,
     mask: Optional[LogicalNeuroVol] = None,
@@ -41,9 +40,6 @@ def gaussian_blur(
     DenseNeuroVol
         The smoothed image
 
-    R Equivalent
-    ------------
-    neuroim2::gaussian_blur
     """
     if window < 1:
         raise ValueError("Window size must be at least 1")
@@ -66,7 +62,6 @@ def gaussian_blur(
 
     return DenseNeuroVol(output_data, vol.space)
 
-
 def box_blur(data: np.ndarray, mask_indices: np.ndarray, radius: int) -> np.ndarray:
     """Helper function for guided filter: applies box blur to the data."""
     kernel = np.ones((2 * radius + 1, 2 * radius + 1, 2 * radius + 1)) / (
@@ -74,7 +69,6 @@ def box_blur(data: np.ndarray, mask_indices: np.ndarray, radius: int) -> np.ndar
     )
     blurred = ndimage.convolve(data, kernel, mode="constant", cval=0.0)
     return blurred[mask_indices]
-
 
 def guided_filter(
     vol: NeuroVol, radius: int = 4, epsilon: float = 0.49
@@ -100,9 +94,6 @@ def guided_filter(
     DenseNeuroVol
         The filtered image
 
-    R Equivalent
-    ------------
-    neuroim2::guided_filter
     """
     if radius < 1:
         raise ValueError("Radius must be at least 1")
@@ -145,7 +136,6 @@ def guided_filter(
 
     return DenseNeuroVol(output_data, vol.space)
 
-
 def bilateral_filter(
     vol: NeuroVol,
     mask: Optional[LogicalNeuroVol] = None,
@@ -179,9 +169,6 @@ def bilateral_filter(
     DenseNeuroVol
         The smoothed image
 
-    R Equivalent
-    ------------
-    neuroim2::bilateral_filter
     """
     if window < 1:
         raise ValueError("Window size must be at least 1")
@@ -244,7 +231,6 @@ def bilateral_filter(
 
     return DenseNeuroVol(output_data, vol.space)
 
-
 def bilateral_filter_vec(
     vec: NeuroVec,
     mask: Optional[LogicalNeuroVol] = None,
@@ -275,9 +261,6 @@ def bilateral_filter_vec(
     DenseNeuroVec
         The filtered volumes
 
-    R Equivalent
-    ------------
-    neuroim2::bilateral_filter_vec
     """
     # Extract individual volumes and filter
     filtered_vols = []
@@ -291,7 +274,6 @@ def bilateral_filter_vec(
     # Stack filtered volumes
     filtered_data = np.stack([vol.data for vol in filtered_vols], axis=-1)
     return DenseNeuroVec(filtered_data, vec.space)
-
 
 def bilateral_filter_4d(
     vec: NeuroVec,
@@ -402,7 +384,6 @@ def bilateral_filter_4d(
             output[x, y, z, t] = val_sum / weight_sum if weight_sum > 0 else center
 
     return DenseNeuroVec(output, vec.space)
-
 
 def box_blur(vol: NeuroVol, mask_indices: tuple, radius: int) -> np.ndarray:
     """Helper function for guided filter: applies box blur to the data.

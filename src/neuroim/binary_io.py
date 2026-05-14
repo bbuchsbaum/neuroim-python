@@ -11,7 +11,6 @@ from pathlib import Path
 import numpy as np
 import struct
 
-
 class BinaryReader:
     """Class supporting reading of bulk binary data from a connection.
 
@@ -30,9 +29,6 @@ class BinaryReader:
     signed : bool
         Whether the data type is signed
 
-    R Equivalent
-    ------------
-    neuroim2::BinaryReader
     """
 
     def __init__(
@@ -142,7 +138,6 @@ class BinaryReader:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-
 class BinaryWriter:
     """Class supporting writing of bulk binary data to a connection.
 
@@ -159,9 +154,6 @@ class BinaryWriter:
     endian : str
         Endianness ("little" or "big")
 
-    R Equivalent
-    ------------
-    neuroim2::BinaryWriter
     """
 
     def __init__(
@@ -247,7 +239,6 @@ class BinaryWriter:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
-
 
 class ColumnReader:
     """Reader for column-oriented binary data.

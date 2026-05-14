@@ -13,7 +13,6 @@ import numpy as np
 from .axis import AxisSet, AxisSet3D
 from .file_format import FileFormat
 
-
 class MetaInfo:
     """Base class for neuroimaging metadata.
 
@@ -37,9 +36,6 @@ class MetaInfo:
     label : List[str]
         Name(s) of images or data series
 
-    R Equivalent
-    ------------
-    neuroim2::MetaInfo
     """
 
     def __init__(
@@ -72,7 +68,6 @@ class MetaInfo:
             return self.dims[3]
         return 1
 
-
 class FileMetaInfo(MetaInfo):
     """Extended metadata for file-based neuroimaging data.
 
@@ -100,9 +95,6 @@ class FileMetaInfo(MetaInfo):
     header : dict
         Format-specific attributes
 
-    R Equivalent
-    ------------
-    neuroim2::FileMetaInfo
     """
 
     def __init__(
@@ -193,7 +185,6 @@ class FileMetaInfo(MetaInfo):
         # Add byte order
         return np.dtype(f"{self.byte_order}{base_dtype.str[1:]}")
 
-
 class NIFTIMetaInfo(FileMetaInfo):
     """NIfTI-specific metadata.
 
@@ -204,9 +195,6 @@ class NIFTIMetaInfo(FileMetaInfo):
     nifti_header : dict
         Attributes specific to the NIfTI file format
 
-    R Equivalent
-    ------------
-    neuroim2::NIFTIMetaInfo
     """
 
     def __init__(self, nifti_header: Dict[str, Any], **kwargs):
@@ -231,7 +219,6 @@ class NIFTIMetaInfo(FileMetaInfo):
             return desc.decode("utf-8").strip("\x00")
         return str(desc).strip()
 
-
 class AFNIMetaInfo(FileMetaInfo):
     """AFNI-specific metadata.
 
@@ -242,9 +229,6 @@ class AFNIMetaInfo(FileMetaInfo):
     afni_header : dict
         Attributes specific to the AFNI file format
 
-    R Equivalent
-    ------------
-    neuroim2::AFNIMetaInfo
     """
 
     def __init__(self, afni_header: Dict[str, Any], **kwargs):

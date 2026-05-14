@@ -1,6 +1,7 @@
 """ROIExtractionResult wiring for ROI extraction workflows."""
 
 import numpy as np
+import pytest
 
 from neuroim import (
     DenseNeuroVec,
@@ -33,7 +34,8 @@ def test_neurovec_series_roi_result_matches_legacy_values():
     vec = _make_vec()
     roi = _make_roi()
 
-    legacy = vec.series_roi(roi)
+    with pytest.warns(DeprecationWarning):
+        legacy = vec.series_roi(roi, return_legacy=True)
     result = vec.series_roi(roi, return_legacy=False)
 
     assert isinstance(result, ROIExtractionResult)
@@ -63,7 +65,8 @@ def test_neurovec_series_roi_accepts_roivol_result_projection():
     roi = _make_roi()
     roi_vol = ROIVol(np.array([10.0, 20.0]), roi.space, roi.coords)
 
-    legacy = vec.series_roi(roi_vol)
+    with pytest.warns(DeprecationWarning):
+        legacy = vec.series_roi(roi_vol, return_legacy=True)
     result = vec.series_roi(roi_vol, return_legacy=False)
 
     np.testing.assert_array_equal(result.values, legacy)
@@ -76,9 +79,11 @@ def test_roi_module_series_roi_dispatches_to_result_object():
     roi = _make_roi()
 
     result = series_roi(vec, roi, return_legacy=False)
+    with pytest.warns(DeprecationWarning):
+        legacy_values = vec.series_roi(roi, return_legacy=True)
 
     assert isinstance(result, ROIExtractionResult)
-    np.testing.assert_array_equal(result.values, vec.series_roi(roi))
+    np.testing.assert_array_equal(result.values, legacy_values)
 
 
 def test_values_roi_result_matches_volume_values():
@@ -88,7 +93,8 @@ def test_values_roi_result_matches_volume_values():
     vol = DenseNeuroVol(data, space)
     roi = _make_roi()
 
-    legacy = values_roi(vol, roi)
+    with pytest.warns(DeprecationWarning):
+        legacy = values_roi(vol, roi, return_legacy=True)
     result = values_roi(vol, roi, return_legacy=False)
 
     assert isinstance(result, ROIExtractionResult)

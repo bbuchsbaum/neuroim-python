@@ -8,7 +8,6 @@ from typing import Tuple, Union, Optional
 from .neuro_space import NeuroSpace
 from .axis import AxisSet2D, NamedAxis, drop_axis
 
-
 class NeuroSlice:
     """A 2D slice of neuroimaging data.
 
@@ -21,9 +20,6 @@ class NeuroSlice:
     space : NeuroSpace
         2D spatial metadata
 
-    R Equivalent
-    ------------
-    neuroim2::NeuroSlice
     """
 
     def __init__(self, data: np.ndarray, space: NeuroSpace):
@@ -58,9 +54,6 @@ class NeuroSlice:
     def dim(self) -> np.ndarray:
         """Dimensions of the slice.
 
-        R Equivalent
-        ------------
-        neuroim2::dim
         """
         return self.space.dim
 
@@ -68,9 +61,6 @@ class NeuroSlice:
     def spacing(self) -> np.ndarray:
         """Voxel dimensions.
 
-        R Equivalent
-        ------------
-        neuroim2::spacing
         """
         return self.space.spacing
 
@@ -78,9 +68,6 @@ class NeuroSlice:
     def origin(self) -> np.ndarray:
         """Origin coordinates.
 
-        R Equivalent
-        ------------
-        neuroim2::origin
         """
         return self.space.origin
 
@@ -88,9 +75,6 @@ class NeuroSlice:
     def axes(self):
         """Axes of the slice.
 
-        R Equivalent
-        ------------
-        neuroim2::axes
         """
         return self.space.axes
 
@@ -173,9 +157,6 @@ class NeuroSlice:
         np.ndarray
             Linear indices (0-based)
 
-        R Equivalent
-        ------------
-        neuroim2::grid_to_index
         """
         return self.space.grid_to_index(coords)
 
@@ -192,21 +173,14 @@ class NeuroSlice:
         np.ndarray
             Grid coordinates, shape (n, 2)
 
-        R Equivalent
-        ------------
-        neuroim2::index_to_grid
         """
         return self.space.index_to_grid(idx)
 
     def values(self) -> np.ndarray:
         """Get the data values as a 1D array.
 
-        R Equivalent
-        ------------
-        neuroim2::values
         """
         return self.data.ravel(order="F")
-
 
 def neuroslice(
     data: Union[np.ndarray, list],
@@ -229,9 +203,6 @@ def neuroslice(
     NeuroSlice
         New NeuroSlice instance
 
-    R Equivalent
-    ------------
-    neuroim2::NeuroSlice
     """
     data = np.asarray(data)
 
@@ -251,7 +222,6 @@ def neuroslice(
         slice_data = slice_flat.reshape(tuple(space.dim), order="F")
         return NeuroSlice(slice_data, space)
 
-
 def slice(vol, zlevel: int, along: int) -> NeuroSlice:
     """Extract a 2D slice from a 3D volume.
 
@@ -260,18 +230,15 @@ def slice(vol, zlevel: int, along: int) -> NeuroSlice:
     vol : NeuroVol
         Volume to slice from
     zlevel : int
-        Index of the slice (1-based in R, 0-based in Python)
+        Zero-based index of the slice along ``along``.
     along : int
-        Axis to slice along (1, 2, or 3 in R; 0, 1, or 2 in Python)
+        Axis to slice along (0, 1, or 2).
 
     Returns
     -------
     NeuroSlice
         2D slice at the specified position
 
-    R Equivalent
-    ------------
-    neuroim2::slice
     """
     from .neuro_vol import NeuroVol
 
@@ -297,7 +264,6 @@ def slice(vol, zlevel: int, along: int) -> NeuroSlice:
 
     return NeuroSlice(slice_data, slice_space)
 
-
 def slices(vol):
     """Extract all 2D slices from a 3D volume.
 
@@ -311,9 +277,6 @@ def slices(vol):
     list
         List of NeuroSlice objects
 
-    R Equivalent
-    ------------
-    neuroim2::slices
     """
     from .neuro_vol import NeuroVol
 

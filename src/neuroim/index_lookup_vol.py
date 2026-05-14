@@ -11,7 +11,6 @@ from typing import Union
 
 from .neuro_space import NeuroSpace
 
-
 class IndexLookupVol:
     """Maps 1D grid indices to sparse table indices for efficient sparse lookups.
 
@@ -37,9 +36,6 @@ class IndexLookupVol:
     >>> lut.grid_to_table(np.array([5, 500]))
     array([0, 3])
 
-    R Equivalent
-    ------------
-    neuroim2::IndexLookupVol
     """
 
     def __init__(self, space: NeuroSpace, indices: np.ndarray):

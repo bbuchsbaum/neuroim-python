@@ -14,7 +14,6 @@ from .neuro_vec import NeuroVec
 from .neuro_space import NeuroSpace
 from .neuro_vol import NeuroVol, DenseNeuroVol
 
-
 class BigNeuroVec(NeuroVec):
     """A memory-mapped 4D neuroimaging vector.
 
@@ -35,9 +34,6 @@ class BigNeuroVec(NeuroVec):
         File mode for memory mapping. Default is 'r+' (read/write).
         Use 'r' for read-only access.
 
-    R Equivalent
-    ------------
-    neuroim2::BigNeuroVec
     """
 
     def __init__(
@@ -392,7 +388,6 @@ class BigNeuroVec(NeuroVec):
             f"  Mode      : {self.mode}"
         )
 
-
 def big_neurovecseq(vols: list, mask: Optional[np.ndarray] = None) -> BigNeuroVec:
     """Create BigNeuroVec from a sequence of volumes.
 
@@ -408,9 +403,6 @@ def big_neurovecseq(vols: list, mask: Optional[np.ndarray] = None) -> BigNeuroVe
     BigNeuroVec
         Memory-mapped 4D vector
 
-    R Equivalent
-    ------------
-    neuroim2::BigNeuroVecSeq
     """
     if not vols:
         raise ValueError("vols list cannot be empty")

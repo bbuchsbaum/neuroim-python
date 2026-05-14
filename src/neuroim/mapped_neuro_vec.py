@@ -12,7 +12,6 @@ from .neuro_vec import NeuroVec
 from .neuro_space import NeuroSpace
 from .neuro_vol import NeuroVol, DenseNeuroVol
 
-
 class MappedNeuroVec(NeuroVec):
     """A mapped 4D neuroimaging vector.
 
@@ -30,9 +29,6 @@ class MappedNeuroVec(NeuroVec):
     inverse_fun : callable, optional
         Inverse mapping function for setting values
 
-    R Equivalent
-    ------------
-    neuroim2::MappedNeuroVec
     """
 
     def __init__(
@@ -192,9 +188,7 @@ class MappedNeuroVec(NeuroVec):
             f"  Has Inverse: {self.inverse_fun is not None}"
         )
 
-
 # Common mapping functions
-
 
 def scale_mapper(scale: float, center: float = 0) -> Tuple[Callable, Callable]:
     """Create scale mapping functions.
@@ -220,7 +214,6 @@ def scale_mapper(scale: float, center: float = 0) -> Tuple[Callable, Callable]:
 
     return forward, inverse
 
-
 def log_mapper(base: float = np.e, offset: float = 0) -> Tuple[Callable, Callable]:
     """Create logarithmic mapping functions.
 
@@ -245,7 +238,6 @@ def log_mapper(base: float = np.e, offset: float = 0) -> Tuple[Callable, Callabl
 
     return forward, inverse
 
-
 def threshold_mapper(threshold: float, below_value: float = 0) -> Callable:
     """Create threshold mapping function.
 
@@ -269,7 +261,6 @@ def threshold_mapper(threshold: float, below_value: float = 0) -> Callable:
 
     return forward
 
-
 def mapped_neurovecseq(
     vecs: list, map_fun: Callable, inverse_fun: Optional[Callable] = None
 ) -> MappedNeuroVec:
@@ -289,9 +280,6 @@ def mapped_neurovecseq(
     MappedNeuroVec
         Mapped vector sequence
 
-    R Equivalent
-    ------------
-    Part of neuroim2 functionality
     """
     if not vecs:
         raise ValueError("vecs list cannot be empty")

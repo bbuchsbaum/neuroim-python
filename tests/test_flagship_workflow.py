@@ -27,11 +27,12 @@ def test_flagship_workflow_uses_neuroim_as_public_surface():
     assert bold.space.compatible_with(mask.space)
 
     roi = ni.spherical_roi(mask, centroid=(4, 4, 2), radius=2)
-    time_by_voxel = bold.series_roi(roi)
-    assert time_by_voxel.shape == (source_img.shape[-1], len(roi.coords))
+    extraction = bold.series_roi(roi)
+    assert extraction.values.shape == (source_img.shape[-1], len(roi.coords))
+    assert extraction.provenance.method_name == "series_roi"
 
     mean_data = np.zeros(mask.shape, dtype=np.float32)
-    mean_data[tuple(roi.coords.T)] = time_by_voxel.mean(axis=0)
+    mean_data[tuple(roi.coords.T)] = extraction.values.mean(axis=0)
     mean_map = ni.NeuroVol.from_array(mean_data, space=mask.space)
 
     out = mean_map.to_nibabel()

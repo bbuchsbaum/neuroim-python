@@ -16,7 +16,6 @@ from .neuro_vol import NeuroVol, LogicalNeuroVol, DenseNeuroVol
 from .neuro_space import NeuroSpace
 from .clustered_neuro_vol import ClusteredNeuroVol
 
-
 @dataclass
 class ConnCompResult:
     """Result of connected components analysis."""
@@ -26,7 +25,6 @@ class ConnCompResult:
     voxels: List[np.ndarray]
     cluster_table: Optional[pd.DataFrame] = None
     local_maxima: Optional[np.ndarray] = None
-
 
 def conn_comp(
     x: NeuroVol,
@@ -67,9 +65,6 @@ def conn_comp(
         - cluster_table: DataFrame with cluster statistics (if requested)
         - local_maxima: Array of local maxima coordinates (if requested)
 
-    R Equivalent
-    ------------
-    neuroim2::conn_comp
     """
     # Apply threshold to create binary mask
     if isinstance(x, LogicalNeuroVol):
@@ -121,7 +116,6 @@ def conn_comp(
 
     return result
 
-
 def conn_comp_3D(
     mask: Union[np.ndarray, LogicalNeuroVol], connect: str = "26-connect"
 ) -> Dict[str, np.ndarray]:
@@ -146,9 +140,6 @@ def conn_comp_3D(
         - 'index': 3D array of integers with cluster indices (0 = background)
         - 'size': 3D array of integers with cluster sizes (0 = background)
 
-    R Equivalent
-    ------------
-    neuroim2::conn_comp_3D
     """
     # Extract mask data if LogicalNeuroVol
     if isinstance(mask, LogicalNeuroVol):
@@ -178,7 +169,6 @@ def conn_comp_3D(
         size_array[component_mask] = component_size
 
     return {"index": labeled_array, "size": size_array}
-
 
 def _get_structure(connectivity: str) -> np.ndarray:
     """Get the structuring element for the specified connectivity.
@@ -242,7 +232,6 @@ def _get_structure(connectivity: str) -> np.ndarray:
             "Choose from '6-connect', '18-connect', or '26-connect'."
         )
 
-
 def _compute_cluster_table(
     vol: NeuroVol,
     labeled_array: np.ndarray,
@@ -303,7 +292,6 @@ def _compute_cluster_table(
         )
 
     return pd.DataFrame(rows)
-
 
 def _find_local_maxima(
     vol: NeuroVol, labeled_array: np.ndarray, min_distance: float, space: NeuroSpace

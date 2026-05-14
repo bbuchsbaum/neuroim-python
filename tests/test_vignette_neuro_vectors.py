@@ -94,7 +94,7 @@ def test_series_roi():
     roi = spherical_roi(vol, [5, 5, 5], radius=2)
     
     # Extract series
-    roi_series = vec.series_roi(roi)
+    roi_series = vec.series_roi(roi).values
     assert roi_series.shape[0] == 20  # time points
     assert roi_series.shape[1] == len(roi)  # voxels in ROI
     print("✓ series_roi works")

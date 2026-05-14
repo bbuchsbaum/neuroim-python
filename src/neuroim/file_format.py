@@ -20,7 +20,6 @@ try:
 except ImportError:
     HAS_NIBABEL = False
 
-
 class FileFormat(ABC):
     """Abstract base class for neuroimaging file formats.
 
@@ -41,9 +40,6 @@ class FileFormat(ABC):
     data_extension : str
         File extension for the data file
 
-    R Equivalent
-    ------------
-    neuroim2::FileFormat
     """
 
     def __init__(
@@ -73,9 +69,6 @@ class FileFormat(ABC):
         bool
             True if file matches format and paired file exists
 
-        R Equivalent
-        ------------
-        neuroim2::file_matches
         """
         file_name = str(file_name)
 
@@ -103,9 +96,6 @@ class FileFormat(ABC):
         bool
             True if file matches header format
 
-        R Equivalent
-        ------------
-        neuroim2::header_file_matches
         """
         file_name = str(file_name)
         pattern = re.escape("." + self.header_extension) + "$"
@@ -124,9 +114,6 @@ class FileFormat(ABC):
         bool
             True if file matches data format
 
-        R Equivalent
-        ------------
-        neuroim2::data_file_matches
         """
         file_name = str(file_name)
         pattern = re.escape("." + self.data_extension) + "$"
@@ -150,9 +137,6 @@ class FileFormat(ABC):
         ValueError
             If cannot derive header file name
 
-        R Equivalent
-        ------------
-        neuroim2::header_file
         """
         file_name = str(file_name)
 
@@ -181,9 +165,6 @@ class FileFormat(ABC):
         ValueError
             If cannot derive data file name
 
-        R Equivalent
-        ------------
-        neuroim2::data_file
         """
         file_name = str(file_name)
 
@@ -212,9 +193,6 @@ class FileFormat(ABC):
         ValueError
             If file doesn't match format
 
-        R Equivalent
-        ------------
-        neuroim2::strip_extension
         """
         file_name = str(file_name)
 
@@ -243,19 +221,12 @@ class FileFormat(ABC):
         FileMetaInfo
             Metadata object
 
-        R Equivalent
-        ------------
-        neuroim2::read_meta_info
         """
         pass
-
 
 class NIFTIFormat(FileFormat):
     """NIfTI file format support.
 
-    R Equivalent
-    ------------
-    neuroim2::NIFTIFormat
     """
 
     def read_meta_info(self, file_name: Union[str, Path]) -> "NIFTIMetaInfo":
@@ -303,13 +274,9 @@ class NIFTIFormat(FileFormat):
 
         return meta_info
 
-
 class AFNIFormat(FileFormat):
     """AFNI file format support.
 
-    R Equivalent
-    ------------
-    neuroim2::AFNIFormat
     """
 
     def read_meta_info(self, file_name: Union[str, Path]) -> "AFNIMetaInfo":
@@ -411,7 +378,6 @@ class AFNIFormat(FileFormat):
             afni_header=afni_header,
         )
 
-
 # Format constants matching R implementation
 NIFTI = NIFTIFormat(
     file_format="NIFTI",
@@ -461,7 +427,6 @@ AFNI_GZ = AFNIFormat(
     data_extension="BRIK.gz",
 )
 
-
 def find_descriptor(file_name: Union[str, Path]) -> Optional[FileFormat]:
     """Find the appropriate file format descriptor for a file.
 
@@ -475,9 +440,6 @@ def find_descriptor(file_name: Union[str, Path]) -> Optional[FileFormat]:
     FileFormat or None
         Matching format descriptor or None if no match
 
-    R Equivalent
-    ------------
-    neuroim2::find_descriptor (internal function)
     """
     formats = [NIFTI, NIFTI_GZ, NIFTI_PAIR, NIFTI_PAIR_GZ, AFNI, AFNI_GZ]
 

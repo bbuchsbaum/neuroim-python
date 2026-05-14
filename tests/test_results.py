@@ -128,7 +128,8 @@ def test_searchlight_legacy_vs_result_match_numerically():
     def method(arr):
         return float(np.asarray(arr).sum())
 
-    legacy = searchlight_apply(mask, radius=2.0, method=method, return_legacy=True)
+    with pytest.warns(DeprecationWarning, match="return_legacy=True is deprecated"):
+        legacy = searchlight_apply(mask, radius=2.0, method=method, return_legacy=True)
     result = searchlight_apply(mask, radius=2.0, method=method, return_legacy=False)
 
     assert isinstance(legacy, DenseNeuroVol)
@@ -170,15 +171,29 @@ def test_searchlight_result_to_nibabel_preserves_affine():
     np.testing.assert_allclose(img.affine, space.trans[:4, :4])
 
 
-def test_searchlight_back_compat_default_returns_densevol():
-    """While the back-compat shim is in place during the 0.2 reshape, the
-    default return type is still ``DenseNeuroVol``.  This pin guards against
-    accidentally flipping the default before WP-3 lands."""
+def test_searchlight_default_returns_searchlight_result():
+    """ME-1: default flipped. The Python-native typed result is the default;
+    the legacy ndarray-projection requires an explicit opt-in under
+    DeprecationWarning."""
     space = NeuroSpace(dim=(4, 4, 4), spacing=(2.0, 2.0, 2.0))
     mask = LogicalNeuroVol(
         _make_mask_at_center((4, 4, 4), (2, 2, 2), radius=1), space
     )
     out = searchlight_apply(mask, radius=2.0, method=lambda a: 0.0)
+    assert isinstance(out, SearchlightResult)
+
+
+def test_searchlight_explicit_legacy_still_returns_densevol_with_warning():
+    """Back-compat is preserved when the caller explicitly opts in; the
+    DeprecationWarning is the migration signal."""
+    space = NeuroSpace(dim=(4, 4, 4), spacing=(2.0, 2.0, 2.0))
+    mask = LogicalNeuroVol(
+        _make_mask_at_center((4, 4, 4), (2, 2, 2), radius=1), space
+    )
+    with pytest.warns(DeprecationWarning, match="return_legacy=True is deprecated"):
+        out = searchlight_apply(
+            mask, radius=2.0, method=lambda a: 0.0, return_legacy=True
+        )
     assert isinstance(out, DenseNeuroVol)
 
 
@@ -201,9 +216,21 @@ def _make_roi_extraction_fixture():
     return vec, roi
 
 
-def test_series_roi_back_compat_default_returns_ndarray():
+def test_series_roi_default_returns_roi_extraction_result():
+    """ME-1: typed ROIExtractionResult is the default surface; the legacy
+    ndarray projection requires an explicit opt-in."""
+    from neuroim.results import ROIExtractionResult
+
     vec, roi = _make_roi_extraction_fixture()
     out = vec.series_roi(roi)
+    assert isinstance(out, ROIExtractionResult)
+    assert out.values.shape == (5, len(roi))
+
+
+def test_series_roi_explicit_legacy_returns_ndarray_with_warning():
+    vec, roi = _make_roi_extraction_fixture()
+    with pytest.warns(DeprecationWarning, match="return_legacy=True is deprecated"):
+        out = vec.series_roi(roi, return_legacy=True)
     assert isinstance(out, np.ndarray)
     assert out.shape == (5, len(roi))
 
@@ -212,7 +239,8 @@ def test_series_roi_typed_result_values_match_legacy():
     from neuroim.results import ROIExtractionResult
 
     vec, roi = _make_roi_extraction_fixture()
-    legacy = vec.series_roi(roi)
+    with pytest.warns(DeprecationWarning):
+        legacy = vec.series_roi(roi, return_legacy=True)
     typed = vec.series_roi(roi, return_legacy=False)
     assert isinstance(typed, ROIExtractionResult)
     np.testing.assert_array_equal(typed.values, legacy)

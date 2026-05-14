@@ -14,7 +14,6 @@ from .neuro_space import NeuroSpace
 from .neuro_vol import NeuroVol, DenseNeuroVol
 from .io import read_vol
 
-
 class FileBackedNeuroVec(NeuroVec):
     """A file-backed 4D neuroimaging vector.
 
@@ -31,9 +30,6 @@ class FileBackedNeuroVec(NeuroVec):
     cache_size : int, optional
         Number of volumes to cache in memory. Default is 1.
 
-    R Equivalent
-    ------------
-    neuroim2::FileBackedNeuroVec
     """
 
     def __init__(
@@ -380,7 +376,6 @@ class FileBackedNeuroVec(NeuroVec):
             f"  Cache Size: {self.cache_size}"
         )
 
-
 def file_backed_neurovec(
     filenames: List[str], mask: Optional[np.ndarray] = None
 ) -> FileBackedNeuroVec:
@@ -398,8 +393,5 @@ def file_backed_neurovec(
     FileBackedNeuroVec
         File-backed 4D vector
 
-    R Equivalent
-    ------------
-    neuroim2::FileBackedNeuroVec
     """
     return FileBackedNeuroVec(filenames)

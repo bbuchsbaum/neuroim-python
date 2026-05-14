@@ -38,7 +38,7 @@ class TestSeriesROI:
     
     def test_series_roi_with_roi_coords(self):
         """Test series_roi with ROICoords input."""
-        series = self.vec.series_roi(self.roi_coords)
+        series = self.vec.series_roi(self.roi_coords).values
         
         # Should return time x voxels matrix
         assert series.shape == (5, 3)
@@ -50,7 +50,7 @@ class TestSeriesROI:
     
     def test_series_roi_with_roi_vol(self):
         """Test series_roi with ROIVol input."""
-        series = self.vec.series_roi(self.roi_vol)
+        series = self.vec.series_roi(self.roi_vol).values
         
         # Should return same result as with ROICoords
         assert series.shape == (5, 3)
@@ -66,7 +66,7 @@ class TestSeriesROI:
         single_coords = np.array([[2, 3, 4]])
         single_roi = ROICoords(single_coords, NeuroSpace(dim=[10, 10, 10]))
         
-        series = self.vec.series_roi(single_roi)
+        series = self.vec.series_roi(single_roi).values
         
         assert series.shape == (5, 1)
         np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
@@ -86,7 +86,7 @@ class TestSeriesROI:
         sparse_vec = self.vec.as_sparse(mask)
         
         # Extract series for ROI
-        series = sparse_vec.series_roi(self.roi_coords)
+        series = sparse_vec.series_roi(self.roi_coords).values
         
         assert series.shape == (5, 3)
         np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])  # Linear
@@ -99,7 +99,7 @@ class TestSeriesROI:
         empty_coords = np.array([]).reshape(0, 3)
         empty_roi = ROICoords(empty_coords, NeuroSpace(dim=[10, 10, 10]))
         
-        series = self.vec.series_roi(empty_roi)
+        series = self.vec.series_roi(empty_roi).values
         
         assert series.shape == (5, 0)
     
@@ -118,7 +118,7 @@ class TestSeriesROI:
         bad_roi = ROICoords(bad_coords, NeuroSpace(dim=[10, 10, 10]))
         
         # This should work but return zeros for out-of-bounds voxels
-        series = self.vec.series_roi(bad_roi)
+        series = self.vec.series_roi(bad_roi).values
         
         assert series.shape == (5, 2)
         np.testing.assert_array_equal(series[:, 0], [0, 0, 0, 0, 0])  # Out of bounds

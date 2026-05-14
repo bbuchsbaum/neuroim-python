@@ -4,6 +4,8 @@ Includes the standard searchlight as well as resampled and
 cluster-based searchlight variants.
 """
 
+import warnings
+
 import numpy as np
 from typing import Union, Optional, Callable, Dict
 from joblib import Parallel, delayed
@@ -13,6 +15,18 @@ from .results import SearchlightResult, make_receipt
 from .searchlight import searchlight_iterator
 from .clustered_neuro_vol import ClusteredNeuroVol
 from .typing import MaskLike, NeuroVecLike, NeuroVolLike
+
+
+_LEGACY_DEPRECATION_MSG = (
+    "return_legacy=True is deprecated and will be removed in the next minor "
+    "release; consume the typed result object instead (.values, "
+    ".map_to_volume(), .provenance)."
+)
+
+
+def _warn_legacy_return(return_legacy: bool) -> None:
+    if return_legacy:
+        warnings.warn(_LEGACY_DEPRECATION_MSG, DeprecationWarning, stacklevel=3)
 
 
 def _coords_from_parent_index(space, parent_index: int) -> tuple[int, ...]:
@@ -28,7 +42,7 @@ def searchlight(mask: MaskLike,
                 eager: bool = False,
                 nonzero: bool = False,
                 cores: int = 0,
-                return_legacy: bool = True):
+                return_legacy: bool = False):
     """Apply a searchlight analysis with a given method function.
     
     This function performs searchlight analysis by applying a method function
@@ -59,20 +73,15 @@ def searchlight(mask: MaskLike,
     Returns
     -------
     SearchlightResult or NeuroVol
-        With ``return_legacy=False`` (the new default surface): a
-        :class:`~neuroim.results.SearchlightResult` carrying values, centers,
-        space, radius, shape, and a :class:`~neuroim.results.Receipt`.
-        With ``return_legacy=True`` (current default for back-compat during
-        the 0.2 reshape): a :class:`~neuroim.neuro_vol.DenseNeuroVol` placing
-        each scalar at its searchlight centre.
-
-    Notes
-    -----
-    The ``return_legacy=True`` default will flip to ``False`` after the WP-3
-    docs rewrite lands and existing callers are migrated.  See the
-    consensus sticky ``post-01KRKFEWY2`` in the
-    ``neuroim-python-pythonic-value`` mote discussion topic for the schedule.
+        Default: a :class:`~neuroim.results.SearchlightResult` carrying
+        values, centers, space, radius, shape, and a
+        :class:`~neuroim.results.Receipt`.  Pass ``return_legacy=True`` for
+        the historical :class:`~neuroim.neuro_vol.DenseNeuroVol` projection;
+        this opt-in emits a ``DeprecationWarning`` and will be removed in
+        the next minor.
     """
+    _warn_legacy_return(return_legacy)
+
     # Use mask as data if not provided
     if data is None:
         data = mask
@@ -121,8 +130,6 @@ def searchlight(mask: MaskLike,
             center_idx, result = process_searchlight(sl)
             result_data[_coords_from_parent_index(mask.space, center_idx)] = result
     
-    # Handle combiner (for now just return the result)
-    # In R, combiner might aggregate across multiple results
     legacy_vol = DenseNeuroVol(result_data, mask.space)
     if return_legacy:
         return legacy_vol

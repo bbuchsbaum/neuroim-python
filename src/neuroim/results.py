@@ -78,6 +78,79 @@ class Receipt:
     neuroim_version: str
     source_affine_hash: str
 
+    def diff(self, other: "Receipt") -> dict:
+        """Return a mapping of field names to (self, other) tuples for fields
+        that differ.  Empty dict when receipts agree.
+
+        Used by ``require_compatible`` and ``neuroim.verify.diff_receipts`` to
+        produce structured assertion messages.
+        """
+        out: dict = {}
+        for f in (
+            "input_space_hash",
+            "mask_hash",
+            "radius",
+            "n_voxels",
+            "method_name",
+            "seed",
+            "neuroim_version",
+            "source_affine_hash",
+        ):
+            a, b = getattr(self, f), getattr(other, f)
+            if a != b:
+                out[f] = (a, b)
+        return out
+
+    def merge(self, other: "Receipt", *, method_name: Optional[str] = None) -> "Receipt":
+        """Combine two upstream receipts into one downstream receipt.
+
+        Intermediate ops that consume two typed-result inputs should call
+        ``merge`` to carry provenance forward.  Raises ``ValueError`` if the
+        upstream receipts disagree on ``input_space_hash`` or ``mask_hash`` —
+        that's the silent-mismatch case the mission promises to catch.
+
+        Parameters
+        ----------
+        other
+            The other upstream receipt.
+        method_name
+            Optional explicit method name for the downstream op.  If omitted,
+            uses ``f"{self.method_name}+{other.method_name}"`` (or just one
+            side if the other is empty).
+        """
+        space_diff = self.input_space_hash != other.input_space_hash
+        mask_diff = self.mask_hash != other.mask_hash
+        if space_diff or mask_diff:
+            details = []
+            if space_diff:
+                details.append(
+                    f"input_space_hash: {self.input_space_hash!r} vs "
+                    f"{other.input_space_hash!r}"
+                )
+            if mask_diff:
+                details.append(
+                    f"mask_hash: {self.mask_hash!r} vs {other.mask_hash!r}"
+                )
+            raise ValueError(
+                "Receipt.merge: upstream receipts disagree:\n  " + "\n  ".join(details)
+            )
+
+        if method_name is None:
+            parts = [p for p in (self.method_name, other.method_name) if p]
+            method_name = "+".join(parts) if parts else ""
+
+        return replace(
+            self,
+            method_name=method_name,
+            n_voxels=max(self.n_voxels, other.n_voxels),
+            seed=self.seed if self.seed == other.seed else None,
+            source_affine_hash=(
+                self.source_affine_hash
+                if self.source_affine_hash == other.source_affine_hash
+                else "merged"
+            ),
+        )
+
 
 def _current_version() -> str:
     from . import __version__

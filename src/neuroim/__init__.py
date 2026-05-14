@@ -1,17 +1,80 @@
 """neuroim - Python neuroimaging library"""
 
-import warnings
+import warnings as _warnings
 
 __version__ = "0.1.0"
 
-# Import Phase 1, Phase 2, Phase 3, Phase 4, and Phase 5 components
-from .axis import *
-from .axis import find_anatomy_3d
-from .neuro_space import *
-from .neuro_vol import *
-from .neuro_vec import *
-from .neuro_slice import *
-from .roi import *
+# Phase 1-5 components — explicit re-exports of public names only.
+# Replaces earlier `from .module import *` patterns that leaked typing
+# imports (Any, Optional, Union, List, Tuple), abstract bases (ABC,
+# abstractmethod), and other internal symbols (np, sparse, warnings)
+# into the top-level namespace.  See ME-4 / bd-01KRKJH6J564EY4X7EWJMRRH9A.
+from .axis import (
+    NamedAxis,
+    AxisSet,
+    AxisSet1D,
+    AxisSet2D,
+    AxisSet3D,
+    AxisSet4D,
+    AxisSet5D,
+    AxisSetND,
+    LEFT_RIGHT,
+    RIGHT_LEFT,
+    ANT_POST,
+    POST_ANT,
+    INF_SUP,
+    SUP_INF,
+    TIME,
+    TimeAxis,
+    NullAxis,
+    OrientationList2D,
+    OrientationList3D,
+    axis_names,
+    axis_set,
+    axis_directions,
+    add_axis,
+    drop_axis,
+    flip_axis,
+    match_axis,
+    permute_axes,
+    find_anatomy_3d,
+)
+from .neuro_space import NeuroSpace, neurospace
+from .neuro_vol import (
+    NeuroVol,
+    DenseNeuroVol,
+    SparseNeuroVol,
+    LogicalNeuroVol,
+    neurovol,
+)
+from .neuro_vec import (
+    NeuroVec,
+    DenseNeuroVec,
+    SparseNeuroVec,
+    neurovec,
+    neurovecseq,
+)
+from .neuro_slice import NeuroSlice, neuroslice, slices
+from .roi import (
+    ROI,
+    ROICoords,
+    ROIVol,
+    ROIVec,
+    ROIVolWindow,
+    MaskLike,
+    NeuroVolLike,
+    spherical_roi,
+    spherical_roi_set,
+    cuboid_roi,
+    cube_roi,
+    ellipsoid_roi,
+    square_roi,
+    patch_set,
+    roicoords,
+    roivol,
+    series_roi,
+    values_roi,
+)
 from .index_lookup_vol import IndexLookupVol
 from .roi_vec_window import ROIVecWindow
 
@@ -261,7 +324,7 @@ _DEPRECATED_COMPAT_ALIASES = {
 
 def __getattr__(name):
     if name in _DEPRECATED_COMPAT_ALIASES:
-        warnings.warn(
+        _warnings.warn(
             f"neuroim.{name} is deprecated; use neuroim.compat.{name} instead.",
             DeprecationWarning,
             stacklevel=2,

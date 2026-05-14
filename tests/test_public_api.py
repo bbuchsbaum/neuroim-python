@@ -78,3 +78,35 @@ def test_star_import_uses_curated_all_namespace():
     assert "values" not in namespace
     assert "indices" not in namespace
     assert "as_array" not in namespace
+
+
+# ME-4 additional guard: the prior `from .module import *` patterns leaked
+# typing helpers (`Any`, `Optional`, `Union`), abstract bases (`ABC`,
+# `abstractmethod`), and numpy (`np`) into the top-level namespace.  This
+# is distinct from the R-shaped export blocklist above and catches
+# implementation-detail re-exports that survive any future restructure.
+
+_IMPLEMENTATION_LEAK_BLOCKLIST = frozenset({
+    # typing
+    "Any", "Optional", "Union", "List", "Tuple", "Dict", "Set",
+    "Iterator", "Iterable", "Callable", "Sequence", "Mapping",
+    "TYPE_CHECKING", "Generic", "TypeVar", "Protocol", "NewType",
+    # ABCs / dataclass machinery
+    "ABC", "abstractmethod", "dataclass", "field", "replace",
+    # third-party shorthand
+    "np", "numpy", "sparse", "pd", "pandas", "plt", "matplotlib",
+    "nib", "nibabel",
+    # stdlib pollution (NOTE: ``io`` is intentionally omitted — ``neuroim.io``
+    # is the I/O subpackage)
+    "os", "sys", "Path", "warnings", "logging", "logger", "hashlib",
+})
+
+
+def test_no_implementation_detail_leakage_at_top_level():
+    leaked = sorted(set(dir(ni)) & _IMPLEMENTATION_LEAK_BLOCKLIST)
+    assert not leaked, (
+        f"Implementation-detail symbols leaked into neuroim namespace: "
+        f"{leaked}. Likely cause: a `from .module import *` or an unaliased "
+        f"`import <name>` at module load. Use `import <name> as _<name>` or "
+        f"replace `*` with an explicit name list."
+    )

@@ -89,7 +89,7 @@ class TestParallelSearchlight:
                                data=sample_data, eager=True, cores=2)
         
         # Results should be identical
-        np.testing.assert_array_almost_equal(seq_result.data, par_result.data)
+        np.testing.assert_array_almost_equal(seq_result.map_to_volume().data, par_result.map_to_volume().data)
     
     def test_searchlight_lazy_not_parallel(self, small_mask):
         """Test that lazy evaluation doesn't use parallel processing."""
@@ -129,7 +129,7 @@ class TestParallelSearchlight:
         par_time = time.time() - start
         
         # Results should be identical
-        np.testing.assert_array_almost_equal(seq_result.data, par_result.data, decimal=10)
+        np.testing.assert_array_almost_equal(seq_result.map_to_volume().data, par_result.map_to_volume().data, decimal=10)
         
         # Parallel should be faster (though on small data the overhead might dominate)
         print(f"Sequential time: {seq_time:.3f}s, Parallel time: {par_time:.3f}s")
@@ -167,7 +167,7 @@ class TestParallelSearchlight:
                                data=vec_data, eager=True, cores=2)
         
         # Results should be close (might have small numerical differences)
-        np.testing.assert_array_almost_equal(seq_result.data, par_result.data, decimal=10)
+        np.testing.assert_array_almost_equal(seq_result.map_to_volume().data, par_result.map_to_volume().data, decimal=10)
     
     def test_empty_searchlight_regions(self, small_mask):
         """Test handling of empty searchlight regions in parallel."""
@@ -188,7 +188,7 @@ class TestParallelSearchlight:
         result = searchlight(sparse_mask, radius, count_method, eager=True, cores=2)
         
         # Should have results
-        assert not np.all(np.isnan(result.data))
+        assert not np.all(np.isnan(result.map_to_volume().data))
 
 
 def test_parallel_imports():

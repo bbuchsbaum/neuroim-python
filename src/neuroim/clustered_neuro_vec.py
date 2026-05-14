@@ -9,7 +9,6 @@ from typing import Dict, Optional
 from .neuro_space import NeuroSpace
 from .clustered_neuro_vol import ClusteredNeuroVol
 
-
 class ClusteredNeuroVec:
     """4D neuroimaging data with cluster assignments and shared time-series per cluster.
 
@@ -37,9 +36,6 @@ class ClusteredNeuroVec:
         from ``cvol.clusters``.
     label : str
 
-    R Equivalent
-    ------------
-    neuroim2::ClusteredNeuroVec
     """
 
     def __init__(

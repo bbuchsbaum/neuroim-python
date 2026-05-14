@@ -212,7 +212,8 @@ def series(x: Any, i: Any, *args: Any) -> np.ndarray:
 
 
 def series_roi(x: Any, roi: Any) -> np.ndarray:
-    return _member(x, "series_roi", roi)
+    result = _member(x, "series_roi", roi)
+    return np.asarray(getattr(result, "values", result))
 
 
 def vols(x: Any, indices: Any = None) -> Any:

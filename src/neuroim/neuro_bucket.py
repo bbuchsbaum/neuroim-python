@@ -9,7 +9,6 @@ from typing import List, Optional, Union
 from .neuro_space import NeuroSpace
 from .neuro_vol import NeuroVol
 
-
 class NeuroBucket:
     """A sequence of labeled NeuroVol objects forming a named 4D representation.
 
@@ -26,9 +25,6 @@ class NeuroBucket:
     space : NeuroSpace
         The common 3D spatial metadata.
 
-    R Equivalent
-    ------------
-    neuroim2::NeuroBucket
     """
 
     def __init__(self, labels: List[str], data: List[NeuroVol], space: NeuroSpace):

@@ -25,7 +25,6 @@ from .axis import (
     INF_SUP, SUP_INF
 )
 
-
 def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
              interpolation: int = 3) -> DenseNeuroVol:
     """Resample an image to match the space of another image.
@@ -56,10 +55,6 @@ def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
         If nibabel is not installed
     ValueError
         If interpolation is not 0, 1, or 3
-
-    R Equivalent
-    ------------
-    neuroim2::resample
 
     Examples
     --------
@@ -129,7 +124,6 @@ def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
 
     return DenseNeuroVol(resampled_data.astype(np.float32), target_space)
 
-
 def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
                  interpolation: int = 3) -> DenseNeuroVec:
     """Resample a 4D NeuroVec to match the space of another image.
@@ -148,9 +142,6 @@ def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
     DenseNeuroVec
         The resampled source vector
 
-    R Equivalent
-    ------------
-    neuroim2::resample (for NeuroVec)
     """
     if not HAS_NIBABEL:
         raise ImportError("nibabel is required for resampling. "
@@ -192,7 +183,6 @@ def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
 
     return DenseNeuroVec(resampled_data, target_4d_space)
 
-
 def resample_to(source: Union[NeuroVol, NeuroVec],
                 target: Union[NeuroVol, NeuroVec, NeuroSpace],
                 method: str = "linear",
@@ -207,7 +197,6 @@ def resample_to(source: Union[NeuroVol, NeuroVec],
     if isinstance(source, NeuroVec):
         return resample_vec(source, target, interpolation=interpolation)
     return resample(source, target, interpolation=interpolation)
-
 
 def reorient(x: Union[NeuroSpace, NeuroVol], orient: Union[str, List[str]]) -> Union[NeuroSpace, NeuroVol]:
     """Remap the grid-to-world coordinates mapping of an image.
@@ -228,10 +217,6 @@ def reorient(x: Union[NeuroSpace, NeuroVol], orient: Union[str, List[str]]) -> U
     -------
     NeuroSpace or NeuroVol
         A reoriented version of x
-
-    R Equivalent
-    ------------
-    neuroim2::reorient
 
     Examples
     --------
@@ -314,7 +299,6 @@ def reorient(x: Union[NeuroSpace, NeuroVol], orient: Union[str, List[str]]) -> U
     else:
         raise TypeError("x must be NeuroSpace or NeuroVol")
 
-
 def _get_permutation_matrix(axes) -> np.ndarray:
     """Get permutation matrix from axis set.
 
@@ -342,7 +326,6 @@ def _get_permutation_matrix(axes) -> np.ndarray:
         perm_mat[:, idx] = direction
 
     return perm_mat
-
 
 def _compute_reorientation(old_axes: List[NamedAxis], new_axes: List[NamedAxis]) -> Tuple[List[int], List[bool]]:
     """Compute permutation indices and flip flags for reorientation.
@@ -382,7 +365,6 @@ def _compute_reorientation(old_axes: List[NamedAxis], new_axes: List[NamedAxis])
         flip_axes.append(False)
 
     return perm_indices, flip_axes
-
 
 def _reorient_space(space: NeuroSpace, new_axes: List[NamedAxis]) -> NeuroSpace:
     """Helper function to reorient a NeuroSpace."""

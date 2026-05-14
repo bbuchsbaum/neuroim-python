@@ -37,20 +37,20 @@ mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type=
 bold.shape, mask.shape, bold.space.compatible_with(mask.space)
 ```
 
-Define a spherical region of interest and extract its time-by-voxel matrix.
+Define a spherical region of interest and extract its time-by-voxel matrix as a typed result with provenance.
 
 ```{python}
 roi = ni.spherical_roi(mask, centroid=(4, 4, 2), radius=2)
-time_by_voxel = bold.series_roi(roi)
+extraction = bold.series_roi(roi)
 
-time_by_voxel.shape
+extraction.values.shape, extraction.provenance.method_name
 ```
 
 Project the ROI summary back into the same mask space and hand it to nibabel-compatible tooling.
 
 ```{python}
 mean_data = np.zeros(mask.shape, dtype=np.float32)
-mean_data[tuple(roi.coords.T)] = time_by_voxel.mean(axis=0)
+mean_data[tuple(roi.coords.T)] = extraction.values.mean(axis=0)
 
 mean_map = ni.NeuroVol.from_array(mean_data, space=mask.space)
 out = mean_map.to_nibabel()
@@ -60,7 +60,7 @@ out.shape, out.affine.tolist()
 
 ## What just happened
 
-`read_image()` returns typed image containers with `NeuroSpace` attached. The BOLD series and mask can be checked for spatial compatibility before ROI extraction. `spherical_roi()` returns voxel coordinates in that space, `series_roi()` returns an analysis-ready time-by-voxel matrix, and `NeuroVol.from_array()` turns derived arrays back into spatially grounded maps.
+`read_image()` returns typed image containers with `NeuroSpace` attached. The BOLD series and mask can be checked for spatial compatibility before ROI extraction. `spherical_roi()` returns voxel coordinates in that space, `series_roi()` returns an `ROIExtractionResult` carrying the time-by-voxel matrix, the coordinates, the space, and a content-addressable `Receipt` of provenance — silent space/orientation/mask mismatches become visible at the contract layer. `NeuroVol.from_array()` turns derived arrays back into spatially grounded maps.
 
 ## Interoperability with nibabel
 

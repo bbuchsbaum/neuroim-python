@@ -32,7 +32,6 @@ NIFTI_TYPE_CODES = {
     'COMPLEX256': 2048
 }
 
-
 def create_nifti_header(one_file: bool = True, file_name: Optional[str] = None) -> Dict:
     """Create an empty NIfTI-1 header list.
     
@@ -56,9 +55,6 @@ def create_nifti_header(one_file: bool = True, file_name: Optional[str] = None) 
         the NIfTI-1 header structure. Many of these are placeholders
         until filled by downstream usage.
         
-    R Equivalent
-    ------------
-    neuroim2::createNIfTIHeader
     """
     header = {
         # Required fields
@@ -141,7 +137,6 @@ def create_nifti_header(one_file: bool = True, file_name: Optional[str] = None) 
     
     return header
 
-
 def matrix_to_quatern(mat: np.ndarray) -> Dict[str, Union[List[float], float]]:
     """Convert a transformation matrix to a quaternion representation.
     
@@ -167,10 +162,6 @@ def matrix_to_quatern(mat: np.ndarray) -> Dict[str, Union[List[float], float]]:
         - ``'qfac'``: Either +1 or -1, indicating whether the determinant
           of the rotation submatrix is positive or negative.
           
-    Notes
-    -----
-    R equivalent: ``neuroim2::matrixToQuatern``
-
     References
     ----------
     Cox RW. Analysis of Functional NeuroImages (AFNI) and NIfTI-1
@@ -237,7 +228,6 @@ def matrix_to_quatern(mat: np.ndarray) -> Dict[str, Union[List[float], float]]:
         'qfac': qfac
     }
 
-
 def quatern_to_matrix(quaternion: List[float], qfac: float = 1.0,
                       qoffset: Optional[List[float]] = None) -> np.ndarray:
     """Convert quaternion parameters back to a transformation matrix.
@@ -256,9 +246,6 @@ def quatern_to_matrix(quaternion: List[float], qfac: float = 1.0,
     numpy.ndarray
         4x4 transformation matrix
         
-    R Equivalent
-    ------------
-    neuroim2::quaternToMatrix
     """
     b, c, d = quaternion
     
@@ -286,7 +273,6 @@ def quatern_to_matrix(quaternion: List[float], qfac: float = 1.0,
         mat[:3, 3] = qoffset
     
     return mat
-
 
 def as_nifti_header(vol: NeuroVol, file_name: str, 
                     one_file: bool = True, data_type: str = "FLOAT") -> Dict:
@@ -318,9 +304,6 @@ def as_nifti_header(vol: NeuroVol, file_name: str,
         qfac, etc. This can be passed to other functions that write or
         manipulate the header.
         
-    R Equivalent
-    ------------
-    neuroim2::as_nifti_header
     """
     # Start with empty header
     header = create_nifti_header(one_file, file_name)

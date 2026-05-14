@@ -45,14 +45,14 @@ class TestSeriesROIMemMapped:
             vec = BigNeuroVec(self.data, self.space_4d, filename=tmp_name)
             
             # Test with ROICoords
-            series = vec.series_roi(self.roi_coords)
+            series = vec.series_roi(self.roi_coords).values
             assert series.shape == (5, 3)
             np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
             np.testing.assert_array_equal(series[:, 1], [2, 4, 6, 8, 10])
             np.testing.assert_array_equal(series[:, 2], [1, 4, 9, 16, 25])
             
             # Test with ROIVol
-            series = vec.series_roi(self.roi_vol)
+            series = vec.series_roi(self.roi_vol).values
             assert series.shape == (5, 3)
             np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
             
@@ -76,14 +76,14 @@ class TestSeriesROIMemMapped:
             vec = FileBackedNeuroVec(filenames)
 
             # Test with ROICoords
-            series = vec.series_roi(self.roi_coords)
+            series = vec.series_roi(self.roi_coords).values
             assert series.shape == (5, 3)
             np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
             np.testing.assert_array_equal(series[:, 1], [2, 4, 6, 8, 10])
             np.testing.assert_array_equal(series[:, 2], [1, 4, 9, 16, 25])
             
             # Test with ROIVol
-            series = vec.series_roi(self.roi_vol)
+            series = vec.series_roi(self.roi_vol).values
             assert series.shape == (5, 3)
             np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
     
@@ -99,14 +99,14 @@ class TestSeriesROIMemMapped:
         vec = MappedNeuroVec(base_vec, transform)
         
         # Test with ROICoords
-        series = vec.series_roi(self.roi_coords)
+        series = vec.series_roi(self.roi_coords).values
         assert series.shape == (5, 3)
         np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
         np.testing.assert_array_equal(series[:, 1], [2, 4, 6, 8, 10])
         np.testing.assert_array_equal(series[:, 2], [1, 4, 9, 16, 25])
         
         # Test with ROIVol
-        series = vec.series_roi(self.roi_vol)
+        series = vec.series_roi(self.roi_vol).values
         assert series.shape == (5, 3)
         np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
     
@@ -122,7 +122,7 @@ class TestSeriesROIMemMapped:
         vec = MappedNeuroVec(base_vec, scale_by_2)
         
         # Test with ROICoords - values should be doubled
-        series = vec.series_roi(self.roi_coords)
+        series = vec.series_roi(self.roi_coords).values
         assert series.shape == (5, 3)
         np.testing.assert_array_equal(series[:, 0], [2, 4, 6, 8, 10])
         np.testing.assert_array_equal(series[:, 1], [4, 8, 12, 16, 20])
