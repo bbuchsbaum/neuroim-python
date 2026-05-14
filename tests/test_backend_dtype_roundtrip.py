@@ -143,14 +143,13 @@ def test_vol_write_read_preserves_dtype(tmp_path, backend_name, dtype):
     )
 
 
-@pytest.mark.parametrize("backend_name", ["dense"])
+@pytest.mark.parametrize("backend_name", ["dense", "sparse"])
 @pytest.mark.parametrize("dtype", _DTYPES)
 def test_vol_write_read_preserves_values(tmp_path, backend_name, dtype):
-    """Bonus invariant: round-trip is value-stable for backends that do not
-    reorder data on materialization.  SparseNeuroVol shuffles entries via
-    F/C-order disagreement on ``as_dense``
-    (bd-01KRKKM7AMS57HPMG7MHEMP48V), so it is held out of this matrix
-    until that path is fixed.
+    """Value-parity round-trip across Vol backends.  Originally held sparse
+    out pending bd-01KRKKM7AMS57HPMG7MHEMP48V; that path now ravels data in
+    F-order to match the mask-path index ordering, so sparse rejoins the
+    matrix.
     """
     space = _vol_space()
     arr = _vol_array(dtype)

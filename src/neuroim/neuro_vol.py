@@ -605,11 +605,16 @@ class SparseNeuroVol(NeuroVol):
 
         # Handle mask parameter
         if mask is not None and indices is None:
-            # Extract boolean array from LogicalNeuroVol if needed
-            if hasattr(mask, "data"):
+            # Extract boolean array from LogicalNeuroVol if needed.
+            # ndarray.data is a memoryview, not the underlying ndarray, so
+            # prefer raw ndarray inputs and only fall back to .data when the
+            # input is a NeuroVol-like container.
+            if isinstance(mask, np.ndarray):
+                mask_array = mask
+            elif hasattr(mask, "data") and isinstance(mask.data, np.ndarray):
                 mask_array = mask.data
             else:
-                mask_array = mask
+                mask_array = np.asarray(mask)
 
             indices = np.where(mask_array.ravel(order="F"))[0]
         elif mask is None and indices is None:
@@ -617,7 +622,7 @@ class SparseNeuroVol(NeuroVol):
         elif mask is not None and indices is not None:
             raise ValueError("Cannot provide both 'mask' and 'indices'")
 
-        data = np.asarray(data).ravel()
+        data = np.asarray(data).ravel(order="F")
         indices = np.asarray(indices).ravel()
 
         if len(data) != len(indices):
