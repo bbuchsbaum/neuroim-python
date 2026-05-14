@@ -14,6 +14,7 @@ A modern Python library for neuroimaging data analysis, providing efficient data
 - **ROI and searchlight workflows**: Extract validated time-by-voxel matrices and neighborhood summaries.
 - **Memory-aware representations**: Use dense, sparse, mapped, and file-backed data structures.
 - **Interoperable I/O**: Read and write NIfTI/AFNI data while preserving a typed neuroim surface.
+- **Public provenance contract**: Receipts written by `to_nibabel` survive the file boundary in a documented NIfTI extension — readable by [10 lines of `nibabel` alone](docs/spec/receipt-nifti-extension.md), no `neuroim` import required.
 - **NumPy/SciPy performance**: Build on the scientific Python stack without losing spatial metadata.
 
 ## Installation
@@ -51,10 +52,11 @@ mask = ni.read_image("golden_tests/fixtures/tiny_mask.nii.gz", type="vol")
 bold.space.compatible_with(mask.space)
 
 roi = ni.spherical_roi(mask, centroid=(4, 4, 2), radius=2)
-time_by_voxel = bold.series_roi(roi)
+extraction = bold.series_roi(roi)
+# extraction is an ROIExtractionResult: values, coords, space, and a content-addressable Receipt.
 
 mean_data = np.zeros(mask.shape, dtype=np.float32)
-mean_data[tuple(roi.coords.T)] = time_by_voxel.mean(axis=0)
+mean_data[tuple(roi.coords.T)] = extraction.values.mean(axis=0)
 mean_map = ni.NeuroVol.from_array(mean_data, space=mask.space)
 
 out = mean_map.to_nibabel()
@@ -159,7 +161,7 @@ guided = ni.guided_filter(vol, guide=mask, radius=3, epsilon=0.1)
 ```python
 # Sparse representation for masked data
 mask = ni.LogicalNeuroVol(brain_mask, space)
-sparse_fmri = fmri.as_sparse(mask)
+sparse_fmri = fmri.to_sparse(mask)
 
 # Memory-mapped for huge datasets
 big_data = ni.MappedNeuroVec("huge_fmri.dat", space_4d)
