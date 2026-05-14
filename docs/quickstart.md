@@ -161,6 +161,83 @@ print(img.provenance.radius)              # 4.5
 
 ---
 
+## When neuroim refuses — three failure modes raw nibabel permits
+
+The four patterns above are the happy path.  The shorter case for
+neuroim is the cases where raw `nibabel` + `numpy` silently returns
+wrong-but-plausible bytes and `neuroim` raises a typed error before
+the bad value reaches your analysis.
+
+Each subsection below maps to a closed P0 in the scenarios suite, so
+the assertions are not aspirational — they are backed by the suite at
+HEAD.
+
+### Wrong-space mask (`series_roi`)
+
+A `mask` whose `affine` differs from the BOLD's gets a free pass in
+raw nibabel — `bold[mask]` does not know the two are in different
+spatial frames and scatters whatever bytes happen to be at the same
+voxel indices.
+
+```python
+# Raw nibabel — silently scatters when mask is in a different space.
+mean = bold_data[mask_in_wrong_space].mean(axis=0)
+```
+
+```python
+# neuroim — raises through the contract layer before extracting.
+roi = ni.ROICoords(np.argwhere(mask.data), space=wrong_space)
+bold.series_roi(roi)        # ValueError: spatial contract mismatch
+```
+
+Backed by `examples/scenarios/02_roi_mean_timeseries/REPORT.md` (PAIN-5,
+closed).
+
+### World coordinate outside the grid (`series_at_world`)
+
+A world-mm coordinate that maps to a negative voxel index gets
+wrapped by NumPy's signed indexing — you get a plausible-looking time
+series from the *opposite corner* of the image.
+
+```python
+# Raw nibabel — np.linalg.inv(affine) @ [x, y, z, 1] -> negative index,
+# then data[i, j, k, :] silently returns voxel from the far corner.
+ts = bold_data[i, j, k, :]
+```
+
+```python
+# neuroim — bounds-checks before indexing and raises.
+bold.series_at_world((0.0, -52.0, 26.0))  # IndexError on OOB
+```
+
+Backed by `examples/scenarios/01_mni_spotlight/REPORT.md` (PAIN-2,
+closed).
+
+### Per-volume affine drift (`FileBackedNeuroVec`)
+
+A multi-run experiment stored as one 3-D file per timepoint is the
+canonical place for an affine mismatch to slip in (e.g. one run was
+reconstructed in a slightly different orientation).  Raw nibabel
+stacks the data and trusts the user; the result is a 4-D volume whose
+later timepoints come from a *different spatial frame* than the
+earlier ones.
+
+```python
+# Raw nibabel — stacks regardless of affine drift across volumes.
+stacked = np.stack([nib.load(p).get_fdata() for p in run_paths], axis=-1)
+```
+
+```python
+# neuroim — checks affine consistency on volume load and raises.
+vec = ni.FileBackedNeuroVec(run_paths)
+vec.temporal_snr()   # ValueError: Volume N has inconsistent affine/space
+```
+
+Backed by `examples/scenarios/12_file_backed_affine_drift/REPORT.md`
+(PAIN-12, closed).
+
+---
+
 ## Run the four patterns locally
 
 Two tiny fixtures ship with the repository and exercise the same code
