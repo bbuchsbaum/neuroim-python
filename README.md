@@ -8,6 +8,8 @@ A modern Python library for neuroimaging data analysis, providing efficient data
 [![Coverage](https://img.shields.io/badge/coverage-85%25-yellowgreen)](tests/)
 [![Scenario evidence](https://img.shields.io/badge/scenario%20evidence-make%20verify--evidence-green)](docs/scenarios.md)
 
+**On-ramp:** [docs/quickstart.md](docs/quickstart.md) — four canonical patterns shown side-by-side against raw `nibabel`+`numpy`, each verdict pinned to a runnable scenario.
+
 ## Features
 
 - **Spatial contracts**: Keep image data tied to shape, affine, voxel spacing, and coordinate transforms.
