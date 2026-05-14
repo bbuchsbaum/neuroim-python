@@ -532,6 +532,9 @@ class DenseNeuroVol(NeuroVol):
             indices = np.nonzero(self.data.ravel(order="F"))[0]
             values = self.data.ravel(order="F")[indices]
         elif isinstance(mask, LogicalNeuroVol):
+            from .verify import assert_same_space
+
+            assert_same_space(self, mask)
             indices = np.where(mask.data.ravel(order="F"))[0]
             values = self.data.ravel(order="F")[indices]
         elif isinstance(mask, np.ndarray):
@@ -750,10 +753,15 @@ class SparseNeuroVol(NeuroVol):
         """Already sparse, optionally apply new mask."""
         if mask is None:
             return self
-        else:
-            # Apply additional mask
-            dense = self.as_dense()
-            return dense.as_sparse(mask)
+
+        if isinstance(mask, LogicalNeuroVol):
+            from .verify import assert_same_space
+
+            assert_same_space(self, mask)
+
+        # Apply additional mask.
+        dense = self.as_dense()
+        return dense.as_sparse(mask)
 
     def as_logical(self) -> "LogicalNeuroVol":
         """Convert to logical representation."""
