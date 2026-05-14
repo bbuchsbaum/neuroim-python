@@ -362,3 +362,120 @@ def test_malformed_receipt_extensions_do_not_hydrate_partial_receipts(payload):
     partial ``Receipt`` that could falsely certify an output.
     """
     assert Receipt.from_nifti_extension_bytes(payload) is None
+
+
+# ----------------------------------------------------------------------
+# Multi-input same-space contract (concat-family ops)
+# ----------------------------------------------------------------------
+# The verifier-blessed-path harness in test_verifier_blessed_path.py
+# covers the (data + mask/ROI) shape.  ``NeuroVec.concat`` is the same
+# bug class on a different shape: two data carriers with separate spaces.
+# Mission rule 4 ('silent space/orientation mismatches caught at the
+# contract layer') requires concat to reject affine mismatch before
+# materialising the output.
+
+MULTI_INPUT_MANIFEST: dict[str, dict[str, Any]] = {
+    "neuroim.DenseNeuroVec.concat": {"status": "verified"},
+    "neuroim.SparseNeuroVec.concat": {"status": "verified"},
+}
+
+
+def _multi_input_invocation(qualified_name: str, primary, secondary):
+    """Return a zero-arg thunk calling the multi-input op on the given pair.
+
+    ``primary`` is the receiver / first arg; ``secondary`` is the input whose
+    space differs from ``primary``.  The op should reject the call before
+    producing a result.
+    """
+    if qualified_name == "neuroim.DenseNeuroVec.concat":
+        return lambda: primary.concat(secondary)
+    if qualified_name == "neuroim.SparseNeuroVec.concat":
+        return lambda: primary.concat(secondary)
+    return None
+
+
+_VERIFIED_MULTI_INPUT_SURFACES = sorted(
+    qname for qname, entry in MULTI_INPUT_MANIFEST.items()
+    if entry.get("status") == "verified"
+)
+
+
+@pytest.fixture
+def matched_concat_pair():
+    """Two DenseNeuroVecs on the same 4-D space; concat must succeed."""
+    vec_space = ni.NeuroSpace(dim=[8, 8, 4, 3])
+    data_a = np.zeros((8, 8, 4, 3), dtype=np.float32)
+    data_b = np.ones((8, 8, 4, 3), dtype=np.float32)
+    return ni.DenseNeuroVec(data_a, vec_space), ni.DenseNeuroVec(data_b, vec_space)
+
+
+@pytest.fixture
+def mismatched_concat_pair():
+    """Two DenseNeuroVecs whose spatial dims agree but affines differ.
+
+    The mismatch is a small translation (0.5mm along x), large enough that
+    ``NeuroSpace.compatible_with`` rejects but small enough that the integer
+    dim tuple is identical.  This exercises the affine-comparison branch of
+    the verifier, not the shape-comparison shortcut.
+    """
+    trans = np.eye(4)
+    space_a = ni.NeuroSpace(dim=[8, 8, 4, 3], trans=trans)
+    shifted = trans.copy()
+    shifted[0, 3] = 0.5
+    space_b = ni.NeuroSpace(dim=[8, 8, 4, 3], trans=shifted)
+    data = np.zeros((8, 8, 4, 3), dtype=np.float32)
+    return ni.DenseNeuroVec(data.copy(), space_a), ni.DenseNeuroVec(data.copy(), space_b)
+
+
+def _pair_for_multi_input_surface(qualified_name: str, dense_pair):
+    primary, secondary = dense_pair
+    if qualified_name == "neuroim.SparseNeuroVec.concat":
+        mask = np.ones(primary.shape[:3], dtype=bool)
+        return primary.to_sparse(mask), secondary.to_sparse(mask)
+    return primary, secondary
+
+
+@pytest.mark.parametrize("qualified_name", _VERIFIED_MULTI_INPUT_SURFACES)
+def test_multi_input_op_rejects_affine_mismatch(qualified_name, mismatched_concat_pair):
+    """Every ``verified`` multi-input op must raise on affine mismatch.
+
+    Dense and sparse concat both use the same same-space gate; the sparse
+    fixture keeps that override from drifting back to a convention-only
+    claim.
+    """
+    primary, secondary = _pair_for_multi_input_surface(
+        qualified_name, mismatched_concat_pair
+    )
+    invocation = _multi_input_invocation(qualified_name, primary, secondary)
+    if invocation is None:
+        pytest.skip(
+            f"No fixture invocation defined for {qualified_name}; "
+            "extend _multi_input_invocation() in tests/test_fragility_invariants.py"
+        )
+    with pytest.raises(ValueError) as excinfo:
+        invocation()
+    message = str(excinfo.value).lower()
+    assert "spatial contract mismatch" in message or "input_space_hash" in message, (
+        f"{qualified_name} raised on affine mismatch but the message did not "
+        f"name the spatial contract: {excinfo.value!r}"
+    )
+
+
+@pytest.mark.parametrize("qualified_name", _VERIFIED_MULTI_INPUT_SURFACES)
+def test_multi_input_op_accepts_matched_pair(qualified_name, matched_concat_pair):
+    """Positive control: matched-space pairs must succeed.
+
+    Sanity check that the test fixture isn't accidentally tripping the
+    rejection path (which would mask a future regression).
+    """
+    primary, secondary = _pair_for_multi_input_surface(qualified_name, matched_concat_pair)
+    invocation = _multi_input_invocation(qualified_name, primary, secondary)
+    if invocation is None:
+        pytest.skip(
+            f"No fixture invocation defined for {qualified_name}; "
+            "extend _multi_input_invocation() in tests/test_fragility_invariants.py"
+        )
+    result = invocation()
+    assert result is not None
+    # Time axis should be the sum of the inputs (3 + 3 = 6).
+    assert result.shape[-1] == 6
