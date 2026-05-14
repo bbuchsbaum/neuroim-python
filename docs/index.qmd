@@ -36,9 +36,9 @@ Dense, sparse, mapped, and file-backed objects let the same workflows scale from
 
 ::: {.g-col-12 .g-col-md-4}
 ::: {.card .h-100 .p-3}
-### R compatible
+### Typed spatial workflows
 
-The Python API is designed to line up with the R `neuroim2` package for cross-language projects and ported analyses.
+Validated spaces, masks, ROI coordinates, and image objects make analysis code explicit about the spatial contracts it relies on.
 :::
 :::
 
@@ -55,15 +55,18 @@ sys.path.insert(0, str(Path.cwd().parent / "src"))
 import numpy as np
 import neuroim as ni
 
-space = ni.NeuroSpace((16, 16, 12), spacing=(2, 2, 3))
-x, y, z = np.indices(space.dim)
-center = np.array(space.dim) // 2
-data = np.exp(-(((x - center[0]) ** 2 + (y - center[1]) ** 2 + (z - center[2]) ** 2) / 24))
+repo = Path.cwd().parent if Path.cwd().name == "docs" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
 
-vol = ni.DenseNeuroVol(data, space)
-roi = ni.spherical_roi(vol, centroid=center, radius=4)
+roi = ni.spherical_roi(mask, centroid=(4, 4, 2), radius=2)
+time_by_voxel = bold.series_roi(roi)
 
-vol.shape, roi.coords.shape
+mean_data = np.zeros(mask.shape, dtype=np.float32)
+mean_data[tuple(roi.coords.T)] = time_by_voxel.mean(axis=0)
+mean_map = ni.NeuroVol.from_array(mean_data, space=mask.space)
+
+time_by_voxel.shape, mean_map.to_nibabel().shape
 ```
 
 [Read the full tutorial](get-started.qmd)

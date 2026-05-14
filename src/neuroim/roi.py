@@ -1,6 +1,5 @@
 """Region of Interest (ROI) Classes.
 
-Direct translation of R's neuroim2 ROI classes.
 Includes ROI, ROICoords, ROIVol, ROIVec, and ROIVolWindow.
 """
 
@@ -8,19 +7,15 @@ import numpy as np
 from typing import Union, Tuple, Optional, List
 from abc import ABC, abstractmethod
 from .neuro_space import NeuroSpace
+from .typing import MaskLike, NeuroVolLike
 
+_VolumeInput = Union[NeuroVolLike, MaskLike]
 
 class ROI(ABC):
     """Abstract base class for Region of Interest (ROI) objects.
     
-    Direct translation of R's ROI class (VIRTUAL).
-    
-    R Equivalent
-    ------------
-    neuroim2::ROI
     """
     pass
-
 
 class ROICoords(ROI):
     """A class representing a region of interest (ROI) in a brain image,
@@ -38,9 +33,6 @@ class ROICoords(ROI):
         NeuroSpace object defining the spatial reference. If not provided,
         creates a default space based on coordinate bounds.
         
-    R Equivalent
-    ------------
-    neuroim2::ROICoords
     """
     
     def __init__(self, coords: np.ndarray, space: Optional[NeuroSpace] = None):
@@ -68,27 +60,18 @@ class ROICoords(ROI):
     def dim(self) -> Tuple[int, int]:
         """Dimensions of the coordinate matrix.
         
-        R Equivalent
-        ------------
-        neuroim2::dim
         """
         return self.coords.shape
     
     def __len__(self) -> int:
         """Number of coordinates in the ROI.
         
-        R Equivalent
-        ------------
-        neuroim2::length
         """
         return self.coords.shape[0]
     
     def __getitem__(self, i):
         """Extract subset of coordinates.
         
-        R Equivalent
-        ------------
-        `[` operator
         """
         if isinstance(i, (int, np.integer)):
             # Single row
@@ -111,12 +94,8 @@ class ROICoords(ROI):
         np.ndarray
             Linear indices (0-based)
             
-        R Equivalent
-        ------------
-        neuroim2::indices
         """
         return self.space.grid_to_index(self.coords)
-
 
 class ROIVol(ROICoords):
     """Class representing a volumetric region of interest (ROI) in a brain image,
@@ -131,9 +110,6 @@ class ROIVol(ROICoords):
     coords : np.ndarray
         Matrix with 3 columns representing (i,j,k) coordinates
         
-    R Equivalent
-    ------------
-    neuroim2::ROIVol
     """
     
     def __init__(self, data: np.ndarray, space: NeuroSpace, coords: np.ndarray):
@@ -148,9 +124,6 @@ class ROIVol(ROICoords):
     def __getitem__(self, key):
         """Extract data or coordinates based on indexing.
         
-        R Equivalent
-        ------------
-        `[` operator with various signatures
         """
         if isinstance(key, tuple):
             i, j = key
@@ -198,18 +171,12 @@ class ROIVol(ROICoords):
     def as_numeric(self) -> np.ndarray:
         """Convert to numeric array.
         
-        R Equivalent
-        ------------
-        neuroim2::as.numeric
         """
         return self.data
     
     def as_sparse(self):
         """Convert to SparseNeuroVol.
         
-        R Equivalent
-        ------------
-        neuroim2::as.sparse
         """
         from .neuro_vol import SparseNeuroVol
         return SparseNeuroVol(data=self.data, space=self.space, 
@@ -218,9 +185,6 @@ class ROIVol(ROICoords):
     def as_logical(self):
         """Convert to LogicalNeuroVol.
         
-        R Equivalent
-        ------------
-        neuroim2::as.logical
         """
         from .neuro_vol import LogicalNeuroVol
         mask = np.zeros(self.space.dim, dtype=bool, order='F')
@@ -236,9 +200,6 @@ class ROIVol(ROICoords):
             If True, return real-world coordinates.
             If False, return grid coordinates.
             
-        R Equivalent
-        ------------
-        neuroim2::coords
         """
         if real:
             # Convert to real coordinates like R does
@@ -250,7 +211,6 @@ class ROIVol(ROICoords):
             return real_coords[:, :3]
         else:
             return self.coords
-
 
 class ROIVec(ROICoords):
     """Class representing a vector-valued volumetric region of interest (ROI) 
@@ -266,9 +226,6 @@ class ROIVec(ROICoords):
     coords : np.ndarray
         Matrix with 3 columns representing (i,j,k) coordinates
         
-    R Equivalent
-    ------------
-    neuroim2::ROIVec
     """
     
     def __init__(self, data: np.ndarray, space: NeuroSpace, coords: np.ndarray):
@@ -283,9 +240,6 @@ class ROIVec(ROICoords):
     def __getitem__(self, idx):
         """Extract data columns.
         
-        R Equivalent
-        ------------
-        Access to matrix columns
         """
         if isinstance(idx, tuple):
             # Handle both row and column indexing
@@ -305,7 +259,6 @@ class ROIVec(ROICoords):
             # Single index - set entire column
             self.data[:, idx] = value
 
-
 class ROIVolWindow(ROIVol):
     """A spatially windowed volumetric region of interest (ROI) in a brain image,
     derived from a larger parent ROI.
@@ -324,9 +277,6 @@ class ROIVolWindow(ROIVol):
     center_index : int
         Location in coordinate matrix of center voxel (1-based in R, 0-based here)
         
-    R Equivalent
-    ------------
-    neuroim2::ROIVolWindow
     """
     
     def __init__(self, data: np.ndarray, space: NeuroSpace, coords: np.ndarray,
@@ -346,6 +296,112 @@ class ROIVolWindow(ROIVol):
                 f"parent_index={self.parent_index}, "
                 f"center_index={self.center_index})")
 
+
+def _roi_coords_and_space(roi):
+    if isinstance(roi, (ROIVol, ROICoords)):
+        return np.ascontiguousarray(roi.coords, dtype=int), roi.space
+    raise TypeError(f"roi must be ROIVol or ROICoords, got {type(roi)}")
+
+
+def _roi_extraction_result(values, coords, space, input_space, method_name):
+    from .results import ROIExtractionResult, make_receipt
+
+    receipt = make_receipt(
+        input_space=input_space,
+        mask_data=coords,
+        n_voxels=int(coords.shape[0]),
+        method_name=method_name,
+        seed=None,
+        source_affine=getattr(input_space, "trans", None),
+    )
+    return ROIExtractionResult(
+        values=np.ascontiguousarray(values),
+        coords=np.ascontiguousarray(coords, dtype=int),
+        space=space,
+        mask_hash=receipt.mask_hash,
+        provenance=receipt,
+    )
+
+
+def values_roi(x, roi, *, return_legacy: bool = True):
+    """Extract volume values for all voxels in an ROI.
+
+    ``return_legacy=True`` preserves the historical bare-ndarray projection.
+    ``return_legacy=False`` returns an ROIExtractionResult with provenance.
+    """
+    coords, roi_space = _roi_coords_and_space(roi)
+    data = x.as_dense().data if hasattr(x, "as_dense") else getattr(x, "data", None)
+    if data is None:
+        raise TypeError("x must provide volume data or as_dense().data")
+
+    data = np.asarray(data)
+    if data.ndim != 3:
+        raise ValueError(f"values_roi expects 3D data, got {data.ndim}D")
+
+    values = np.zeros(coords.shape[0], dtype=data.dtype)
+    valid = (
+        (coords[:, 0] >= 0)
+        & (coords[:, 0] < data.shape[0])
+        & (coords[:, 1] >= 0)
+        & (coords[:, 1] < data.shape[1])
+        & (coords[:, 2] >= 0)
+        & (coords[:, 2] < data.shape[2])
+    )
+    if np.any(valid):
+        vc = coords[valid]
+        values[valid] = data[vc[:, 0], vc[:, 1], vc[:, 2]]
+
+    if return_legacy:
+        return values
+
+    return _roi_extraction_result(
+        values,
+        coords,
+        roi_space,
+        getattr(x, "space", roi_space),
+        "values_roi",
+    )
+
+
+def series_roi(x, roi, *, return_legacy: bool = True):
+    """Extract time series for all voxels in an ROI."""
+    if hasattr(x, "series_roi"):
+        return x.series_roi(roi, return_legacy=return_legacy)
+    return values_roi(x, roi, return_legacy=return_legacy)
+
+
+def _volume_data(bvol: _VolumeInput) -> np.ndarray:
+    if not hasattr(bvol, "space") or not hasattr(bvol, "data"):
+        raise TypeError("bvol must satisfy NeuroVolLike: .space and 3D .data")
+    data = np.asarray(bvol.data)
+    if data.ndim != 3 and hasattr(bvol, "as_dense"):
+        data = np.asarray(bvol.as_dense().data)
+    if data.ndim != 3:
+        raise ValueError(f"bvol data must be 3D, got {data.ndim}D")
+    return data
+
+
+def _volume_shape(bvol: _VolumeInput) -> Tuple[int, int, int]:
+    return tuple(int(d) for d in _volume_data(bvol).shape)
+
+
+def _volume_spacing(bvol: _VolumeInput) -> np.ndarray:
+    spacing = getattr(bvol, "spacing", None)
+    if spacing is None:
+        spacing = bvol.space.spacing
+    return np.asarray(spacing, dtype=float)
+
+
+def _volume_value_at(bvol: _VolumeInput, coord: np.ndarray):
+    key = tuple(int(c) for c in coord)
+    data = np.asarray(getattr(bvol, "data", None))
+    if data.ndim == 3:
+        return data[key]
+    if hasattr(bvol, "__getitem__"):
+        value = bvol[key]
+        value = np.asarray(value)
+        return value.item() if value.shape == () else value.ravel()[0]
+    return _volume_data(bvol)[key]
 
 # Factory functions matching R's constructors
 
@@ -370,16 +426,12 @@ def roicoords(coords: np.ndarray) -> ROICoords:
     >>> coords = np.array([[1,2,3], [4,5,6]])
     >>> roi_coords = ROICoords(coords)
         
-    R Equivalent
-    ------------
-    neuroim2::ROICoords
     """
     coords = np.atleast_2d(coords)
     if coords.shape[1] != 3:
         raise ValueError("coords must be a matrix with 3 columns (i,j,k)")
     
     return ROICoords(coords)
-
 
 def roivol(space: NeuroSpace, coords: np.ndarray, data: np.ndarray) -> ROIVol:
     """Create ROI Volume Object.
@@ -408,29 +460,32 @@ def roivol(space: NeuroSpace, coords: np.ndarray, data: np.ndarray) -> ROIVol:
     >>> coords = np.array([[1,2,3], [4,5,6]])
     >>> data = np.array([1.5, 2.5])
     >>> roi_vol = ROIVol(space, coords, data)
-        
-    R Equivalent
-    ------------
-    neuroim2::ROIVol
+
     """
     coords = np.atleast_2d(coords)
     if coords.shape[1] != 3:
         raise ValueError("coords must be a matrix with 3 columns (i,j,k)")
-    
+
     data = np.asarray(data)
     if len(data) != len(coords):
         raise ValueError("length of data must match number of coordinates")
-    
+
     return ROIVol(data, space, coords)
 
 
 # ROI construction functions
 
-def square_roi(bvol, centroid: Union[List, np.ndarray], surround: int, 
-               fill: Optional[float] = None, nonzero: bool = False, 
-               fixdim: int = 3) -> ROIVol:
+
+def square_roi(
+    bvol: _VolumeInput,
+    centroid: Union[List, np.ndarray],
+    surround: int,
+    fill: Optional[float] = None,
+    nonzero: bool = False,
+    fixdim: int = 3,
+) -> ROIVol:
     """Construct a square ROI (2D) from a brain volume.
-    
+
     Parameters
     ----------
     bvol : NeuroVol
@@ -451,14 +506,8 @@ def square_roi(bvol, centroid: Union[List, np.ndarray], surround: int,
     ROIVol
         Square ROI object
         
-    R Equivalent
-    ------------
-    neuroim2::square_roi
     """
-    from .neuro_vol import NeuroVol
-    
-    if not isinstance(bvol, NeuroVol):
-        raise TypeError("bvol must be a NeuroVol")
+    data_source = _volume_data(bvol)
     
     centroid = np.asarray(centroid).astype(int)
     if len(centroid) != 3:
@@ -469,7 +518,7 @@ def square_roi(bvol, centroid: Union[List, np.ndarray], surround: int,
         raise ValueError("fixdim must be 0, 1, or 2")
     
     # Calculate bounds
-    dims = list(bvol.shape)
+    dims = list(data_source.shape)
     lower = np.maximum(0, centroid - surround)
     upper = np.minimum(dims, centroid + surround + 1)
     
@@ -503,7 +552,7 @@ def square_roi(bvol, centroid: Union[List, np.ndarray], surround: int,
         data = np.full(len(coords), fill)
     else:
         # Get values from volume
-        data = np.array([bvol[coords[i, 0], coords[i, 1], coords[i, 2]] 
+        data = np.array([_volume_value_at(bvol, coords[i])
                          for i in range(len(coords))])
     
     # Filter nonzero if requested
@@ -514,8 +563,7 @@ def square_roi(bvol, centroid: Union[List, np.ndarray], surround: int,
     
     return ROIVol(data, bvol.space, coords)
 
-
-def cuboid_roi(bvol, centroid: Union[List, np.ndarray], surround: Union[int, List, np.ndarray],
+def cuboid_roi(bvol: _VolumeInput, centroid: Union[List, np.ndarray], surround: Union[int, List, np.ndarray],
                fill: Optional[float] = None, nonzero: bool = False) -> ROIVol:
     """Construct a cuboid (3D box) ROI from a brain volume.
     
@@ -538,14 +586,8 @@ def cuboid_roi(bvol, centroid: Union[List, np.ndarray], surround: Union[int, Lis
     ROIVol
         Cuboid ROI object
         
-    R Equivalent
-    ------------
-    neuroim2::cuboid_roi
     """
-    from .neuro_vol import NeuroVol
-    
-    if not isinstance(bvol, NeuroVol):
-        raise TypeError("bvol must be a NeuroVol")
+    data_source = _volume_data(bvol)
     
     centroid = np.asarray(centroid).astype(int)
     if len(centroid) != 3:
@@ -560,7 +602,7 @@ def cuboid_roi(bvol, centroid: Union[List, np.ndarray], surround: Union[int, Lis
             raise ValueError("surround must be scalar or length 3")
     
     # Calculate bounds
-    dims = np.array(bvol.shape)
+    dims = np.array(data_source.shape)
     lower = np.maximum(0, centroid - surround)
     upper = np.minimum(dims, centroid + surround + 1)
     
@@ -581,7 +623,7 @@ def cuboid_roi(bvol, centroid: Union[List, np.ndarray], surround: Union[int, Lis
         data = np.full(len(coords), fill)
     else:
         # Get values from volume
-        data = np.array([bvol[coords[i, 0], coords[i, 1], coords[i, 2]] 
+        data = np.array([_volume_value_at(bvol, coords[i])
                          for i in range(len(coords))])
     
     # Filter nonzero if requested
@@ -592,8 +634,7 @@ def cuboid_roi(bvol, centroid: Union[List, np.ndarray], surround: Union[int, Lis
     
     return ROIVol(data, bvol.space, coords)
 
-
-def spherical_roi(bvol, centroid: Union[List, np.ndarray], radius: float,
+def spherical_roi(bvol: _VolumeInput, centroid: Union[List, np.ndarray], radius: float,
                   fill: Optional[float] = None, nonzero: bool = False) -> ROIVol:
     """Construct a spherical ROI from a brain volume.
     
@@ -615,14 +656,8 @@ def spherical_roi(bvol, centroid: Union[List, np.ndarray], radius: float,
     ROIVol
         Spherical ROI object
         
-    R Equivalent
-    ------------
-    neuroim2::spherical_roi
     """
-    from .neuro_vol import NeuroVol
-    
-    if not isinstance(bvol, NeuroVol):
-        raise TypeError("bvol must be a NeuroVol")
+    data_source = _volume_data(bvol)
     
     centroid = np.asarray(centroid)
     if len(centroid) != 3:
@@ -632,14 +667,15 @@ def spherical_roi(bvol, centroid: Union[List, np.ndarray], radius: float,
         raise ValueError("radius must be positive")
     
     # Calculate bounding box for sphere in physical space using spacing
-    spacing = np.asarray(bvol.spacing, dtype=float)
+    spacing = _volume_spacing(bvol)
+    shape = np.asarray(data_source.shape)
     if radius < float(np.min(spacing)):
         raise ValueError("radius is too small; must be at least one voxel dimension")
-    if np.any(centroid < 0) or np.any(centroid >= bvol.shape):
+    if np.any(centroid < 0) or np.any(centroid >= shape):
         raise ValueError("centroid coordinates must be within volume bounds")
     voxel_radius = np.ceil(radius / spacing).astype(int)
     lower = np.maximum(0, np.floor(centroid - voxel_radius).astype(int))
-    upper = np.minimum(bvol.shape, np.ceil(centroid + voxel_radius + 1).astype(int))
+    upper = np.minimum(shape, np.ceil(centroid + voxel_radius + 1).astype(int))
     
     # Generate candidate coordinates
     i_coords, j_coords, k_coords = np.meshgrid(
@@ -662,7 +698,7 @@ def spherical_roi(bvol, centroid: Union[List, np.ndarray], radius: float,
     
     source_data = None
     if nonzero:
-        source_data = np.array([bvol[coords[i, 0], coords[i, 1], coords[i, 2]]
+        source_data = np.array([_volume_value_at(bvol, coords[i])
                                 for i in range(len(coords))])
 
     # Extract data values
@@ -672,7 +708,7 @@ def spherical_roi(bvol, centroid: Union[List, np.ndarray], radius: float,
         # Get values from volume
         data = source_data
         if data is None:
-            data = np.array([bvol[coords[i, 0], coords[i, 1], coords[i, 2]]
+            data = np.array([_volume_value_at(bvol, coords[i])
                              for i in range(len(coords))])
     
     # Filter nonzero if requested
@@ -683,8 +719,7 @@ def spherical_roi(bvol, centroid: Union[List, np.ndarray], radius: float,
     
     return ROIVol(data, bvol.space, coords)
 
-
-def spherical_roi_set(bvol, centroids: np.ndarray, radius: float,
+def spherical_roi_set(bvol: _VolumeInput, centroids: np.ndarray, radius: float,
                       fill: Optional[Union[float, List[float]]] = None, 
                       nonzero: bool = False) -> List[ROIVol]:
     """Create multiple spherical ROIs efficiently.
@@ -707,9 +742,6 @@ def spherical_roi_set(bvol, centroids: np.ndarray, radius: float,
     list of ROIVol
         List of spherical ROI objects
         
-    R Equivalent
-    ------------
-    neuroim2::spherical_roi_set
     """
     centroids = np.atleast_2d(centroids)
     if centroids.shape[1] != 3:
@@ -734,8 +766,7 @@ def spherical_roi_set(bvol, centroids: np.ndarray, radius: float,
     
     return result_list
 
-
-def cube_roi(bvol, centroid: Union[List, np.ndarray], width: int,
+def cube_roi(bvol: _VolumeInput, centroid: Union[List, np.ndarray], width: int,
              fill: Optional[float] = None, nonzero: bool = False) -> ROIVol:
     """Construct a cubic ROI from a brain volume.
 
@@ -762,8 +793,7 @@ def cube_roi(bvol, centroid: Union[List, np.ndarray], width: int,
     """
     return cuboid_roi(bvol, centroid, surround=width, fill=fill, nonzero=nonzero)
 
-
-def ellipsoid_roi(bvol, centroid: Union[List, np.ndarray],
+def ellipsoid_roi(bvol: _VolumeInput, centroid: Union[List, np.ndarray],
                   radii: Union[List, np.ndarray],
                   fill: Optional[float] = None,
                   nonzero: bool = False) -> ROIVol:
@@ -787,10 +817,7 @@ def ellipsoid_roi(bvol, centroid: Union[List, np.ndarray],
     ROIVol
         Ellipsoid ROI object
     """
-    from .neuro_vol import NeuroVol
-
-    if not isinstance(bvol, NeuroVol):
-        raise TypeError("bvol must be a NeuroVol")
+    data_source = _volume_data(bvol)
 
     centroid = np.asarray(centroid, dtype=float)
     if len(centroid) != 3:
@@ -804,7 +831,7 @@ def ellipsoid_roi(bvol, centroid: Union[List, np.ndarray],
 
     # Bounding box based on the largest radius per axis
     lower = np.maximum(0, np.floor(centroid - radii).astype(int))
-    upper = np.minimum(bvol.shape, np.ceil(centroid + radii + 1).astype(int))
+    upper = np.minimum(data_source.shape, np.ceil(centroid + radii + 1).astype(int))
 
     # Generate candidate coordinates
     i_coords, j_coords, k_coords = np.meshgrid(
@@ -828,7 +855,7 @@ def ellipsoid_roi(bvol, centroid: Union[List, np.ndarray],
     if fill is not None:
         data = np.full(len(coords), fill)
     else:
-        data = np.array([bvol[coords[i, 0], coords[i, 1], coords[i, 2]]
+        data = np.array([_volume_value_at(bvol, coords[i])
                          for i in range(len(coords))])
 
     if nonzero:
@@ -838,8 +865,7 @@ def ellipsoid_roi(bvol, centroid: Union[List, np.ndarray],
 
     return ROIVol(data, bvol.space, coords)
 
-
-def patch_set(bvol, centroids: np.ndarray, radius: float,
+def patch_set(bvol: _VolumeInput, centroids: np.ndarray, radius: float,
               shape: str = "sphere",
               fill: Optional[Union[float, List[float]]] = None,
               nonzero: bool = False) -> List[ROIVol]:

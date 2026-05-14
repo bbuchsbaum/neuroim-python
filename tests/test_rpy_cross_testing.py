@@ -369,10 +369,10 @@ def test_rpy_cross_clip_level_and_automask_semantics():
 
     r_scalar, r_gradual, r_mask = _r_clip_level_outputs(data)
 
-    assert pn.clip_level(vol) == r_scalar
-    np.testing.assert_allclose(pn.clip_level(vol, gradual=True).data, r_gradual)
+    assert pn.compat.clip_level(vol) == r_scalar
+    np.testing.assert_allclose(pn.compat.clip_level(vol, gradual=True).data, r_gradual)
     np.testing.assert_array_equal(
-        pn.automask(vol, gradual=False, peels=0).data,
+        pn.compat.automask(vol, gradual=False, peels=0).data,
         r_mask,
     )
 
@@ -383,12 +383,14 @@ def test_rpy_cross_output_aligned_space_and_deoblique_space():
     shape = (4, 5, 6)
 
     r_shape, r_affine = _r_output_aligned_space(shape, affine, voxel_sizes=2.0)
-    py_space = pn.output_aligned_space({"shape": shape, "affine": affine}, voxel_sizes=2.0)
+    py_space = pn.compat.output_aligned_space(
+        {"shape": shape, "affine": affine}, voxel_sizes=2.0
+    )
     np.testing.assert_array_equal(py_space.dim, r_shape)
     np.testing.assert_allclose(py_space.trans, r_affine)
 
     r_dim, r_spacing, r_origin, r_trans = _r_deoblique_space(shape, affine)
-    py_deob = pn.deoblique(pn.NeuroSpace(shape, trans=affine))
+    py_deob = pn.compat.deoblique(pn.NeuroSpace(shape, trans=affine))
     np.testing.assert_array_equal(py_deob.dim, r_dim)
     np.testing.assert_allclose(py_deob.spacing, r_spacing)
     np.testing.assert_allclose(py_deob.origin, r_origin)

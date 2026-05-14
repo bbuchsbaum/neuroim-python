@@ -3,7 +3,7 @@
 This module provides functions for identifying and labeling connected
 components in 3D neuroimaging data, supporting various connectivity patterns.
 
-Direct translation of R's neuroim2 connected components functions.
+Connected-component utilities for labeled 3D neuroimaging data.
 """
 
 import numpy as np
@@ -20,6 +20,7 @@ from .clustered_neuro_vol import ClusteredNeuroVol
 @dataclass
 class ConnCompResult:
     """Result of connected components analysis."""
+
     index: ClusteredNeuroVol
     size: NeuroVol
     voxels: List[np.ndarray]
@@ -27,11 +28,14 @@ class ConnCompResult:
     local_maxima: Optional[np.ndarray] = None
 
 
-def conn_comp(x: NeuroVol, threshold: float = 0,
-              cluster_table: bool = True,
-              local_maxima: bool = True,
-              local_maxima_dist: float = 15,
-              connect: str = "26-connect") -> ConnCompResult:
+def conn_comp(
+    x: NeuroVol,
+    threshold: float = 0,
+    cluster_table: bool = True,
+    local_maxima: bool = True,
+    local_maxima_dist: float = 15,
+    connect: str = "26-connect",
+) -> ConnCompResult:
     """Find connected components in an image.
 
     This function identifies and labels spatially connected regions in
@@ -101,11 +105,7 @@ def conn_comp(x: NeuroVol, threshold: float = 0,
     # Create NeuroVol for sizes
     size_vol = DenseNeuroVol(size_array.astype(float), x.space)
 
-    result = ConnCompResult(
-        index=index_vol,
-        size=size_vol,
-        voxels=voxels_list
-    )
+    result = ConnCompResult(index=index_vol, size=size_vol, voxels=voxels_list)
 
     # Compute cluster table if requested
     if cluster_table and num_features > 0:
@@ -122,8 +122,9 @@ def conn_comp(x: NeuroVol, threshold: float = 0,
     return result
 
 
-def conn_comp_3D(mask: Union[np.ndarray, LogicalNeuroVol],
-                 connect: str = "26-connect") -> Dict[str, np.ndarray]:
+def conn_comp_3D(
+    mask: Union[np.ndarray, LogicalNeuroVol], connect: str = "26-connect"
+) -> Dict[str, np.ndarray]:
     """Extract connected components from a 3D binary mask.
 
     Identifies and labels connected components in a 3D binary mask using
@@ -176,10 +177,7 @@ def conn_comp_3D(mask: Union[np.ndarray, LogicalNeuroVol],
         component_size = np.sum(component_mask)
         size_array[component_mask] = component_size
 
-    return {
-        'index': labeled_array,
-        'size': size_array
-    }
+    return {"index": labeled_array, "size": size_array}
 
 
 def _get_structure(connectivity: str) -> np.ndarray:
@@ -245,9 +243,12 @@ def _get_structure(connectivity: str) -> np.ndarray:
         )
 
 
-def _compute_cluster_table(vol: NeuroVol, labeled_array: np.ndarray,
-                          voxels_list: List[np.ndarray],
-                          space: NeuroSpace) -> pd.DataFrame:
+def _compute_cluster_table(
+    vol: NeuroVol,
+    labeled_array: np.ndarray,
+    voxels_list: List[np.ndarray],
+    space: NeuroSpace,
+) -> pd.DataFrame:
     """Compute cluster statistics table.
 
     Parameters
@@ -289,21 +290,24 @@ def _compute_cluster_table(vol: NeuroVol, labeled_array: np.ndarray,
         cluster_mask = labeled_array == i
         mean_value = np.mean(vol.data[cluster_mask])
 
-        rows.append({
-            'index': i,
-            'x': center_world[0],
-            'y': center_world[1],
-            'z': center_world[2],
-            'N': n_voxels,
-            'Area': area,
-            'value': mean_value
-        })
+        rows.append(
+            {
+                "index": i,
+                "x": center_world[0],
+                "y": center_world[1],
+                "z": center_world[2],
+                "N": n_voxels,
+                "Area": area,
+                "value": mean_value,
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
-def _find_local_maxima(vol: NeuroVol, labeled_array: np.ndarray,
-                      min_distance: float, space: NeuroSpace) -> np.ndarray:
+def _find_local_maxima(
+    vol: NeuroVol, labeled_array: np.ndarray, min_distance: float, space: NeuroSpace
+) -> np.ndarray:
     """Find local maxima within clusters.
 
     Parameters
@@ -377,8 +381,9 @@ def _find_local_maxima(vol: NeuroVol, labeled_array: np.ndarray,
         # Convert to world coordinates
         for coord, value in zip(maxima_coords, maxima_values):
             world_coord = space.grid_to_coord(coord.reshape(1, -1))[0]
-            maxima_list.append([i, world_coord[0], world_coord[1],
-                               world_coord[2], value])
+            maxima_list.append(
+                [i, world_coord[0], world_coord[1], world_coord[2], value]
+            )
 
     if maxima_list:
         return np.array(maxima_list)

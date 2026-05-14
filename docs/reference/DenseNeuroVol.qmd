@@ -6,7 +6,7 @@ DenseNeuroVol(data, space, label='', indices=None)
 
 Dense 3D neuroimaging volume.
 
-Direct translation of R's DenseNeuroVol class.
+Dense 3D volume with voxel data attached to a `NeuroSpace`.
 
 ## Parameters {.doc-section .doc-section-parameters}
 

@@ -6,7 +6,7 @@ SparseNeuroVec(data, space, mask, label='')
 
 Sparse 4D neuroimaging vector.
 
-Direct translation of R's SparseNeuroVec class.
+Sparse 4D vector representation for masked voxel-series data.
 
 ## Parameters {.doc-section .doc-section-parameters}
 

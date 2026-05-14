@@ -13,9 +13,10 @@ from typing import Union, Callable
 from .neuro_vol import NeuroVol, DenseNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_space import NeuroSpace
+from .typing import NeuroVecLike, NeuroVolLike
 
 
-def concat(*vecs: NeuroVec) -> DenseNeuroVec:
+def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
     """Concatenate NeuroVec objects along the time dimension.
 
     Parameters
@@ -68,7 +69,7 @@ def concat(*vecs: NeuroVec) -> DenseNeuroVec:
     return DenseNeuroVec(concat_data, concat_space)
 
 
-def scale_series(vec: NeuroVec, method: str = "zscore") -> DenseNeuroVec:
+def scale_series(vec: NeuroVecLike, method: str = "zscore") -> DenseNeuroVec:
     """Per-voxel time-series normalization.
 
     Parameters
@@ -120,7 +121,7 @@ def scale_series(vec: NeuroVec, method: str = "zscore") -> DenseNeuroVec:
     return DenseNeuroVec(data, vec.space)
 
 
-def mapf(vol_or_vec: Union[NeuroVol, NeuroVec], func: Callable) -> Union[DenseNeuroVol, DenseNeuroVec]:
+def mapf(vol_or_vec: Union[NeuroVolLike, NeuroVecLike], func: Callable) -> Union[DenseNeuroVol, DenseNeuroVec]:
     """Apply a function element-wise to the data of a volume or vector.
 
     Parameters
@@ -247,7 +248,7 @@ def _downsample_array(data: np.ndarray, out_shape: tuple[int, int, int]) -> np.n
 
 
 def downsample(
-    vol: Union[NeuroVol, NeuroVec],
+    vol: Union[NeuroVolLike, NeuroVecLike],
     factor=None,
     spacing=None,
     outdim=None,

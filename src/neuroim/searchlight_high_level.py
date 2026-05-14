@@ -9,8 +9,10 @@ from typing import Union, Optional, Callable, Dict
 from joblib import Parallel, delayed
 from .neuro_vol import NeuroVol, LogicalNeuroVol, DenseNeuroVol
 from .neuro_vec import NeuroVec
+from .results import SearchlightResult, make_receipt
 from .searchlight import searchlight_iterator
 from .clustered_neuro_vol import ClusteredNeuroVol
+from .typing import MaskLike, NeuroVecLike, NeuroVolLike
 
 
 def _coords_from_parent_index(space, parent_index: int) -> tuple[int, ...]:
@@ -18,14 +20,15 @@ def _coords_from_parent_index(space, parent_index: int) -> tuple[int, ...]:
     return tuple(space.index_to_grid(np.array([parent_index], dtype=int))[0].astype(int))
 
 
-def searchlight(mask: Union[NeuroVol, LogicalNeuroVol], 
+def searchlight(mask: MaskLike,
                 radius: float,
                 method,
                 combiner: str = "mean",
-                data: Optional[Union[NeuroVol, 'NeuroVec']] = None,
+                data: Optional[Union[NeuroVolLike, NeuroVecLike]] = None,
                 eager: bool = False,
                 nonzero: bool = False,
-                cores: int = 0) -> NeuroVol:
+                cores: int = 0,
+                return_legacy: bool = True):
     """Apply a searchlight analysis with a given method function.
     
     This function performs searchlight analysis by applying a method function
@@ -55,9 +58,20 @@ def searchlight(mask: Union[NeuroVol, LogicalNeuroVol],
         
     Returns
     -------
-    NeuroVol
-        A volume where each voxel contains the result of the searchlight
-        analysis centered at that voxel.
+    SearchlightResult or NeuroVol
+        With ``return_legacy=False`` (the new default surface): a
+        :class:`~neuroim.results.SearchlightResult` carrying values, centers,
+        space, radius, shape, and a :class:`~neuroim.results.Receipt`.
+        With ``return_legacy=True`` (current default for back-compat during
+        the 0.2 reshape): a :class:`~neuroim.neuro_vol.DenseNeuroVol` placing
+        each scalar at its searchlight centre.
+
+    Notes
+    -----
+    The ``return_legacy=True`` default will flip to ``False`` after the WP-3
+    docs rewrite lands and existing callers are migrated.  See the
+    consensus sticky ``post-01KRKFEWY2`` in the
+    ``neuroim-python-pythonic-value`` mote discussion topic for the schedule.
     """
     # Use mask as data if not provided
     if data is None:
@@ -109,15 +123,44 @@ def searchlight(mask: Union[NeuroVol, LogicalNeuroVol],
     
     # Handle combiner (for now just return the result)
     # In R, combiner might aggregate across multiple results
-    return DenseNeuroVol(result_data, mask.space)
+    legacy_vol = DenseNeuroVol(result_data, mask.space)
+    if return_legacy:
+        return legacy_vol
+
+    finite_mask = np.isfinite(result_data)
+    if finite_mask.any():
+        center_indices = np.argwhere(finite_mask)
+        values = result_data[finite_mask]
+    else:
+        center_indices = np.zeros((0, 3), dtype=int)
+        values = np.zeros(0, dtype=np.float64)
+
+    receipt = make_receipt(
+        input_space=getattr(data, "space", mask.space),
+        mask_data=mask.data,
+        radius=float(radius),
+        n_voxels=int(center_indices.shape[0]),
+        method_name=getattr(method, "__name__", repr(method)),
+        seed=None,
+        source_affine=mask.space.trans,
+    )
+    return SearchlightResult(
+        values=np.ascontiguousarray(values),
+        centers=center_indices,
+        space=mask.space,
+        radius=float(radius),
+        shape="sphere",
+        provenance=receipt,
+        method_name=getattr(method, "__name__", repr(method)),
+    )
 
 
 def resampled_searchlight(
-    vec: NeuroVec,
+    vec: NeuroVecLike,
     radius: float,
     fun: Callable,
     n_resamples: int = 100,
-    mask: Optional[Union[NeuroVol, LogicalNeuroVol]] = None,
+    mask: Optional[MaskLike] = None,
     seed: Optional[int] = None,
 ) -> DenseNeuroVol:
     """Searchlight with bootstrap resampling of time points.
@@ -184,10 +227,10 @@ def resampled_searchlight(
 
 
 def cluster_searchlight_series(
-    vec: NeuroVec,
+    vec: NeuroVecLike,
     cvol: ClusteredNeuroVol,
     fun: Callable,
-    mask: Optional[Union[NeuroVol, LogicalNeuroVol]] = None,
+    mask: Optional[MaskLike] = None,
 ) -> Dict[int, object]:
     """Searchlight using cluster neighbourhoods instead of spheres.
 

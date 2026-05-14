@@ -6,7 +6,7 @@ DenseNeuroVec(data, space, label='')
 
 Dense 4D neuroimaging vector.
 
-Direct translation of R's DenseNeuroVec class.
+Dense 4D vector container with voxel-series data attached to a `NeuroSpace`.
 
 ## Parameters {.doc-section .doc-section-parameters}
 

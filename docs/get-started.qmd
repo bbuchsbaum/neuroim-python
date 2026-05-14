@@ -1,6 +1,6 @@
 ---
 title: "Get started"
-subtitle: "From a synthetic brain volume to a spatial ROI summary in five minutes."
+subtitle: "Read an image, validate its spatial contract, and extract an ROI time series."
 jupyter: python3
 ---
 
@@ -18,7 +18,7 @@ pip install -e .
 
 ## The 30-second tour
 
-Create a small volume with spatial metadata.
+Read a small 4D image and a matching mask.
 
 ```{python}
 from pathlib import Path
@@ -29,47 +29,52 @@ sys.path.insert(0, str(Path.cwd().parent / "src"))
 import numpy as np
 import neuroim as ni
 
-space = ni.NeuroSpace((24, 24, 16), spacing=(2, 2, 3))
-x, y, z = np.indices(space.dim)
-center = np.array(space.dim) // 2
+repo = Path.cwd().parent if Path.cwd().name == "docs" else Path.cwd()
 
-signal = np.exp(
-    -(((x - center[0]) ** 2 + (y - center[1]) ** 2 + (z - center[2]) ** 2) / (2 * 4**2))
-)
-vol = ni.DenseNeuroVol(signal, space)
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
 
-vol.shape, vol.spacing
+bold.shape, mask.shape, bold.space.compatible_with(mask.space)
 ```
 
-Smooth the volume and define a spherical region of interest.
+Define a spherical region of interest and extract its time-by-voxel matrix.
 
 ```{python}
-smoothed = ni.gaussian_blur(vol, sigma=1)
-roi = ni.spherical_roi(vol, centroid=center, radius=4)
+roi = ni.spherical_roi(mask, centroid=(4, 4, 2), radius=2)
+time_by_voxel = bold.series_roi(roi)
 
-roi_values = smoothed[roi.coords[:, 0], roi.coords[:, 1], roi.coords[:, 2]]
-
-{
-    "roi_voxels": int(roi.coords.shape[0]),
-    "mean_signal": round(float(roi_values.mean()), 3),
-    "max_signal": round(float(smoothed.data.max()), 3),
-}
+time_by_voxel.shape
 ```
 
-Make a short 4D series using the same spatial frame.
+Project the ROI summary back into the same mask space and hand it to nibabel-compatible tooling.
 
 ```{python}
-rng = np.random.default_rng(1)
-series = np.stack([signal + 0.05 * rng.normal(size=space.dim) for _ in range(6)], axis=3)
-vec = ni.DenseNeuroVec(series, space.add_dim(size=6))
+mean_data = np.zeros(mask.shape, dtype=np.float32)
+mean_data[tuple(roi.coords.T)] = time_by_voxel.mean(axis=0)
 
-voxel_series = vec.series(np.array([center]))
-voxel_series.ravel()
+mean_map = ni.NeuroVol.from_array(mean_data, space=mask.space)
+out = mean_map.to_nibabel()
+
+out.shape, out.affine.tolist()
 ```
 
 ## What just happened
 
-`NeuroSpace` stores image dimensions, voxel spacing, origin, and coordinate transforms. `DenseNeuroVol` attaches a 3D array to that space. `DenseNeuroVec` extends the same idea to 4D series. ROI helpers such as `spherical_roi()` return coordinate sets that can be used directly for indexing and summaries.
+`read_image()` returns typed image containers with `NeuroSpace` attached. The BOLD series and mask can be checked for spatial compatibility before ROI extraction. `spherical_roi()` returns voxel coordinates in that space, `series_roi()` returns an analysis-ready time-by-voxel matrix, and `NeuroVol.from_array()` turns derived arrays back into spatially grounded maps.
+
+## Interoperability with nibabel
+
+Use the explicit interop methods when code already holds a nibabel image.
+
+```{python}
+import nibabel as nib
+
+nib_img = nib.load(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+vec = ni.NeuroVec.from_nibabel(nib_img)
+round_trip = vec.to_nibabel()
+
+vec.shape, round_trip.shape
+```
 
 ## Next steps
 

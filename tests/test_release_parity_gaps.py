@@ -173,7 +173,7 @@ def test_hypervec_hdf5_roundtrip_via_r_compatible_alias(tmp_path):
     path = tmp_path / "hypervec.h5"
 
     ni.write_neurohypervec(hvec, path)
-    out = ni.read_hyper_vec(path)
+    out = ni.compat.read_hyper_vec(path)
 
     assert isinstance(out, ni.DenseNeuroHyperVec)
     assert out.shape == hvec.shape

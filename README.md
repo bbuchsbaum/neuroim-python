@@ -9,12 +9,12 @@ A modern Python library for neuroimaging data analysis, providing efficient data
 
 ## Features
 
-- 📊 **Multi-dimensional support**: Work with 3D (NeuroVol), 4D (NeuroVec), and 5D+ (NeuroHyperVec) neuroimaging data
-- 🚀 **Memory efficient**: Sparse and memory-mapped representations for large datasets
-- 🔍 **Advanced analysis**: ROI extraction, searchlight analysis, spatial filtering, and connectivity
-- 📁 **File format support**: Read/write NIFTI, AFNI, and HDF5 formats
-- 🔄 **R compatibility**: Designed to match R's neuroim2 package for cross-language workflows
-- ⚡ **Performance**: Optimized operations using NumPy and SciPy
+- **Spatial contracts**: Keep image data tied to shape, affine, voxel spacing, and coordinate transforms.
+- **Analysis-ready containers**: Work with 3D volumes, 4D time series, and 5D+ feature stacks.
+- **ROI and searchlight workflows**: Extract validated time-by-voxel matrices and neighborhood summaries.
+- **Memory-aware representations**: Use dense, sparse, mapped, and file-backed data structures.
+- **Interoperable I/O**: Read and write NIfTI/AFNI data while preserving a typed neuroim surface.
+- **NumPy/SciPy performance**: Build on the scientific Python stack without losing spatial metadata.
 
 ## Installation
 
@@ -43,35 +43,22 @@ pip install -e ".[dev]"
 ## Quick Start
 
 ```python
-import neuroim as pn
 import numpy as np
+import neuroim as ni
 
-# Load a 3D brain volume
-vol = pn.read_vol("brain.nii.gz")
-print(f"Volume shape: {vol.shape}")
-print(f"Voxel size: {vol.spacing} mm")
+bold = ni.read_image("golden_tests/fixtures/tiny_bold.nii.gz")
+mask = ni.read_image("golden_tests/fixtures/tiny_mask.nii.gz", type="vol")
+bold.space.compatible_with(mask.space)
 
-# Create a 4D time series (fMRI data)
-space_4d = pn.NeuroSpace(dim=(64, 64, 40, 200))
-data = np.random.randn(64, 64, 40, 200)
-fmri = pn.NeuroVec(data, space_4d)
+roi = ni.spherical_roi(mask, centroid=(4, 4, 2), radius=2)
+time_by_voxel = bold.series_roi(roi)
 
-# Extract time series from a voxel
-ts = fmri.series(30, 30, 20)  # Returns time series at voxel (30,30,20)
+mean_data = np.zeros(mask.shape, dtype=np.float32)
+mean_data[tuple(roi.coords.T)] = time_by_voxel.mean(axis=0)
+mean_map = ni.NeuroVol.from_array(mean_data, space=mask.space)
 
-# Create an ROI and extract data
-roi = pn.spherical_roi(vol, center=[32, 32, 20], radius=5)
-roi_data = fmri.series_roi(roi)  # Returns time x voxels matrix
-
-# Searchlight analysis
-def correlation_searchlight(data):
-    """Example searchlight function - compute mean correlation"""
-    if data.shape[1] < 2:
-        return 0
-    corr = np.corrcoef(data.T)
-    return np.mean(corr[np.triu_indices_from(corr, k=1)])
-
-result = pn.searchlight(fmri, radius=3, method=correlation_searchlight)
+out = mean_map.to_nibabel()
+out.shape, out.affine.tolist()
 ```
 
 ## Core Data Structures
@@ -79,12 +66,11 @@ result = pn.searchlight(fmri, radius=3, method=correlation_searchlight)
 ### NeuroVol - 3D Brain Volumes
 
 ```python
-# Create from data
-space = pn.NeuroSpace(dim=(91, 109, 91), spacing=(2, 2, 2))
-vol = pn.NeuroVol(data_3d, space)
+space = ni.NeuroSpace(dim=(91, 109, 91), spacing=(2, 2, 2))
+vol = ni.NeuroVol.from_array(data_3d, space)
 
 # Operations
-smoothed = pn.gaussian_blur(vol, sigma=2)
+smoothed = ni.gaussian_blur(vol, sigma=2)
 mask = vol > vol.mean()
 masked_vol = vol[mask]
 ```
@@ -92,9 +78,8 @@ masked_vol = vol[mask]
 ### NeuroVec - 4D Time Series
 
 ```python
-# Create 4D fMRI data
-space_4d = pn.NeuroSpace(dim=(64, 64, 40, 200))
-fmri = pn.NeuroVec(data_4d, space_4d)
+space_4d = ni.NeuroSpace(dim=(64, 64, 40, 200))
+fmri = ni.NeuroVec.from_array(data_4d, space_4d)
 
 # Extract volumes at specific timepoints
 vol_t0 = fmri[..., 0]  # First volume
@@ -108,8 +93,8 @@ mean_vol = fmri.mean(axis=3)  # Mean across time
 
 ```python
 # Create 5D data (e.g., multi-echo fMRI with 3 echoes)
-space_5d = pn.NeuroSpace(dim=(64, 64, 40, 200, 3))
-multi_echo = pn.NeuroHyperVec(data_5d, space_5d)
+space_5d = ni.NeuroSpace(dim=(64, 64, 40, 200, 3))
+multi_echo = ni.NeuroHyperVec(data_5d, space_5d)
 
 # Combine echoes with weighted average
 weights = np.array([0.5, 0.3, 0.2])
@@ -125,10 +110,10 @@ echo1 = multi_echo[..., 0]  # First echo as NeuroVec
 
 ```python
 # Spherical ROI
-roi_sphere = pn.spherical_roi(vol, center=[45, 54, 45], radius=10)
+roi_sphere = ni.spherical_roi(vol, centroid=[45, 54, 45], radius=10)
 
 # Cuboid ROI  
-roi_cube = pn.cuboid_roi(vol, center=[45, 54, 45], width=[20, 20, 20])
+roi_cube = ni.cuboid_roi(vol, centroid=[45, 54, 45], surround=[10, 10, 10])
 
 # Extract ROI data
 roi_values = vol[roi_sphere]
@@ -144,10 +129,10 @@ def pattern_similarity(data):
     return np.mean(np.corrcoef(data))
 
 # Run searchlight
-results = pn.searchlight(fmri, radius=3, method=pattern_similarity)
+results = ni.searchlight(fmri, radius=3, method=pattern_similarity)
 
 # Run searchlight with parallel processing for faster computation
-results_parallel = pn.searchlight(
+results_parallel = ni.searchlight(
     fmri, 
     radius=3, 
     method=pattern_similarity,
@@ -160,24 +145,24 @@ results_parallel = pn.searchlight(
 
 ```python
 # Gaussian smoothing
-smoothed = pn.gaussian_blur(vol, sigma=2)
+smoothed = ni.gaussian_blur(vol, sigma=2)
 
 # Bilateral filter (edge-preserving)
-bilateral = pn.bilateral_filter(vol, spatial_sigma=2, range_sigma=0.5)
+bilateral = ni.bilateral_filter(vol, spatial_sigma=2, range_sigma=0.5)
 
 # Guided filter
-guided = pn.guided_filter(vol, guide=mask, radius=3, epsilon=0.1)
+guided = ni.guided_filter(vol, guide=mask, radius=3, epsilon=0.1)
 ```
 
 ### Memory-Efficient Operations
 
 ```python
 # Sparse representation for masked data
-mask = pn.LogicalNeuroVol(brain_mask, space)
+mask = ni.LogicalNeuroVol(brain_mask, space)
 sparse_fmri = fmri.as_sparse(mask)
 
 # Memory-mapped for huge datasets
-big_data = pn.MappedNeuroVec("huge_fmri.dat", space_4d)
+big_data = ni.MappedNeuroVec("huge_fmri.dat", space_4d)
 chunk = big_data[30:40, 30:40, 20:30, :]  # Load only what's needed
 ```
 
@@ -188,7 +173,7 @@ The documentation site is built with Quarto from `docs/`.
 - [Documentation source](docs/)
 - [Tutorials](docs/tutorials/)
 - [API reference](docs/reference/)
-- [Porting and parity notes](docs/porting/)
+- [Porting and migration notes](docs/porting/)
 
 ## Requirements
 
@@ -230,7 +215,7 @@ If you use neuroim in your research, please cite:
 
 ## Related Projects
 
-- [neuroim2](https://github.com/bbuchsbaum/neuroim2) - R package (neuroim is designed for compatibility)
+- [neuroim2](https://github.com/bbuchsbaum/neuroim2) - related R package and migration reference
 - [NiBabel](https://nipy.org/nibabel/) - Neuroimaging file I/O
 - [Nilearn](https://nilearn.github.io/) - Machine learning for neuroimaging
 - [MNE-Python](https://mne.tools/) - MEG/EEG analysis
@@ -241,4 +226,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-neuroim is inspired by and designed to be compatible with the R neuroim2 package. Special thanks to the neuroimaging community for feedback and contributions.
+neuroim builds on ideas from neuroim2 and the broader neuroimaging community. Special thanks to users and contributors who test these workflows across real analyses.

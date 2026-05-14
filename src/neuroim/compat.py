@@ -30,8 +30,7 @@ class ArrayLike3D(Protocol):
 
     shape: tuple[int, int, int]
 
-    def __getitem__(self, key: Any) -> Any:
-        ...
+    def __getitem__(self, key: Any) -> Any: ...
 
 
 @runtime_checkable
@@ -40,8 +39,7 @@ class ArrayLike4D(Protocol):
 
     shape: tuple[int, int, int, int]
 
-    def __getitem__(self, key: Any) -> Any:
-        ...
+    def __getitem__(self, key: Any) -> Any: ...
 
 
 @runtime_checkable
@@ -50,8 +48,7 @@ class ArrayLike5D(Protocol):
 
     shape: tuple[int, ...]
 
-    def __getitem__(self, key: Any) -> Any:
-        ...
+    def __getitem__(self, key: Any) -> Any: ...
 
 
 numericOrMatrix = Union[int, float, np.ndarray]
@@ -359,8 +356,9 @@ def as_canonical(x: Any, target: Any = ("R", "A", "S")) -> Any:
     return reorient(x, orient)
 
 
-def slice_to_volume_affine(index: int, axis: int, shape: Any = None,
-                           index_base: str = "R") -> np.ndarray:
+def slice_to_volume_affine(
+    index: int, axis: int, shape: Any = None, index_base: str = "R"
+) -> np.ndarray:
     """Affine from 2D slice coordinates to 3D volume coordinates."""
     if index_base not in {"R", "zero"}:
         raise ValueError("index_base must be 'R' or 'zero'")
@@ -394,8 +392,9 @@ def slice_to_volume_affine(index: int, axis: int, shape: Any = None,
     return out
 
 
-def slice2volume(index: int, axis: int, shape: Any = None,
-                 index_base: str = "R") -> np.ndarray:
+def slice2volume(
+    index: int, axis: int, shape: Any = None, index_base: str = "R"
+) -> np.ndarray:
     return slice_to_volume_affine(index, axis, shape=shape, index_base=index_base)
 
 
@@ -413,14 +412,29 @@ def apply_mask(x: Any, mask: Any) -> Any:
     from .neuro_vec import DenseNeuroVec, NeuroVec
     from .neuro_vol import DenseNeuroVol, LogicalNeuroVol, NeuroVol
 
-    mask_vol = mask if isinstance(mask, LogicalNeuroVol) else LogicalNeuroVol(np.asarray(mask, dtype=bool), space(x).drop_dim(3) if getattr(x, "ndim", 0) == 4 else space(x))
+    mask_vol = (
+        mask
+        if isinstance(mask, LogicalNeuroVol)
+        else LogicalNeuroVol(
+            np.asarray(mask, dtype=bool),
+            space(x).drop_dim(3) if getattr(x, "ndim", 0) == 4 else space(x),
+        )
+    )
     keep = np.asarray(mask_vol.data, dtype=bool)
     if isinstance(x, NeuroVec):
-        data = x.as_dense().data.copy() if hasattr(x, "as_dense") else np.asarray(x.data).copy()
+        data = (
+            x.as_dense().data.copy()
+            if hasattr(x, "as_dense")
+            else np.asarray(x.data).copy()
+        )
         data[~keep, :] = 0
         return DenseNeuroVec(data, x.space, getattr(x, "label", ""))
     if isinstance(x, NeuroVol):
-        data = x.as_dense().data.copy() if hasattr(x, "as_dense") else np.asarray(x.data).copy()
+        data = (
+            x.as_dense().data.copy()
+            if hasattr(x, "as_dense")
+            else np.asarray(x.data).copy()
+        )
         data[~keep] = 0
         return DenseNeuroVol(data, x.space)
     arr = np.asarray(x).copy()
@@ -466,7 +480,7 @@ def _afni_clip_level_numeric(x: Any, mfrac: float = 0.5, nhist: int = 10000) -> 
     ncut = max(ii, 0)
     for _ in range(66):
         start = max(ncut, 0) + 1
-        npos_cut = int(hist[start - 1:nhist_eff].sum()) if start <= nhist_eff else 0
+        npos_cut = int(hist[start - 1 : nhist_eff].sum()) if start <= nhist_eff else 0
         nhalf = npos_cut // 2
         acc = 0
         ii = max(ncut, 0)
@@ -497,10 +511,7 @@ def _afni_gradual_clip_array(arr: Any, mfrac: float = 0.5) -> np.ndarray:
 
     nx, ny, nz = arr.shape
     cm = _center_of_mass_zero_based(arr)
-    ic, jc, kc = [
-        min(max(int(round(cm[i])), 0), arr.shape[i] - 1)
-        for i in range(3)
-    ]
+    ic, jc, kc = [min(max(int(round(cm[i])), 0), arr.shape[i] - 1) for i in range(3)]
     it, jt, kt = nx - 1, ny - 1, nz - 1
     val_floor = 0.333 * _afni_clip_level_numeric(arr, mfrac=mfrac)
 
@@ -514,7 +525,9 @@ def _afni_gradual_clip_array(arr: Any, mfrac: float = 0.5) -> np.ndarray:
 
     def octclip(xa: int, xb: int, ya: int, yb: int, za: int, zb: int) -> float:
         return max(
-            _afni_clip_level_numeric(arr[xa:xb + 1, ya:yb + 1, za:zb + 1], mfrac=mfrac),
+            _afni_clip_level_numeric(
+                arr[xa : xb + 1, ya : yb + 1, za : zb + 1], mfrac=mfrac
+            ),
             val_floor,
         )
 
@@ -581,7 +594,9 @@ def _largest_component_mask(mask: np.ndarray, connect: str) -> np.ndarray:
 def _fill_holes_mask(mask: np.ndarray) -> np.ndarray:
     from scipy import ndimage
 
-    return ndimage.binary_fill_holes(mask, structure=_connectivity_structure("6-connect"))
+    return ndimage.binary_fill_holes(
+        mask, structure=_connectivity_structure("6-connect")
+    )
 
 
 def _neighbor_count_18(mask: np.ndarray) -> np.ndarray:
@@ -593,7 +608,9 @@ def _neighbor_count_18(mask: np.ndarray) -> np.ndarray:
     return ndimage.convolve(mask.astype(int), kernel, mode="nearest")
 
 
-def _peel_restore_mask(mask: np.ndarray, peels: int = 1, peel_threshold: int = 17) -> np.ndarray:
+def _peel_restore_mask(
+    mask: np.ndarray, peels: int = 1, peel_threshold: int = 17
+) -> np.ndarray:
     peels = int(peels)
     if peels < 1 or not np.any(mask):
         return mask
@@ -617,9 +634,14 @@ def _peel_restore_mask(mask: np.ndarray, peels: int = 1, peel_threshold: int = 1
     return out
 
 
-def _automask_array(arr: Any, mfrac: float = 0.5, gradual: bool = True,
-                    peels: int = 1, peel_threshold: int = 17,
-                    connect: str = "26-connect") -> np.ndarray:
+def _automask_array(
+    arr: Any,
+    mfrac: float = 0.5,
+    gradual: bool = True,
+    peels: int = 1,
+    peel_threshold: int = 17,
+    connect: str = "26-connect",
+) -> np.ndarray:
     arr = np.asarray(arr, dtype=float)
     if arr.ndim != 3:
         raise ValueError("automask expects a 3D array")
@@ -628,7 +650,11 @@ def _automask_array(arr: Any, mfrac: float = 0.5, gradual: bool = True,
     if not np.isfinite(clip) or clip <= 0:
         return np.zeros(arr.shape, dtype=bool)
 
-    threshold = _afni_gradual_clip_array(arr, mfrac=mfrac) if gradual else np.full(arr.shape, clip)
+    threshold = (
+        _afni_gradual_clip_array(arr, mfrac=mfrac)
+        if gradual
+        else np.full(arr.shape, clip)
+    )
     mask = arr >= threshold
     if not np.any(mask):
         return mask
@@ -655,8 +681,9 @@ def _image_array(x: Any) -> np.ndarray:
     return np.asarray(x)
 
 
-def clip_level(x: Any, mfrac: float = 0.5, gradual: bool = False,
-               representative: str = "median") -> Any:
+def clip_level(
+    x: Any, mfrac: float = 0.5, gradual: bool = False, representative: str = "median"
+) -> Any:
     """AFNI-like clip level estimate for volumes or vector representatives."""
     from .neuro_vol import DenseNeuroVol
 
@@ -672,13 +699,22 @@ def clip_level(x: Any, mfrac: float = 0.5, gradual: bool = False,
         arr = np.asarray(data)
     level = _afni_clip_level_numeric(arr, mfrac=mfrac)
     if gradual:
-        return DenseNeuroVol(_afni_gradual_clip_array(arr, mfrac=mfrac), space(x).drop_dim(3) if getattr(x, "ndim", 0) == 4 else space(x))
+        return DenseNeuroVol(
+            _afni_gradual_clip_array(arr, mfrac=mfrac),
+            space(x).drop_dim(3) if getattr(x, "ndim", 0) == 4 else space(x),
+        )
     return level
 
 
-def automask(x: Any, mfrac: float = 0.5, gradual: bool = True,
-             representative: str = "mean_abs", peels: int = 1,
-             peel_threshold: int = 17, connect: str = "26-connect") -> Any:
+def automask(
+    x: Any,
+    mfrac: float = 0.5,
+    gradual: bool = True,
+    representative: str = "mean_abs",
+    peels: int = 1,
+    peel_threshold: int = 17,
+    connect: str = "26-connect",
+) -> Any:
     """Create a simple logical mask using an AFNI-style clip threshold."""
     from .neuro_vol import LogicalNeuroVol
 
@@ -742,10 +778,18 @@ def output_aligned_space(mapped_voxels: Any, voxel_sizes: Any = None) -> Any:
             out_vox = np.repeat(float(out_vox), n_axes)
         else:
             out_vox = out_vox[:n_axes]
-        if out_vox.size != n_axes or np.any(~np.isfinite(out_vox)) or np.any(out_vox <= 0):
-            raise ValueError("voxel_sizes must be a positive scalar or match the number of spatial axes")
-    corners = np.array(list(product(*[(0, int(n) - 1) for n in spatial_shape])), dtype=float)
-    world = apply_affine(affine[:n_axes + 1, :n_axes + 1], corners)
+        if (
+            out_vox.size != n_axes
+            or np.any(~np.isfinite(out_vox))
+            or np.any(out_vox <= 0)
+        ):
+            raise ValueError(
+                "voxel_sizes must be a positive scalar or match the number of spatial axes"
+            )
+    corners = np.array(
+        list(product(*[(0, int(n) - 1) for n in spatial_shape])), dtype=float
+    )
+    world = apply_affine(affine[: n_axes + 1, : n_axes + 1], corners)
     out_min = np.min(world, axis=0)
     out_max = np.max(world, axis=0)
     out_shape = np.ceil((out_max - out_min) / out_vox).astype(int) + 1
@@ -801,8 +845,18 @@ def annotate_orientation(*args: Any, **kwargs: Any) -> dict:
 
 
 from .neuro_vec import SparseNeuroVec as AbstractSparseNeuroVec
+from .neuro_vec import neurovecseq as NeuroVecSeq
+from .axis import find_anatomy_3d as findAnatomy3D
+from .nifti_utils import create_nifti_header as createNIfTIHeader
+from .nifti_utils import matrix_to_quatern as matrixToQuatern
+from .nifti_utils import quatern_to_matrix as quaternToMatrix
+from .neuro_hypervec import read_neurohypervec as read_hyper_vec
+from .plotting import map_to_colors as mapToColors
+from .spatial_filters import bilateral_filter_4d
 
 __all__ = [
-    name for name in globals()
-    if not name.startswith("_") and name not in {"Any", "Protocol", "Union", "runtime_checkable", "np"}
+    name
+    for name in globals()
+    if not name.startswith("_")
+    and name not in {"Any", "Protocol", "Union", "runtime_checkable", "np"}
 ]

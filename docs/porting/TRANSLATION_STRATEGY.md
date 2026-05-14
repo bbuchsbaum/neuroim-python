@@ -98,7 +98,7 @@ def test_coord_to_grid():
 def coord_to_grid(space: NeuroSpace, coords: np.ndarray) -> np.ndarray:
     """Convert real-world coordinates to grid indices.
     
-    Direct translation of R's coord_to_grid function.
+    Python implementation of the coordinate-to-grid contract.
     
     Parameters
     ----------

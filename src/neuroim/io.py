@@ -1,6 +1,4 @@
 """I/O functions for neuroimaging data.
-
-Direct translation of R's neuroim2 I/O functions.
 """
 
 import nibabel as nib
@@ -58,8 +56,12 @@ def _neurospace_from_afni_meta(meta: AFNIMetaInfo) -> NeuroSpace:
                 tlpi = rai_to_lpi @ mat[:, :3]
                 affine = np.eye(4, dtype=float)
                 affine[:3, :3] = tlpi
-                axis_codes = affine_to_axcodes(affine, labels=[("R", "L"), ("A", "P"), ("S", "I")])
-                if len(axis_codes) == 3 and all(c in {"R", "L", "A", "P", "I", "S"} for c in axis_codes):
+                axis_codes = affine_to_axcodes(
+                    affine, labels=[("R", "L"), ("A", "P"), ("S", "I")]
+                )
+                if len(axis_codes) == 3 and all(
+                    c in {"R", "L", "A", "P", "I", "S"} for c in axis_codes
+                ):
                     axes = find_anatomy_3d("".join(axis_codes))
             except Exception:
                 # keep fallback axes when any unexpected shape/parsing issue occurs
@@ -96,7 +98,9 @@ def _read_afni_data(meta: AFNIMetaInfo) -> np.ndarray:
     slope = np.asarray(meta.slope, dtype=float)
     intercept = np.asarray(meta.intercept, dtype=float)
     slope_scalar = float(slope) if slope.ndim == 0 else float(slope.flat[0])
-    intercept_scalar = float(intercept) if intercept.ndim == 0 else float(intercept.flat[0])
+    intercept_scalar = (
+        float(intercept) if intercept.ndim == 0 else float(intercept.flat[0])
+    )
     if arr.ndim == 4 and slope.size > 1:
         if slope.size != arr.shape[3]:
             raise ValueError(
@@ -131,7 +135,7 @@ def _resolve_write_format(format_name: str) -> str:
 
 def read_vol(filename: Union[str, Path], index: int = 0) -> DenseNeuroVol:
     """Read a 3D neuroimaging volume from file.
-    
+
     Parameters
     ----------
     filename : str or Path
@@ -139,21 +143,16 @@ def read_vol(filename: Union[str, Path], index: int = 0) -> DenseNeuroVol:
     index : int, optional
         For 4D files, which 3D volume to extract (0-based)
         Default is 0 (first volume)
-        
+
     Returns
     -------
     DenseNeuroVol
         The loaded 3D volume
-        
+
     Notes
     -----
     Unlike R which uses 1-based indexing, Python uses 0-based indexing
-    for the volume index parameter.
-    
-    R Equivalent
-    ------------
-    neuroim2::read_vol
-    """
+    for the volume index parameter.    """
     descriptor = find_descriptor(filename)
     if _is_afni_descriptor(descriptor):
         meta = descriptor.read_meta_info(filename)
@@ -164,31 +163,38 @@ def read_vol(filename: Union[str, Path], index: int = 0) -> DenseNeuroVol:
         # Load with nibabel
         img = nib.load(str(filename))
         data = img.get_fdata()
-    
+
     # Extract single volume if 4D
     if data.ndim == 4:
         if index < 0 or index >= data.shape[3]:
-            raise ValueError(f"index {index} out of range for 4D data with {data.shape[3]} volumes")
+            raise ValueError(
+                f"index {index} out of range for 4D data with {data.shape[3]} volumes"
+            )
         data = data[:, :, :, index]
     elif index != 0:
         raise ValueError(f"index {index} invalid for 3D data")
     elif data.ndim != 3:
         raise ValueError(f"Expected 3D or 4D data, got {data.ndim}D")
-    
+
+    if not _is_afni_descriptor(descriptor) and tuple(img.shape) == tuple(data.shape):
+        return DenseNeuroVol.from_nibabel(img)
+
     if not _is_afni_descriptor(descriptor):
         # Create NeuroSpace from NIfTI header only for valid dimensionality
-        space = _neurospace_from_nifti(img)
-    
+        space = NeuroSpace.from_affine(img.affine, data.shape, header=img.header)
+
     # Create and return DenseNeuroVol
     return DenseNeuroVol(data, space)
 
 
-def write_vol(vol: Union[DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol], 
-              filename: Union[str, Path],
-              format: str = "NIFTI",
-              data_type: Optional[str] = None):
+def write_vol(
+    vol: Union[DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol],
+    filename: Union[str, Path],
+    format: str = "NIFTI",
+    data_type: Optional[str] = None,
+):
     """Write a neuroimaging volume to file.
-    
+
     Parameters
     ----------
     vol : NeuroVol
@@ -199,12 +205,7 @@ def write_vol(vol: Union[DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol],
         Output format (currently only "NIFTI" supported)
     data_type : str, optional
         Output data type (e.g., "FLOAT32", "INT16")
-        Defaults to "FLOAT" for NIfTI, inferred from input for AFNI
-        
-    R Equivalent
-    ------------
-    neuroim2::write_vol
-    """
+        Defaults to "FLOAT" for NIfTI, inferred from input for AFNI    """
     format_key = _resolve_write_format(format)
 
     # Convert to dense if needed
@@ -213,7 +214,7 @@ def write_vol(vol: Union[DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol],
         data = dense_vol.data
     else:
         data = vol.data
-    
+
     if data_type is None:
         data_type = None if format_key in ("AFNI", "AFNI_GZ") else "FLOAT"
 
@@ -241,14 +242,14 @@ def write_vol(vol: Union[DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol],
             data = data.astype(dtype_map[dtype_key])
         else:
             raise ValueError(f"Unsupported NIfTI data_type: {data_type}")
-    
+
     if format_key == "NIFTI":
         # Create NIfTI image
         nifti_img = nib.Nifti1Image(data, vol.trans)
-        
+
         # Set spacing in header
         nifti_img.header.set_zooms(vol.spacing)
-        
+
         # Save
         nib.save(nifti_img, str(filename))
         return
@@ -273,55 +274,31 @@ def write_vol(vol: Union[DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol],
 
 
 def _neurospace_from_nifti(nifti_img: nib.Nifti1Image) -> NeuroSpace:
-    """Create NeuroSpace from NIfTI image.
-    
-    Parameters
-    ----------
-    nifti_img : nibabel Nifti1Image
-        The NIfTI image
-        
-    Returns
-    -------
-    NeuroSpace
-        Spatial metadata
+    """Create a 3D NeuroSpace from a NIfTI image.
+
+    Always projects onto the spatial (first 3) axes so ``read_vol`` can pair a
+    single 3D volume with a matching 3D space.  ``read_vec`` extends this to
+    4D via :meth:`NeuroSpace.add_dim` once the time dimension is known.
     """
-    # Get dimensions
-    dim = nifti_img.shape[:3]  # First 3 dimensions
-    
-    # Get affine transformation matrix
-    affine = nifti_img.affine
-    
-    # Extract spacing from header (more reliable than from affine)
-    spacing = nifti_img.header.get_zooms()[:3]
-    
-    # Extract origin (translation part of affine)
-    origin = affine[:3, 3]
-    
-    # Try to determine axes from affine
-    # This is simplified - full implementation would analyze the rotation matrix
-    axes = find_anatomy_3d("RAS")  # Default to RAS for now
-    
-    # Create NeuroSpace
-    return NeuroSpace(dim, spacing=spacing, origin=origin, axes=axes, trans=affine)
+    return NeuroSpace.from_affine(
+        nifti_img.affine,
+        nifti_img.shape[:3],
+        header=getattr(nifti_img, "header", None),
+    )
 
 
 def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
     """Read header information from neuroimaging file.
-    
+
     Parameters
     ----------
     filename : str or Path
         Path to the neuroimaging file
-        
+
     Returns
     -------
     dict
-        Header information including dimensions, spacing, origin, etc.
-        
-    R Equivalent
-    ------------
-    neuroim2::read_header
-    """
+        Header information including dimensions, spacing, origin, etc.    """
     descriptor = find_descriptor(filename)
     if _is_afni_descriptor(descriptor):
         meta = descriptor.read_meta_info(filename)
@@ -357,14 +334,14 @@ def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
 
     img = nib.load(str(filename))
     header = img.header
-    
+
     # Handle description field
-    descrip = header.get('descrip', b'')
+    descrip = header.get("descrip", b"")
     if isinstance(descrip, bytes):
-        descrip = descrip.decode('utf-8', errors='ignore').strip('\x00')
+        descrip = descrip.decode("utf-8", errors="ignore").strip("\x00")
     else:
         descrip = str(descrip).strip()
-    
+
     qform, qform_code = img.get_qform(coded=True)
     sform, sform_code = img.get_sform(coded=True)
     qform = img.affine if qform is None else qform
@@ -388,20 +365,20 @@ def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
         "origin": img.affine[:3, 3],
         "datatype": header.get_data_dtype(),
         "data_type": str(header.get_data_dtype()),
-        "bitpix": int(header.get('bitpix', 0)),
+        "bitpix": int(header.get("bitpix", 0)),
         "affine": img.affine,
         "trans": img.affine,
         "description": descrip,
         "descrip": descrip,
         "qform": {"matrix": qform, "code": int(qform_code or 0)},
-        "qform_code": int(header.get('qform_code', 0)),
+        "qform_code": int(header.get("qform_code", 0)),
         "sform": {"matrix": sform, "code": int(sform_code or 0)},
-        "sform_code": int(header.get('sform_code', 0)),
+        "sform_code": int(header.get("sform_code", 0)),
         "intent_code": int(header.get("intent_code", 0)),
         "intent_name": intent_name,
-        "vox_offset": float(header.get('vox_offset', 0)),
-        "scl_slope": float(header.get('scl_slope', 1)),
-        "scl_inter": float(header.get('scl_inter', 0)),
+        "vox_offset": float(header.get("vox_offset", 0)),
+        "scl_slope": float(header.get("scl_slope", 1)),
+        "scl_inter": float(header.get("scl_inter", 0)),
         "cal_min": float(header.get("cal_min", np.nan)),
         "cal_max": float(header.get("cal_max", np.nan)),
         "TR": tr,
@@ -411,29 +388,26 @@ def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
 
 def read_vol_list(filenames: list, index: int = 0) -> list:
     """Read multiple volumes from a list of files.
-    
+
     Parameters
     ----------
     filenames : list
         List of file paths
     index : int, optional
         For 4D files, which volume to extract (0-based)
-        
+
     Returns
     -------
     list
-        List of DenseNeuroVol objects
-        
-    R Equivalent
-    ------------
-    neuroim2::read_vol_list
-    """
+        List of DenseNeuroVol objects    """
     return [read_vol(f, index) for f in filenames]
 
 
-def read_vec(filename: Union[str, Path], indices=None, mask=None) -> Union[DenseNeuroVec, SparseNeuroVec]:
+def read_vec(
+    filename: Union[str, Path], indices=None, mask=None
+) -> Union[DenseNeuroVec, SparseNeuroVec]:
     """Read a 4D neuroimaging vector from file.
-    
+
     Parameters
     ----------
     filename : str or Path
@@ -443,21 +417,16 @@ def read_vec(filename: Union[str, Path], indices=None, mask=None) -> Union[Dense
         If None, loads all volumes
     mask : LogicalNeuroVol, optional
         Mask for sparse representation
-        
+
     Returns
     -------
     DenseNeuroVec or SparseNeuroVec
         The loaded 4D vector
-        
+
     Notes
     -----
     Unlike R which uses 1-based indexing, Python uses 0-based indexing
-    for the indices parameter.
-    
-    R Equivalent
-    ------------
-    neuroim2::read_vec
-    """
+    for the indices parameter.    """
     descriptor = find_descriptor(filename)
     if _is_afni_descriptor(descriptor):
         meta = descriptor.read_meta_info(filename)
@@ -470,14 +439,23 @@ def read_vec(filename: Union[str, Path], indices=None, mask=None) -> Union[Dense
         # Load with nibabel
         img = nib.load(str(filename))
         data = img.get_fdata()
-    
+
+    if (
+        not _is_afni_descriptor(descriptor)
+        and indices is None
+        and mask is None
+        and len(img.shape) >= 4
+        and any(dim > 1 for dim in img.shape[3:])
+    ):
+        return DenseNeuroVec.from_nibabel(img)
+
     # Handle dimensionality
     if data.ndim == 3:
         # 3D file, treat as single volume
         data = data[..., np.newaxis]
     elif data.ndim != 4:
         raise ValueError(f"Expected 3D or 4D data, got {data.ndim}D")
-    
+
     # Extract specified indices
     if indices is not None:
         indices = np.asarray(indices)
@@ -489,37 +467,41 @@ def read_vec(filename: Union[str, Path], indices=None, mask=None) -> Union[Dense
 
     if not _is_afni_descriptor(descriptor):
         # Create NeuroSpace from NIfTI header
-        space = _neurospace_from_nifti(img)
+        space = NeuroSpace.from_affine(img.affine, data.shape, header=img.header)
     # Update to 4D
     if space.ndim == 3:
         space = space.add_dim(n=1, size=data.shape[3])
-    
+
     # Create appropriate vector type
     if mask is None:
         return DenseNeuroVec(data, space)
     else:
         # Convert to sparse
         if not isinstance(mask, LogicalNeuroVol):
-            mask_space = NeuroSpace(space.dim[:3],
-                                  spacing=space.spacing[:3],
-                                  origin=space.origin[:3],
-                                  axes=space.axes.drop_dim())
+            mask_space = NeuroSpace(
+                space.dim[:3],
+                spacing=space.spacing[:3],
+                origin=space.origin[:3],
+                axes=space.axes.drop_dim(),
+            )
             mask = LogicalNeuroVol(mask, mask_space)
-        
+
         # Extract sparse data
-        mask_indices = np.where(mask.data.ravel(order='F'))[0]
-        data_flat = data.reshape(-1, data.shape[3], order='F')
+        mask_indices = np.where(mask.data.ravel(order="F"))[0]
+        data_flat = data.reshape(-1, data.shape[3], order="F")
         sparse_data = data_flat[mask_indices, :].T
-        
+
     return SparseNeuroVec(sparse_data, space, mask)
 
 
-def write_vec(vec: Union[DenseNeuroVec, SparseNeuroVec], 
-              filename: Union[str, Path],
-              format: str = "NIFTI",
-              data_type: Optional[str] = None):
+def write_vec(
+    vec: Union[DenseNeuroVec, SparseNeuroVec],
+    filename: Union[str, Path],
+    format: str = "NIFTI",
+    data_type: Optional[str] = None,
+):
     """Write a neuroimaging vector to file.
-    
+
     Parameters
     ----------
     vec : NeuroVec
@@ -530,12 +512,7 @@ def write_vec(vec: Union[DenseNeuroVec, SparseNeuroVec],
         Output format (currently only "NIFTI" supported)
     data_type : str, optional
         Output data type (e.g., "FLOAT32", "INT16")
-        Defaults to "FLOAT" for NIfTI, inferred from input for AFNI
-        
-    R Equivalent
-    ------------
-    neuroim2::write_vec
-    """
+        Defaults to "FLOAT" for NIfTI, inferred from input for AFNI    """
     format_key = _resolve_write_format(format)
 
     # Convert to dense if needed
@@ -544,7 +521,7 @@ def write_vec(vec: Union[DenseNeuroVec, SparseNeuroVec],
         data = dense_vec.data
     else:
         data = vec.data
-    
+
     if data_type is None:
         data_type = None if format_key in ("AFNI", "AFNI_GZ") else "FLOAT"
 
@@ -572,14 +549,14 @@ def write_vec(vec: Union[DenseNeuroVec, SparseNeuroVec],
             data = data.astype(dtype_map[dtype_key])
         else:
             raise ValueError(f"Unsupported NIfTI data_type: {data_type}")
-    
+
     if format_key == "NIFTI":
         # Create NIfTI image
         nifti_img = nib.Nifti1Image(data, vec.trans[:4, :4])
-        
+
         # Set spacing in header
         nifti_img.header.set_zooms(vec.spacing)
-        
+
         # Save
         nib.save(nifti_img, str(filename))
         return
@@ -645,9 +622,6 @@ def read_image(
     ValueError
         If the file has fewer than 3 or more than 4 spatial dimensions.
 
-    R Equivalent
-    ------------
-    neuroim2::read_image (dispatch on dimensionality)
     """
     # Validate requested IO mode.
     if mode != "normal":
@@ -656,9 +630,7 @@ def read_image(
         )
 
     if type not in {"auto", "vol", "vec"}:
-        raise ValueError(
-            "type must be one of 'auto', 'vol', or 'vec'"
-        )
+        raise ValueError("type must be one of 'auto', 'vol', or 'vec'")
 
     if type == "vol":
         if isinstance(file_path, (list, tuple)):
@@ -699,7 +671,9 @@ def read_image(
             if indices is None and index is not _READ_IMAGE_INDEX_NOT_SET:
                 indices = index
             return read_vec(file_path, indices=indices, mask=mask)
-        return read_vol(file_path, index=0 if index is _READ_IMAGE_INDEX_NOT_SET else index)
+        return read_vol(
+            file_path, index=0 if index is _READ_IMAGE_INDEX_NOT_SET else index
+        )
 
     img = nib.load(str(file_path))
     shape = img.shape
@@ -711,7 +685,9 @@ def read_image(
             indices = index
         return read_vec(file_path, indices=indices, mask=mask)
     if ndim == 3 or (ndim > 3 and not has_vec_dim):
-        return read_vol(file_path, index=0 if index is _READ_IMAGE_INDEX_NOT_SET else index)
+        return read_vol(
+            file_path, index=0 if index is _READ_IMAGE_INDEX_NOT_SET else index
+        )
     else:
         raise ValueError(
             f"Expected 3D or vector-like image, got {len(shape)}D from {file_path}"
@@ -737,25 +713,20 @@ def load_data(source):
 
 def read_meta_info(filename: Union[str, Path]) -> FileMetaInfo:
     """Read meta information from neuroimaging file.
-    
+
     Parameters
     ----------
     filename : str or Path
         Path to the neuroimaging file
-        
+
     Returns
     -------
     FileMetaInfo
-        Meta information object (NIFTIMetaInfo or AFNIMetaInfo)
-        
-    R Equivalent
-    ------------
-    neuroim2::read_meta_info
-    """
+        Meta information object (NIFTIMetaInfo or AFNIMetaInfo)    """
     # Find appropriate file format
     descriptor = find_descriptor(filename)
     if descriptor is None:
         raise ValueError(f"Unknown file format for: {filename}")
-    
+
     # Use format-specific reader
     return descriptor.read_meta_info(filename)

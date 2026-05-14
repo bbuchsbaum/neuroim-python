@@ -1,0 +1,188 @@
+"""Typed result objects for ROI and searchlight workflows.
+
+Per the consensus decision matrix (sticky post-01KRKFEWY2 in the
+``neuroim-python-pythonic-value`` mote topic), neuroim returns typed, frozen
+result objects from analysis workflows instead of bare ndarrays.  The
+result objects carry the values, the coordinates, the spatial frame, and a
+``Receipt`` with provenance fields that make silent space/mask mismatches
+visible.
+
+Numeric projection (``result.values``, ``result.map_to_volume()``) preserves
+the prior R-shaped return values so legacy callers can keep working while
+new code reads provenance and metadata.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, Any, Optional
+
+import numpy as np
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .neuro_space import NeuroSpace
+    from .neuro_vol import NeuroVol
+
+
+__all__ = [
+    "Receipt",
+    "ROIExtractionResult",
+    "SearchlightResult",
+    "hash_ndarray",
+    "hash_neurospace",
+]
+
+
+def hash_ndarray(arr: Optional[np.ndarray]) -> str:
+    """Stable SHA-256 hash of an array's bytes and shape/dtype."""
+    if arr is None:
+        return "none"
+    arr = np.ascontiguousarray(arr)
+    h = hashlib.sha256()
+    h.update(str(arr.shape).encode("ascii"))
+    h.update(str(arr.dtype).encode("ascii"))
+    h.update(arr.tobytes())
+    return h.hexdigest()[:16]
+
+
+def hash_neurospace(space: Optional["NeuroSpace"]) -> str:
+    """Stable SHA-256 hash of a NeuroSpace's identifying fields."""
+    if space is None:
+        return "none"
+    parts = [
+        str(tuple(int(d) for d in np.asarray(space.dim))),
+        str(tuple(float(s) for s in np.asarray(space.spacing))),
+        str(tuple(float(o) for o in np.asarray(space.origin))),
+        hash_ndarray(np.asarray(space.trans, dtype=float)),
+    ]
+    h = hashlib.sha256("|".join(parts).encode("ascii"))
+    return h.hexdigest()[:16]
+
+
+@dataclass(frozen=True)
+class Receipt:
+    """Provenance for ROI / searchlight outputs.
+
+    Fields are designed to catch the silent space/mask mismatches that
+    account for most neuroimaging bugs.  Receipts are content-addressable:
+    identical inputs produce identical hashes.
+    """
+
+    input_space_hash: str
+    mask_hash: str
+    radius: Optional[float]
+    n_voxels: int
+    method_name: str
+    seed: Optional[int]
+    neuroim_version: str
+    source_affine_hash: str
+
+
+def _current_version() -> str:
+    from . import __version__
+
+    return __version__
+
+
+@dataclass(frozen=True)
+class SearchlightResult:
+    """Typed searchlight return value.
+
+    Numeric projection: ``.values`` matches the prior bare-ndarray output of
+    ``searchlight()``; ``.map_to_volume()`` matches the prior
+    ``DenseNeuroVol`` output.  New callers can additionally read ``.centers``,
+    ``.space``, and ``.provenance``.
+    """
+
+    values: np.ndarray
+    centers: np.ndarray
+    space: "NeuroSpace"
+    radius: float
+    shape: str
+    provenance: Receipt
+    method_name: str = ""
+
+    def map_to_volume(self, *, dtype: Any = np.float64, fill: float = np.nan) -> "NeuroVol":
+        """Place each scalar value at its searchlight centre in a NeuroVol."""
+        from .neuro_vol import DenseNeuroVol
+
+        if self.space.ndim != 3:
+            raise ValueError(
+                f"map_to_volume requires a 3-D space; got {self.space.ndim}-D"
+            )
+        out = np.full(tuple(int(d) for d in self.space.dim[:3]), fill, dtype=dtype)
+        if self.centers.size == 0:
+            return DenseNeuroVol(out, self.space)
+        ix, iy, iz = self.centers[:, 0], self.centers[:, 1], self.centers[:, 2]
+        out[ix, iy, iz] = self.values
+        return DenseNeuroVol(out, self.space)
+
+    def to_nibabel(self, *, cls: Any = None) -> Any:
+        """Convert this searchlight map to a nibabel image via map_to_volume."""
+        return self.map_to_volume().to_nibabel(cls=cls)
+
+    def to_dataframe(self):
+        """Optional pandas projection.  pandas is imported lazily so the
+        package does not require it.
+        """
+        try:
+            import pandas as pd
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "pandas is required for SearchlightResult.to_dataframe()"
+            ) from exc
+        return pd.DataFrame(
+            {
+                "x": self.centers[:, 0],
+                "y": self.centers[:, 1],
+                "z": self.centers[:, 2],
+                "value": np.asarray(self.values).ravel(),
+            }
+        )
+
+
+@dataclass(frozen=True)
+class ROIExtractionResult:
+    """Typed return value for ``series_roi`` / values_roi extraction."""
+
+    values: np.ndarray
+    coords: np.ndarray
+    space: "NeuroSpace"
+    mask_hash: str
+    provenance: Receipt
+
+    @property
+    def n_voxels(self) -> int:
+        return int(self.coords.shape[0])
+
+    @property
+    def n_timepoints(self) -> Optional[int]:
+        if self.values.ndim < 2:
+            return None
+        return int(self.values.shape[0])
+
+
+def make_receipt(
+    *,
+    input_space: Optional["NeuroSpace"] = None,
+    mask_data: Optional[np.ndarray] = None,
+    radius: Optional[float] = None,
+    n_voxels: int = 0,
+    method_name: str = "",
+    seed: Optional[int] = None,
+    source_affine: Optional[np.ndarray] = None,
+) -> Receipt:
+    """Build a content-addressable Receipt for an analysis result."""
+    return Receipt(
+        input_space_hash=hash_neurospace(input_space),
+        mask_hash=hash_ndarray(mask_data),
+        radius=radius,
+        n_voxels=int(n_voxels),
+        method_name=method_name,
+        seed=seed,
+        neuroim_version=_current_version(),
+        source_affine_hash=hash_ndarray(
+            None if source_affine is None else np.asarray(source_affine, dtype=float)
+        ),
+    )

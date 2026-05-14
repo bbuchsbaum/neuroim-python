@@ -6,7 +6,7 @@ SparseNeuroVol(data, space, indices=None, label='', mask=None)
 
 Sparse 3D neuroimaging volume.
 
-Direct translation of R's SparseNeuroVol class.
+Sparse 3D volume for masked or mostly empty spatial data.
 Uses scipy.sparse for efficient storage.
 
 ## Parameters {.doc-section .doc-section-parameters}

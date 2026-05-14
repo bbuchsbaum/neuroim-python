@@ -33,6 +33,7 @@ Thumbs.db
 # Tooling state
 .omc/
 .claude/
+.mote/
 /AGENTS.md
 /CLAUDE.md
 

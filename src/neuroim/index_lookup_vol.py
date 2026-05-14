@@ -3,7 +3,7 @@
 Provides efficient bidirectional mapping between linear grid indices
 and compact table indices for sparse neuroimaging volumes.
 
-Direct translation of R's neuroim2 IndexLookupVol concept.
+Provides a compact lookup volume for sparse voxel-table indexing.
 """
 
 import numpy as np
@@ -157,10 +157,10 @@ class IndexLookupVol:
             If any table index is out of range.
         """
         indices = np.asarray(indices, dtype=np.intp).ravel()
-        if len(indices) > 0 and (np.any(indices < 0) or np.any(indices >= len(self._grid_indices))):
-            raise IndexError(
-                f"Table index out of range [0, {len(self._grid_indices)})"
-            )
+        if len(indices) > 0 and (
+            np.any(indices < 0) or np.any(indices >= len(self._grid_indices))
+        ):
+            raise IndexError(f"Table index out of range [0, {len(self._grid_indices)})")
         return self._grid_indices[indices]
 
     # ------------------------------------------------------------------

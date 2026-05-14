@@ -1,81 +1,110 @@
-"""4D Neuroimaging Vector Classes.
-
-Direct translation of R's neuroim2 NeuroVec classes.
-"""
+"""Spatially aware containers for 4D neuroimaging series."""
 
 from abc import ABC, abstractmethod
 import numpy as np
-from typing import Union, Tuple, List, Optional
+from typing import Any, Union, Tuple, List, Optional
 from scipy import sparse
 
 from .neuro_space import NeuroSpace
-from .neuro_vol import NeuroVol, DenseNeuroVol, LogicalNeuroVol
+from .neuro_vol import (
+    NeuroVol,
+    DenseNeuroVol,
+    LogicalNeuroVol,
+    _attach_nibabel_metadata,
+    _restore_nibabel_xforms,
+)
 from .axis import drop_axis
 
 
 class NeuroVec(ABC):
     """Abstract base class for 4D neuroimaging vectors.
-    
-    Direct translation of R's NeuroVec class.
-    
+
     Parameters
     ----------
     space : NeuroSpace
         4D spatial metadata
-        
-    R Equivalent
-    ------------
-    neuroim2::NeuroVec
     """
-    
+
     def __init__(self, space: NeuroSpace):
         if space.ndim != 4:
             raise ValueError("NeuroVec requires 4D space")
         self.space = space
-    
+
+    @classmethod
+    def from_array(cls, data, space: NeuroSpace) -> "DenseNeuroVec":
+        """Create a dense vector from array data and a spatial contract."""
+        return DenseNeuroVec(data, space)
+
+    @classmethod
+    def from_nibabel(cls, img: Any, *, lazy: bool = False) -> "DenseNeuroVec":
+        """Create a 4D vector from a nibabel SpatialImage-like object.
+
+        ``lazy`` is accepted as part of the public adapter contract.  The
+        current minimal implementation avoids ``get_fdata()`` and reads from
+        ``dataobj`` directly; storage-backend laziness is handled by later work.
+        """
+        if not hasattr(img, "shape") or not hasattr(img, "affine"):
+            raise TypeError("from_nibabel expects an image with shape and affine")
+        data_obj = getattr(img, "dataobj", None)
+        if data_obj is None and not hasattr(img, "get_fdata"):
+            raise TypeError("from_nibabel expects an image with dataobj or get_fdata()")
+        data = np.asanyarray(data_obj) if data_obj is not None else img.get_fdata()
+        if data.ndim == 3:
+            data = data[..., np.newaxis]
+        if data.ndim != 4:
+            raise ValueError(
+                f"NeuroVec.from_nibabel expects 3D or 4D data, got {data.ndim}D"
+            )
+
+        space = NeuroSpace.from_nibabel(img)
+        if space.ndim == 3:
+            space = space.add_dim(n=1, size=data.shape[3])
+
+        vec = DenseNeuroVec(data, space)
+        _attach_nibabel_metadata(vec, img)
+        return vec
+
+    def to_nibabel(self, cls=None):
+        """Convert this vector to a nibabel image."""
+        import nibabel as nib
+
+        img_cls = cls or nib.Nifti1Image
+        data = self.as_dense().data if hasattr(self, "as_dense") else self.data
+        header = getattr(self, "_nibabel_header", None)
+        if header is not None:
+            header = header.copy()
+        img = img_cls(data, self.space.affine, header=header)
+        _restore_nibabel_xforms(img, self)
+        return img
+
     @abstractmethod
     def __getitem__(self, key):
-        """Extract values using various indexing methods.
-        
-        R Equivalent
-        ------------
-        neuroim2::`[.NeuroVec`
-        """
+        """Extract values using various indexing methods."""
         pass
-    
+
     @abstractmethod
     def __setitem__(self, key, value):
-        """Set values using various indexing methods.
-        
-        R Equivalent
-        ------------
-        neuroim2::`[<-.NeuroVec`
-        """
+        """Set values using various indexing methods."""
         pass
-    
+
     def series_3d(self, x: int, y: int, z: int) -> np.ndarray:
         """Extract time series for a single voxel using 3D coordinates.
-        
+
         Parameters
         ----------
         x, y, z : int
             The 3D coordinates of the voxel
-            
+
         Returns
         -------
         np.ndarray
-            Time series for the specified voxel
-            
-        R Equivalent
-        ------------
-        neuroim2::series(vec, c(x+1, y+1, z+1))  # R uses 1-based indexing
-        """
+            Time series for the specified voxel"""
         return self.series(x, y, z)
-    
+
     @abstractmethod
     def series(self, x, y=None, z=None) -> np.ndarray:
         """Extract time series for voxel(s).
-        
+
         Parameters
         ----------
         x : int or array-like
@@ -84,37 +113,33 @@ class NeuroVec(ABC):
             Y coordinate (if x is int)
         z : int, optional
             Z coordinate (if x is int)
-            
+
         Returns
         -------
         np.ndarray
-            Time series data
-            
-        R Equivalent
-        ------------
-        neuroim2::series
-        """
+            Time series data"""
         pass
-    
-    def series_roi(self, roi) -> np.ndarray:
+
+    def series_roi(self, roi, *, return_legacy: bool = True):
         """Extract time series for all voxels in an ROI.
-        
+
         Parameters
         ----------
         roi : ROIVol or ROICoords
             The region of interest
-            
+        return_legacy : bool, optional
+            If True, return the historical time-by-voxel ndarray.  If False,
+            return a typed ROIExtractionResult with coordinates, space, and
+            provenance.
+
         Returns
         -------
-        np.ndarray
-            Time series matrix (time x voxels)
-            
-        R Equivalent
-            
-        neuroim2::series_roi
+        np.ndarray or ROIExtractionResult
+            Time series matrix (time x voxels), or a typed result object.
         """
         from .roi import ROIVol, ROICoords
-        
+        from .results import ROIExtractionResult, make_receipt
+
         if isinstance(roi, ROIVol):
             # Extract coordinates from ROIVol - it's directly stored in roi.coords
             coords = roi.coords
@@ -123,37 +148,41 @@ class NeuroVec(ABC):
             coords = roi.coords
         else:
             raise TypeError(f"roi must be ROIVol or ROICoords, got {type(roi)}")
-        
+
         # Use the series method with coordinate matrix
-        return self.series(coords)
-    
+        values = self.series(coords)
+        if return_legacy:
+            return values
+
+        coords = np.ascontiguousarray(coords, dtype=int)
+        receipt = make_receipt(
+            input_space=self.space,
+            mask_data=coords,
+            n_voxels=int(coords.shape[0]),
+            method_name="series_roi",
+            seed=None,
+            source_affine=self.space.trans,
+        )
+        return ROIExtractionResult(
+            values=np.ascontiguousarray(values),
+            coords=coords,
+            space=roi.space,
+            mask_hash=receipt.mask_hash,
+            provenance=receipt,
+        )
+
     @abstractmethod
-    def as_sparse(self, mask=None) -> 'SparseNeuroVec':
-        """Convert to sparse representation.
-        
-        R Equivalent
-        ------------
-        neuroim2::as.sparse
-        """
+    def as_sparse(self, mask=None) -> "SparseNeuroVec":
+        """Convert to sparse representation."""
         pass
-    
+
     @abstractmethod
-    def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> 'NeuroVec':
-        """Extract subset of volumes.
-        
-        R Equivalent
-        ------------
-        neuroim2::sub_vector
-        """
+    def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "NeuroVec":
+        """Extract subset of volumes."""
         pass
-    
+
     def vols(self, indices=None):
-        """Extract volumes as list or single volume.
-        
-        R Equivalent
-        ------------
-        neuroim2::vols
-        """
+        """Extract volumes as list or single volume."""
         if indices is None:
             indices = range(self.shape[3])
             return [self[..., i] for i in indices]
@@ -161,14 +190,9 @@ class NeuroVec(ABC):
             return self[..., indices]
         else:
             return [self[..., i] for i in indices]
-    
-    def concat(self, *others: 'NeuroVec') -> 'NeuroVec':
-        """Concatenate multiple NeuroVecs along time dimension.
-        
-        R Equivalent
-        ------------
-        neuroim2::concat
-        """
+
+    def concat(self, *others: "NeuroVec") -> "NeuroVec":
+        """Concatenate multiple NeuroVecs along time dimension."""
         # Concatenate by converting all to dense and stacking
         all_vecs = [self] + list(others)
         for vec in all_vecs[1:]:
@@ -177,11 +201,10 @@ class NeuroVec(ABC):
         # Default: convert to dense and delegate
         dense_self = self.as_dense() if not isinstance(self, DenseNeuroVec) else self
         dense_others = [
-            v.as_dense() if not isinstance(v, DenseNeuroVec) else v
-            for v in others
+            v.as_dense() if not isinstance(v, DenseNeuroVec) else v for v in others
         ]
         return dense_self.concat(*dense_others)
-    
+
     @property
     def ndim(self) -> int:
         """Number of dimensions."""
@@ -194,65 +217,74 @@ class NeuroVec(ABC):
 
     @property
     def dim(self) -> np.ndarray:
-        """Dimensions of the 4D data.
-        
-        R Equivalent
-        ------------
-        neuroim2::dim
-        """
+        """Dimensions of the 4D data."""
         return self.space.dim
-    
+
+    @property
+    def dtype(self) -> np.dtype:
+        """Data dtype without forcing full materialization when possible."""
+        if "_dtype" in self.__dict__:
+            return self.__dict__["_dtype"]
+        if "source" in self.__dict__:
+            return np.dtype(self.__dict__["source"].dtype)
+        if "_data" in self.__dict__:
+            return np.dtype(self.__dict__["_data"].dtype)
+        if "data" in self.__dict__:
+            return np.dtype(self.__dict__["data"].dtype)
+        data = getattr(self, "data", None)
+        if data is not None:
+            return np.dtype(data.dtype)
+        raise AttributeError(f"{self.__class__.__name__} cannot report dtype")
+
+    @dtype.setter
+    def dtype(self, value) -> None:
+        self.__dict__["_dtype"] = np.dtype(value)
+
+    @property
+    def store(self):
+        """Voxel-series storage adapter for this vector."""
+        from .storage import NeuroVecStoreAdapter
+
+        return NeuroVecStoreAdapter(self)
+
     @property
     def spacing(self) -> np.ndarray:
-        """Voxel dimensions.
-        
-        R Equivalent
-        ------------
-        neuroim2::spacing
-        """
+        """Voxel dimensions."""
         return self.space.spacing
-    
+
     @property
     def origin(self) -> np.ndarray:
-        """Origin coordinates.
-        
-        R Equivalent
-        ------------
-        neuroim2::origin
-        """
+        """Origin coordinates."""
         return self.space.origin
-    
+
     @property
     def trans(self) -> np.ndarray:
-        """Transformation matrix.
-        
-        R Equivalent
-        ------------
-        neuroim2::trans
-        """
+        """Transformation matrix."""
         return self.space.trans
-    
+
     def __repr__(self):
         """String representation."""
-        return (f"{self.__class__.__name__}\n"
-                f"  Type      : {self.__class__.__name__}\n"
-                f"  Dimension : {' X '.join(map(str, self.dim))}\n"
-                f"  Spacing   : {' X '.join(map(str, self.spacing))}\n"
-                f"  Origin    : {', '.join(map(str, self.origin))}")
-    
+        return (
+            f"{self.__class__.__name__}\n"
+            f"  Type      : {self.__class__.__name__}\n"
+            f"  Dimension : {' X '.join(map(str, self.dim))}\n"
+            f"  Spacing   : {' X '.join(map(str, self.spacing))}\n"
+            f"  Origin    : {', '.join(map(str, self.origin))}"
+        )
+
     # Arithmetic operations
     def __add__(self, other):
         """Add two vectors or vector and scalar/volume."""
         return self._arithmetic_op(other, np.add)
-    
+
     def __sub__(self, other):
         """Subtract two vectors or vector and scalar/volume."""
         return self._arithmetic_op(other, np.subtract)
-    
+
     def __mul__(self, other):
         """Multiply two vectors or vector and scalar/volume."""
         return self._arithmetic_op(other, np.multiply)
-    
+
     def __truediv__(self, other):
         """Divide two vectors or vector and scalar/volume."""
         return self._arithmetic_op(other, np.divide)
@@ -276,7 +308,7 @@ class NeuroVec(ABC):
     def _reverse_arithmetic_op(self, other, op):
         """Perform reversed arithmetic when right-hand side is this object."""
         return self._arithmetic_op(other, lambda x, y: op(y, x))
-    
+
     @abstractmethod
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
@@ -285,9 +317,7 @@ class NeuroVec(ABC):
 
 class DenseNeuroVec(NeuroVec):
     """Dense 4D neuroimaging vector.
-    
-    Direct translation of R's DenseNeuroVec class.
-    
+
     Parameters
     ----------
     data : array-like
@@ -295,16 +325,11 @@ class DenseNeuroVec(NeuroVec):
     space : NeuroSpace
         4D spatial metadata
     label : str, optional
-        Vector label
-        
-    R Equivalent
-    ------------
-    neuroim2::DenseNeuroVec
-    """
-    
+        Vector label"""
+
     def __init__(self, data, space: NeuroSpace, label: str = ""):
         super().__init__(space)
-        
+
         # Handle different input types
         if isinstance(data, np.ndarray):
             if data.ndim == 2:
@@ -312,35 +337,47 @@ class DenseNeuroVec(NeuroVec):
                 splen = np.prod(self.shape[:3])
                 if data.shape[0] == splen:
                     # voxels x time -> reshape to 4D
-                    data = data.T.reshape(self.shape, order='F')
+                    data = data.T.reshape(self.shape, order="F")
                 elif data.shape[1] == splen:
                     # time x voxels -> reshape to 4D
-                    data = data.reshape(self.shape, order='F')
+                    data = data.reshape(self.shape, order="F")
                 else:
                     raise ValueError("Matrix dimensions do not match space dimensions")
             elif data.ndim == 1:
                 # Vector input
                 if data.size == np.prod(self.shape):
-                    data = data.reshape(self.shape, order='F')
+                    data = data.reshape(self.shape, order="F")
                 else:
-                    raise ValueError(f"Data size {data.size} doesn't match space size {np.prod(self.shape)}")
+                    raise ValueError(
+                        f"Data size {data.size} doesn't match space size {np.prod(self.shape)}"
+                    )
             elif data.ndim == 4:
                 if data.shape != self.shape:
-                    raise ValueError(f"Data shape {data.shape} doesn't match space shape {self.shape}")
+                    raise ValueError(
+                        f"Data shape {data.shape} doesn't match space shape {self.shape}"
+                    )
             else:
                 raise ValueError(f"Data must be 1D, 2D or 4D array, got {data.ndim}D")
         else:
             data = np.asarray(data)
-            
+
         self.data = data
         self.label = label
-    
+
+    def as_dense(self) -> "DenseNeuroVec":
+        """Already dense, return self."""
+        return self
+
     def __getitem__(self, key):
         """Extract values using various indexing methods."""
         if isinstance(key, tuple) and len(key) == 4:
             # Standard 4D indexing
             return self.data[key]
-        elif isinstance(key, tuple) and len(key) == 3 and all(isinstance(k, (int, np.integer)) for k in key):
+        elif (
+            isinstance(key, tuple)
+            and len(key) == 3
+            and all(isinstance(k, (int, np.integer)) for k in key)
+        ):
             # Get time series for single voxel
             return self.data[key[0], key[1], key[2], :]
         else:
@@ -348,37 +385,36 @@ class DenseNeuroVec(NeuroVec):
             result = self.data[key]
             # If we extracted a single volume, wrap it as NeuroVol
             if result.ndim == 3:
-                vol_space = NeuroSpace(result.shape, 
-                                     spacing=self.spacing[:3],
-                                     origin=self.origin[:3],
-                                     axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
-                                     trans=self.trans[:4, :4] if self.space.ndim <= 4 else None)
+                vol_space = NeuroSpace(
+                    result.shape,
+                    spacing=self.spacing[:3],
+                    origin=self.origin[:3],
+                    axes=(
+                        drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None
+                    ),
+                    trans=self.trans[:4, :4] if self.space.ndim <= 4 else None,
+                )
                 return DenseNeuroVol(result, vol_space)
             return result
-    
+
     def __setitem__(self, key, value):
         """Set values using various indexing methods."""
         self.data[key] = value
-    
+
     def series_3d(self, x: int, y: int, z: int) -> np.ndarray:
         """Extract time series for a single voxel using 3D coordinates.
-        
+
         Parameters
         ----------
         x, y, z : int
             The 3D coordinates of the voxel
-            
+
         Returns
         -------
         np.ndarray
-            Time series for the specified voxel
-            
-        R Equivalent
-        ------------
-        neuroim2::series(vec, c(x+1, y+1, z+1))  # R uses 1-based indexing
-        """
+            Time series for the specified voxel"""
         return self.series(x, y, z)
-    
+
     def series(self, x, y=None, z=None) -> np.ndarray:
         """Extract time series for voxel(s)."""
         if y is not None and z is not None:
@@ -389,80 +425,87 @@ class DenseNeuroVec(NeuroVec):
                 # Nx3 matrix of coordinates - vectorized version
                 # Check bounds all at once
                 valid_mask = (
-                    (x[:, 0] >= 0) & (x[:, 0] < self.shape[0]) &
-                    (x[:, 1] >= 0) & (x[:, 1] < self.shape[1]) &
-                    (x[:, 2] >= 0) & (x[:, 2] < self.shape[2])
+                    (x[:, 0] >= 0)
+                    & (x[:, 0] < self.shape[0])
+                    & (x[:, 1] >= 0)
+                    & (x[:, 1] < self.shape[1])
+                    & (x[:, 2] >= 0)
+                    & (x[:, 2] < self.shape[2])
                 )
-                
+
                 # Initialize result
                 result = np.zeros((x.shape[0], self.shape[3]))
-                
+
                 # Extract data for valid coordinates using advanced indexing
                 valid_indices = np.where(valid_mask)[0]
                 if len(valid_indices) > 0:
                     valid_coords = x[valid_indices]
                     result[valid_indices] = self.data[
-                        valid_coords[:, 0],
-                        valid_coords[:, 1], 
-                        valid_coords[:, 2], :
+                        valid_coords[:, 0], valid_coords[:, 1], valid_coords[:, 2], :
                     ]
-                
+
                 return result.T  # Return as time x voxels
             elif x.ndim == 1:
                 # Linear indices - vectorized version
                 # Convert to 3D indices
-                coords = np.unravel_index(x, self.shape[:3], order='F')
+                coords = np.unravel_index(x, self.shape[:3], order="F")
                 # Use advanced indexing to extract all at once
                 result = self.data[coords[0], coords[1], coords[2], :]
                 return result.T
         elif isinstance(x, int):
             # Single linear index
-            coords = np.unravel_index(x, self.shape[:3], order='F')
+            coords = np.unravel_index(x, self.shape[:3], order="F")
             return self.data[coords[0], coords[1], coords[2], :]
         else:
             raise ValueError("Invalid input for series extraction")
-    
-    def as_sparse(self, mask=None) -> 'SparseNeuroVec':
+
+    def as_sparse(self, mask=None) -> "SparseNeuroVec":
         """Convert to sparse representation."""
         if mask is None:
             # Use all non-zero voxels
             mask_data = np.any(self.data != 0, axis=3)
-            mask_space = NeuroSpace(self.shape[:3], 
-                                  spacing=self.spacing[:3],
-                                  origin=self.origin[:3],
-                                  axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None)
+            mask_space = NeuroSpace(
+                self.shape[:3],
+                spacing=self.spacing[:3],
+                origin=self.origin[:3],
+                axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
+            )
             mask = LogicalNeuroVol(mask_data, mask_space)
         elif not isinstance(mask, LogicalNeuroVol):
             # Convert to LogicalNeuroVol
-            mask_space = NeuroSpace(self.shape[:3],
-                                  spacing=self.spacing[:3],
-                                  origin=self.origin[:3],
-                                  axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None)
+            mask_space = NeuroSpace(
+                self.shape[:3],
+                spacing=self.spacing[:3],
+                origin=self.origin[:3],
+                axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
+            )
             mask = LogicalNeuroVol(mask, mask_space)
-        
+
         # Extract data for masked voxels
-        mask_indices = np.where(mask.data.ravel(order='F'))[0]
-        data_flat = self.data.reshape(-1, self.shape[3], order='F')
+        mask_indices = np.where(mask.data.ravel(order="F"))[0]
+        data_flat = self.data.reshape(-1, self.shape[3], order="F")
         sparse_data = data_flat[mask_indices, :]
-        
+
         return SparseNeuroVec(sparse_data.T, self.space, mask, self.label)
-    
-    def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> 'DenseNeuroVec':
+
+    def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "DenseNeuroVec":
         """Extract subset of volumes."""
         if isinstance(indices, int):
             indices = [indices]
-        
+
         sub_data = self.data[..., indices]
         if sub_data.ndim == 3:
             sub_data = sub_data[..., np.newaxis]
-            
-        sub_space = NeuroSpace((*self.shape[:3], sub_data.shape[3]),
-                             spacing=self.spacing,
-                             origin=self.origin,
-                             axes=self.space.axes)
-        
+
+        sub_space = NeuroSpace(
+            (*self.shape[:3], sub_data.shape[3]),
+            spacing=self.spacing,
+            origin=self.origin,
+            axes=self.space.axes,
+        )
+
         return DenseNeuroVec(sub_data, sub_space, self.label)
-    
+
     def vectors(self, subset=None):
         """Extract per-voxel time series as a list of 1D arrays.
 
@@ -476,34 +519,36 @@ class DenseNeuroVec(NeuroVec):
         list of np.ndarray
             List of time series arrays, one per voxel.
         """
-        flat = self.data.reshape(-1, self.shape[3], order='F')
+        flat = self.data.reshape(-1, self.shape[3], order="F")
         if subset is not None:
             return [flat[i] for i in subset]
         return [flat[i] for i in range(flat.shape[0])]
 
-    def concat(self, *others: 'DenseNeuroVec') -> 'DenseNeuroVec':
+    def concat(self, *others: "DenseNeuroVec") -> "DenseNeuroVec":
         """Concatenate multiple NeuroVecs along time dimension."""
         all_vecs = [self] + list(others)
-        
+
         # Check spatial compatibility
         for vec in all_vecs[1:]:
             if vec.shape[:3] != self.shape[:3]:
                 raise ValueError("All NeuroVecs must have same spatial dimensions")
             if not np.allclose(vec.spacing[:3], self.spacing[:3]):
                 raise ValueError("All NeuroVecs must have same spacing")
-        
+
         # Concatenate data
         all_data = [vec.data for vec in all_vecs]
         concat_data = np.concatenate(all_data, axis=3)
-        
+
         # Create new space with combined time dimension
-        concat_space = NeuroSpace((*self.shape[:3], concat_data.shape[3]),
-                                spacing=self.spacing,
-                                origin=self.origin,
-                                axes=self.space.axes)
-        
+        concat_space = NeuroSpace(
+            (*self.shape[:3], concat_data.shape[3]),
+            spacing=self.spacing,
+            origin=self.origin,
+            axes=self.space.axes,
+        )
+
         return DenseNeuroVec(concat_data, concat_space, self.label)
-    
+
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
         if isinstance(other, (int, float, np.integer, np.floating)):
@@ -531,44 +576,32 @@ class DenseNeuroVec(NeuroVec):
             return result_data
         else:
             return NotImplemented
-    
+
     def as_matrix(self) -> np.ndarray:
-        """Convert to matrix (voxels x time).
-        
-        R Equivalent
-        ------------
-        neuroim2::as.matrix
-        """
-        return self.data.reshape(-1, self.shape[3], order='F')
-    
-    def scale_series(self, center: bool = True, scale: bool = True) -> 'DenseNeuroVec':
-        """Scale (center and/or normalize) each time series.
-        
-        R Equivalent
-        ------------
-        neuroim2::scale_series
-        """
+        """Convert to matrix (voxels x time)."""
+        return self.data.reshape(-1, self.shape[3], order="F")
+
+    def scale_series(self, center: bool = True, scale: bool = True) -> "DenseNeuroVec":
+        """Scale (center and/or normalize) each time series."""
         data = self.data.copy()
-        
+
         if center:
             # Center each time series
             mean = np.mean(data, axis=3, keepdims=True)
             data = data - mean
-            
+
         if scale:
             # Scale by standard deviation
             std = np.std(data, axis=3, keepdims=True)
             std[std == 0] = 1  # Avoid division by zero
             data = data / std
-            
+
         return DenseNeuroVec(data, self.space, self.label)
 
 
 class SparseNeuroVec(NeuroVec):
     """Sparse 4D neuroimaging vector.
-    
-    Direct translation of R's SparseNeuroVec class.
-    
+
     Parameters
     ----------
     data : np.ndarray
@@ -578,13 +611,8 @@ class SparseNeuroVec(NeuroVec):
     mask : LogicalNeuroVol
         Mask defining which voxels are included
     label : str, optional
-        Vector label
-        
-    R Equivalent
-    ------------
-    neuroim2::SparseNeuroVec
-    """
-    
+        Vector label"""
+
     def __init__(self, data: np.ndarray, space: NeuroSpace, mask, label: str = ""):
         super().__init__(space)
 
@@ -592,23 +620,31 @@ class SparseNeuroVec(NeuroVec):
         if isinstance(mask, np.ndarray) and not mask.dtype == bool:
             # Integer indices array - convert to LogicalNeuroVol
             mask_data = np.zeros(self.shape[:3], dtype=bool)
-            mask_flat = mask_data.ravel(order='F')
+            mask_flat = mask_data.ravel(order="F")
             mask_flat[mask] = True
-            mask_data = mask_flat.reshape(self.shape[:3], order='F')
+            mask_data = mask_flat.reshape(self.shape[:3], order="F")
             from .neuro_vol import LogicalNeuroVol as LNV
-            mask_space = NeuroSpace(self.shape[:3], spacing=space.spacing[:3], origin=space.origin[:3])
+
+            mask_space = NeuroSpace(
+                self.shape[:3], spacing=space.spacing[:3], origin=space.origin[:3]
+            )
             mask = LNV(mask_data, mask_space)
         elif isinstance(mask, np.ndarray) and mask.dtype == bool:
             # Boolean array - convert to LogicalNeuroVol
             from .neuro_vol import LogicalNeuroVol as LNV
-            mask_space = NeuroSpace(self.shape[:3], spacing=space.spacing[:3], origin=space.origin[:3])
+
+            mask_space = NeuroSpace(
+                self.shape[:3], spacing=space.spacing[:3], origin=space.origin[:3]
+            )
             mask = LNV(mask, mask_space)
         elif not isinstance(mask, LogicalNeuroVol):
-            raise TypeError("mask must be a LogicalNeuroVol, boolean array, or integer indices array")
-            
+            raise TypeError(
+                "mask must be a LogicalNeuroVol, boolean array, or integer indices array"
+            )
+
         if mask.shape != self.shape[:3]:
             raise ValueError("Mask dimensions must match spatial dimensions of space")
-        
+
         # Handle data dimensionality
         if data.ndim == 2:
             if data.shape[0] == self.shape[3] and data.shape[1] == mask.sum:
@@ -618,57 +654,61 @@ class SparseNeuroVec(NeuroVec):
                 # Need to transpose (voxels x time -> time x voxels)
                 data = data.T
             else:
-                raise ValueError(f"Data shape {data.shape} doesn't match mask cardinality {mask.sum} and time dimension {self.shape[3]}")
+                raise ValueError(
+                    f"Data shape {data.shape} doesn't match mask cardinality {mask.sum} and time dimension {self.shape[3]}"
+                )
         else:
             raise ValueError("Data must be 2D array (time x masked_voxels)")
-        
+
         self.data = data
         self.mask = mask
         self.label = label
-        
+
         # Create lookup for fast indexing
-        self._lookup = np.where(mask.data.ravel(order='F'))[0]
+        self._lookup = np.where(mask.data.ravel(order="F"))[0]
         self._inverse_lookup = np.full(np.prod(self.shape[:3]), -1, dtype=int)
         self._inverse_lookup[self._lookup] = np.arange(len(self._lookup))
-    
+
     def __getitem__(self, key):
         """Extract values using various indexing methods."""
         # Create dense version for complex indexing
         dense_data = self._to_dense_array()
         result = dense_data[key]
-        
+
         # If we extracted a single volume, wrap it as NeuroVol
         if result.ndim == 3:
-            vol_space = NeuroSpace(result.shape,
-                                 spacing=self.spacing[:3],
-                                 origin=self.origin[:3],
-                                 axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None)
+            vol_space = NeuroSpace(
+                result.shape,
+                spacing=self.spacing[:3],
+                origin=self.origin[:3],
+                axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
+            )
             return DenseNeuroVol(result, vol_space)
         return result
-    
+
     def __setitem__(self, key, value):
         """Set values using various indexing methods."""
         # For now, convert to dense, modify, convert back
         # This is inefficient but ensures correctness
         dense_data = self._to_dense_array()
         dense_data[key] = value
-        
+
         # Extract updated sparse data
-        data_flat = dense_data.reshape(-1, self.shape[3], order='F')
+        data_flat = dense_data.reshape(-1, self.shape[3], order="F")
         self.data = data_flat[self._lookup, :].T
-    
+
     def _to_dense_array(self) -> np.ndarray:
         """Convert sparse data to dense 4D array."""
-        dense = np.zeros(self.shape, dtype=self.data.dtype, order='F')
-        data_flat = dense.reshape(-1, self.shape[3], order='F')
+        dense = np.zeros(self.shape, dtype=self.data.dtype, order="F")
+        data_flat = dense.reshape(-1, self.shape[3], order="F")
         data_flat[self._lookup, :] = self.data.T
         return dense
-    
+
     def series(self, x, y=None, z=None) -> np.ndarray:
         """Extract time series for voxel(s)."""
         if y is not None and z is not None:
             # Single voxel
-            linear_idx = np.ravel_multi_index((x, y, z), self.shape[:3], order='F')
+            linear_idx = np.ravel_multi_index((x, y, z), self.shape[:3], order="F")
             sparse_idx = self._inverse_lookup[linear_idx]
             if sparse_idx == -1:
                 return np.zeros(self.shape[3])
@@ -678,7 +718,13 @@ class SparseNeuroVec(NeuroVec):
                 # Nx3 matrix of coordinates
                 result = np.zeros((self.shape[3], x.shape[0]))
                 for i, coord in enumerate(x):
-                    linear_idx = np.ravel_multi_index(coord, self.shape[:3], order='F')
+                    if not (
+                        0 <= coord[0] < self.shape[0]
+                        and 0 <= coord[1] < self.shape[1]
+                        and 0 <= coord[2] < self.shape[2]
+                    ):
+                        continue
+                    linear_idx = np.ravel_multi_index(coord, self.shape[:3], order="F")
                     sparse_idx = self._inverse_lookup[linear_idx]
                     if sparse_idx != -1:
                         result[:, i] = self.data[:, sparse_idx]
@@ -699,8 +745,8 @@ class SparseNeuroVec(NeuroVec):
             return self.data[:, sparse_idx]
         else:
             raise ValueError("Invalid input for series extraction")
-    
-    def as_sparse(self, mask=None) -> 'SparseNeuroVec':
+
+    def as_sparse(self, mask=None) -> "SparseNeuroVec":
         """Already sparse, return self or apply new mask."""
         if mask is None:
             return self
@@ -708,49 +754,53 @@ class SparseNeuroVec(NeuroVec):
             # Apply additional mask by converting to dense, then back to sparse with new mask
             dense = self.as_dense()
             return dense.as_sparse(mask)
-    
+
     def as_dense(self) -> DenseNeuroVec:
         """Convert to dense representation."""
         dense_data = self._to_dense_array()
         return DenseNeuroVec(dense_data, self.space, self.label)
-    
-    def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> 'SparseNeuroVec':
+
+    def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "SparseNeuroVec":
         """Extract subset of volumes."""
         if isinstance(indices, int):
             indices = [indices]
         elif isinstance(indices, slice):
             indices = list(range(*indices.indices(self.shape[3])))
-        
+
         sub_data = self.data[indices, :]
-        
-        sub_space = NeuroSpace((*self.shape[:3], len(indices)),
-                             spacing=self.spacing,
-                             origin=self.origin,
-                             axes=self.space.axes)
-        
+
+        sub_space = NeuroSpace(
+            (*self.shape[:3], len(indices)),
+            spacing=self.spacing,
+            origin=self.origin,
+            axes=self.space.axes,
+        )
+
         return SparseNeuroVec(sub_data, sub_space, self.mask, self.label)
-    
-    def concat(self, *others: 'SparseNeuroVec') -> 'SparseNeuroVec':
+
+    def concat(self, *others: "SparseNeuroVec") -> "SparseNeuroVec":
         """Concatenate multiple SparseNeuroVecs along time dimension."""
         all_vecs = [self] + list(others)
-        
+
         # Check compatibility
         for vec in all_vecs[1:]:
             if not np.array_equal(vec.mask.data, self.mask.data):
                 raise ValueError("All SparseNeuroVecs must have same mask")
-        
+
         # Concatenate data
         all_data = [vec.data for vec in all_vecs]
         concat_data = np.vstack(all_data)
-        
+
         # Create new space
-        concat_space = NeuroSpace((*self.shape[:3], concat_data.shape[0]),
-                                spacing=self.spacing,
-                                origin=self.origin,
-                                axes=self.space.axes)
-        
+        concat_space = NeuroSpace(
+            (*self.shape[:3], concat_data.shape[0]),
+            spacing=self.spacing,
+            origin=self.origin,
+            axes=self.space.axes,
+        )
+
         return SparseNeuroVec(concat_data, concat_space, self.mask, self.label)
-    
+
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
         if isinstance(other, (int, float)):
@@ -781,47 +831,42 @@ class SparseNeuroVec(NeuroVec):
 
 def neurovecseq(vecs: List, label: str = "") -> NeuroVec:
     """Create NeuroVec from sequence of volumes or vectors.
-    
+
     Parameters
     ----------
     vecs : list
         List of NeuroVol objects or DenseNeuroVec objects
     label : str, optional
         Label for the result
-        
+
     Returns
     -------
     NeuroVec
-        Combined 4D vector (DenseNeuroVec or SparseNeuroVec, depending on input).
-        
-    R Equivalent
-    ------------
-    neuroim2::NeuroVecSeq
-    """
+        Combined 4D vector (DenseNeuroVec or SparseNeuroVec, depending on input)."""
     if not vecs:
         raise ValueError("Empty vector list")
-    
+
     first = vecs[0]
-    
+
     if isinstance(first, NeuroVol):
         # List of volumes
         space_3d = first.space
-        
+
         # Check all volumes have same space
         for vol in vecs[1:]:
             if vol.shape != first.shape:
                 raise ValueError("All volumes must have same dimensions")
             if not np.allclose(vol.spacing, first.spacing):
                 raise ValueError("All volumes must have same spacing")
-        
+
         # Stack volumes
         data = np.stack([vol.data for vol in vecs], axis=3)
-        
+
         # Create 4D space - add_dim takes (n, size) parameters
         space_4d = space_3d.add_dim(1, len(vecs))
-        
+
         return DenseNeuroVec(data, space_4d, label)
-    
+
     elif isinstance(first, DenseNeuroVec):
         # List of vectors - concatenate
         result = first.concat(*vecs[1:])
@@ -835,14 +880,16 @@ def neurovecseq(vecs: List, label: str = "") -> NeuroVec:
         if label:
             result.label = label
         return result
-    
+
     else:
-        raise TypeError("Input must be list of NeuroVol, DenseNeuroVec, or SparseNeuroVec objects")
+        raise TypeError(
+            "Input must be list of NeuroVol, DenseNeuroVec, or SparseNeuroVec objects"
+        )
 
 
 def neurovec(data, space: NeuroSpace = None, mask=None, label: str = "") -> NeuroVec:
     """Factory function to create appropriate NeuroVec type.
-    
+
     Parameters
     ----------
     data : array-like or list
@@ -853,46 +900,43 @@ def neurovec(data, space: NeuroSpace = None, mask=None, label: str = "") -> Neur
         Mask for sparse representation
     label : str, optional
         Vector label
-        
+
     Returns
     -------
     NeuroVec
-        DenseNeuroVec or SparseNeuroVec
-        
-    R Equivalent
-    ------------
-    neuroim2::NeuroVec
-    """
+        DenseNeuroVec or SparseNeuroVec"""
     # Handle list of volumes
     if isinstance(data, list):
         return neurovecseq(data, label)
-    
+
     # Convert data to array
     data = np.asarray(data)
-    
+
     # Create default space if needed
     if space is None:
         if data.ndim == 4:
             space = NeuroSpace(data.shape)
         else:
             raise ValueError("Cannot infer space from non-4D data")
-    
+
     # Create appropriate type
     if mask is None:
         return DenseNeuroVec(data, space, label)
     else:
         # For sparse, need to ensure mask is LogicalNeuroVol
         if not isinstance(mask, LogicalNeuroVol):
-            mask_space = NeuroSpace(space.dim[:3],
-                                  spacing=space.spacing[:3],
-                                  origin=space.origin[:3],
-                                  axes=drop_axis(space.axes, 3) if space.ndim == 4 else None)
+            mask_space = NeuroSpace(
+                space.dim[:3],
+                spacing=space.spacing[:3],
+                origin=space.origin[:3],
+                axes=drop_axis(space.axes, 3) if space.ndim == 4 else None,
+            )
             mask = LogicalNeuroVol(mask, mask_space)
-        
+
         # If data is 4D, extract sparse representation
         if data.ndim == 4:
-            mask_indices = np.where(mask.data.ravel(order='F'))[0]
-            data_flat = data.reshape(-1, data.shape[3], order='F')
+            mask_indices = np.where(mask.data.ravel(order="F"))[0]
+            data_flat = data.reshape(-1, data.shape[3], order="F")
             sparse_data = data_flat[mask_indices, :].T
             return SparseNeuroVec(sparse_data, space, mask, label)
         else:

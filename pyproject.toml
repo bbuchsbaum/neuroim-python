@@ -82,3 +82,7 @@ target-version = ['py38']
 python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
+
+[tool.neuroim.deprecated-package-names]
+neuroimpy = "Deprecated alias for neuroim; removal planned after 0.3."
+pyneuroim = "Deprecated alias for neuroim; removal planned after 0.3."

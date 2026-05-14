@@ -29,8 +29,6 @@ website:
   navbar:
     pinned: true
     logo: ""
-    background: light
-    foreground: dark
     left:
       - text: "Get started"
         href: get-started.qmd

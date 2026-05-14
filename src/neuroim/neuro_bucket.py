@@ -1,6 +1,6 @@
 """NeuroBucket - A sequence of labeled NeuroVol objects forming a named 4D representation.
 
-Direct translation of R's neuroim2 NeuroBucket concept.
+Groups labeled spatial volumes into a named 4D-style collection.
 """
 
 import numpy as np
@@ -72,7 +72,7 @@ class NeuroBucket:
     # Indexing
     # ------------------------------------------------------------------
 
-    def __getitem__(self, key) -> Union[NeuroVol, 'NeuroBucket']:
+    def __getitem__(self, key) -> Union[NeuroVol, "NeuroBucket"]:
         """Index by integer position, label string, or slice.
 
         Parameters

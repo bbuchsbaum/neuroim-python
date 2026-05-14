@@ -4,7 +4,7 @@ Provides access to time-series data extracted from a spatial neighbourhood,
 analogous to the relationship between ROIVolWindow and ROIVol but for
 vector-valued (4D) data.
 
-Direct translation of R's neuroim2 ROIVecWindow concept.
+Windowed ROI containers for vector-valued spatial data.
 """
 
 import numpy as np

@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 import neuroim as ni
+import neuroim.compat as compat
 
 
 def test_legacy_package_aliases_import_primary_api():
@@ -18,51 +19,63 @@ def test_legacy_package_aliases_import_primary_api():
     assert pyneuroim.neuro_space.NeuroSpace.__name__ == ni.NeuroSpace.__name__
 
 
-def test_top_level_geometry_wrappers_delegate_to_space_methods():
+def test_compat_geometry_wrappers_delegate_to_space_methods():
     sp = ni.NeuroSpace((3, 4, 5), spacing=(2, 3, 4), origin=(10, 20, 30))
     vol = ni.DenseNeuroVol(np.arange(60).reshape((3, 4, 5), order="F"), sp)
 
-    assert ni.space(vol) is sp
-    np.testing.assert_array_equal(ni.spacing(vol), sp.spacing)
-    np.testing.assert_array_equal(ni.origin(vol), sp.origin)
-    assert ni.ndim(vol) == 3
-    np.testing.assert_array_equal(ni.coord_to_grid(vol, np.array([[10, 20, 30]])), [[0, 0, 0]])
-    np.testing.assert_array_equal(ni.grid_to_index(vol, np.array([[1, 0, 0]])), [1])
-    np.testing.assert_array_equal(ni.index_to_grid(vol, np.array([1])), [[1, 0, 0]])
-    np.testing.assert_array_equal(ni.values(vol), vol.values())
-    np.testing.assert_array_equal(ni.coords(vol)[:3], vol.coords()[:3])
+    assert compat.space(vol) is sp
+    np.testing.assert_array_equal(compat.spacing(vol), sp.spacing)
+    np.testing.assert_array_equal(compat.origin(vol), sp.origin)
+    assert compat.ndim(vol) == 3
+    np.testing.assert_array_equal(
+        compat.coord_to_grid(vol, np.array([[10, 20, 30]])), [[0, 0, 0]]
+    )
+    np.testing.assert_array_equal(compat.grid_to_index(vol, np.array([[1, 0, 0]])), [1])
+    np.testing.assert_array_equal(compat.index_to_grid(vol, np.array([1])), [[1, 0, 0]])
+    np.testing.assert_array_equal(compat.values(vol), vol.values())
+    np.testing.assert_array_equal(compat.coords(vol)[:3], vol.coords()[:3])
 
 
-def test_top_level_vector_wrappers_delegate_to_methods():
+def test_compat_vector_wrappers_delegate_to_methods():
     sp = ni.NeuroSpace((2, 2, 2, 3))
     data = np.arange(24, dtype=float).reshape((2, 2, 2, 3), order="F")
     vec = ni.DenseNeuroVec(data, sp)
     roi = ni.ROICoords(np.array([[0, 0, 0], [1, 0, 0]]), sp.drop_dim(3))
 
-    np.testing.assert_array_equal(ni.series(vec, np.array([[0, 0, 0]])).ravel(), vec.series(np.array([[0, 0, 0]])).ravel())
-    np.testing.assert_array_equal(ni.series_roi(vec, roi), vec.series_roi(roi))
-    assert len(ni.vols(vec)) == 3
-    assert ni.sub_vector(vec, [0, 2]).shape == (2, 2, 2, 2)
-    np.testing.assert_array_equal(ni.temporal_access(vec, [0, 2]), vec.data.reshape(-1, 3, order="F").T[[0, 2], :])
+    np.testing.assert_array_equal(
+        compat.series(vec, np.array([[0, 0, 0]])).ravel(),
+        vec.series(np.array([[0, 0, 0]])).ravel(),
+    )
+    np.testing.assert_array_equal(compat.series_roi(vec, roi), vec.series_roi(roi))
+    assert len(compat.vols(vec)) == 3
+    assert compat.sub_vector(vec, [0, 2]).shape == (2, 2, 2, 2)
+    np.testing.assert_array_equal(
+        compat.temporal_access(vec, [0, 2]),
+        vec.data.reshape(-1, 3, order="F").T[[0, 2], :],
+    )
 
 
 def test_file_format_wrappers_delegate_to_descriptor_methods():
-    assert ni.header_file_matches(ni.AFNI, "sample+orig.HEAD")
-    assert ni.data_file_matches(ni.AFNI, "sample+orig.BRIK")
-    assert ni.header_file(ni.AFNI, "sample+orig.BRIK") == "sample+orig.HEAD"
-    assert ni.data_file(ni.AFNI, "sample+orig.HEAD") == "sample+orig.BRIK"
-    assert ni.strip_extension(ni.AFNI, "sample+orig.HEAD") == "sample+orig"
+    assert compat.header_file_matches(ni.AFNI, "sample+orig.HEAD")
+    assert compat.data_file_matches(ni.AFNI, "sample+orig.BRIK")
+    assert compat.header_file(ni.AFNI, "sample+orig.BRIK") == "sample+orig.HEAD"
+    assert compat.data_file(ni.AFNI, "sample+orig.HEAD") == "sample+orig.BRIK"
+    assert compat.strip_extension(ni.AFNI, "sample+orig.HEAD") == "sample+orig"
 
 
 def test_affine_orientation_utility_parity_helpers():
-    aff = np.array([
-        [2.0, 0.0, 0.0, 10.0],
-        [0.0, 3.0, 0.0, 20.0],
-        [0.0, 0.0, 4.0, 30.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ])
+    aff = np.array(
+        [
+            [2.0, 0.0, 0.0, 10.0],
+            [0.0, 3.0, 0.0, 20.0],
+            [0.0, 0.0, 4.0, 30.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    )
     pts = np.array([[0, 0, 0], [1, 2, 3]], dtype=float)
-    np.testing.assert_array_equal(ni.apply_affine(aff, pts), np.array([[10, 20, 30], [12, 26, 42]], dtype=float))
+    np.testing.assert_array_equal(
+        ni.apply_affine(aff, pts), np.array([[10, 20, 30], [12, 26, 42]], dtype=float)
+    )
     np.testing.assert_array_equal(ni.voxel_sizes(aff), [2, 3, 4])
 
     expanded = ni.append_diag(aff, [5], [7])
@@ -72,30 +85,37 @@ def test_affine_orientation_utility_parity_helpers():
 
     ornt = ni.axcodes_to_orientation("RAS")
     assert ni.orientation_to_axcodes(ornt) == ("R", "A", "S")
-    np.testing.assert_array_equal(ni.orientation_transform(ornt, ornt), np.array([[0, 1], [1, 1], [2, 1]], dtype=float))
+    np.testing.assert_array_equal(
+        ni.orientation_transform(ornt, ornt),
+        np.array([[0, 1], [1, 1], [2, 1]], dtype=float),
+    )
 
 
 def test_neurovecseq_alias_matches_factory():
     sp = ni.NeuroSpace((2, 2, 2))
     vols = [ni.DenseNeuroVol(np.full((2, 2, 2), i), sp) for i in range(2)]
-    vec = ni.NeuroVecSeq(vols)
+    vec = compat.NeuroVecSeq(vols)
     assert isinstance(vec, ni.DenseNeuroVec)
     assert vec.shape == (2, 2, 2, 2)
-    vec2 = ni.vec_from_vols(vols)
+    vec2 = ni.neurovecseq(vols)
     assert isinstance(vec2, ni.DenseNeuroVec)
     assert vec2.shape == vec.shape
 
 
 def test_slice_to_volume_affine_matches_neuroim2_contract():
-    aff = ni.slice_to_volume_affine(index=3, axis=3, shape=(10, 8, 6), index_base="R")
-    expected = np.array([
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 0.0, 2.0],
-        [0.0, 0.0, 1.0],
-    ])
+    aff = compat.slice_to_volume_affine(
+        index=3, axis=3, shape=(10, 8, 6), index_base="R"
+    )
+    expected = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 2.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
     np.testing.assert_array_equal(aff, expected)
-    np.testing.assert_array_equal(ni.slice2volume(3, 3, shape=(10, 8, 6)), expected)
+    np.testing.assert_array_equal(compat.slice2volume(3, 3, shape=(10, 8, 6)), expected)
 
 
 def test_nifti_extension_parsing_helpers():
@@ -128,46 +148,50 @@ def test_mask_clip_automask_and_mmap_helpers(tmp_path):
     mask = ni.LogicalNeuroVol(np.ones((8, 8, 8), dtype=bool), sp.drop_dim(3))
     mask.data[0, :, :] = False
 
-    masked = ni.apply_mask(vec, mask)
+    masked = compat.apply_mask(vec, mask)
     assert isinstance(masked, ni.DenseNeuroVec)
     assert np.all(masked.data[0, :, :, :] == 0)
 
-    level = ni.clip_level(vec)
+    level = compat.clip_level(vec)
     assert isinstance(level, float)
-    auto = ni.automask(vec)
+    auto = compat.automask(vec)
     assert isinstance(auto, ni.LogicalNeuroVol)
     assert auto.shape == (8, 8, 8)
 
     mmap_file = tmp_path / "vec.dat"
-    mapped = ni.as_mmap(vec, file=mmap_file)
+    mapped = compat.as_mmap(vec, file=mmap_file)
     assert isinstance(mapped, ni.BigNeuroVec)
     assert mapped.shape == vec.shape
 
 
 def test_output_aligned_space_and_plot_style_aliases():
-    aff = np.array([
-        [2.0, 0.0, 0.0, 10.0],
-        [0.0, 2.0, 0.0, 20.0],
-        [0.0, 0.0, 2.0, 30.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ])
-    out = ni.output_aligned_space({"shape": (4, 5, 6), "affine": aff}, voxel_sizes=(2, 2, 2))
+    aff = np.array(
+        [
+            [2.0, 0.0, 0.0, 10.0],
+            [0.0, 2.0, 0.0, 20.0],
+            [0.0, 0.0, 2.0, 30.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    )
+    out = compat.output_aligned_space(
+        {"shape": (4, 5, 6), "affine": aff}, voxel_sizes=(2, 2, 2)
+    )
     assert isinstance(out, ni.NeuroSpace)
     np.testing.assert_array_equal(out.dim, [4, 5, 6])
     np.testing.assert_array_equal(out.origin, [10, 20, 30])
 
-    assert ni.scale_fill_neuro("gray")["cmap"] == "gray"
-    assert ni.theme_neuro(panel="clean")["panel"] == "clean"
-    assert ni.annotate_orientation("axial")["args"] == ("axial",)
+    assert compat.scale_fill_neuro("gray")["cmap"] == "gray"
+    assert compat.theme_neuro(panel="clean")["panel"] == "clean"
+    assert compat.annotate_orientation("axial")["args"] == ("axial",)
 
 
-def test_literal_neuroim2_export_aliases_resolve():
+def test_literal_neuroim2_export_aliases_live_in_compat_namespace():
     expected = [
-        "as.array",
-        "as.dense",
-        "as.mask",
-        "as.matrix",
-        "as.sparse",
+        "as_array",
+        "as_dense",
+        "as_mask",
+        "as_matrix",
+        "as_sparse",
         "bilateral_filter_4d",
         "createNIfTIHeader",
         "findAnatomy3D",
@@ -175,7 +199,6 @@ def test_literal_neuroim2_export_aliases_resolve():
         "matrixToQuatern",
         "quaternToMatrix",
         "read_hyper_vec",
-        "None",
         "AbstractSparseNeuroVec",
         "ArrayLike3D",
         "ArrayLike4D",
@@ -183,19 +206,38 @@ def test_literal_neuroim2_export_aliases_resolve():
         "NeuroObj",
         "numericOrMatrix",
     ]
-    missing = [name for name in expected if not hasattr(ni, name)]
+    missing = [name for name in expected if not hasattr(compat, name)]
     assert missing == []
 
-    assert getattr(ni, "as.array") is ni.as_array
-    assert getattr(ni, "as.dense") is ni.as_dense
-    assert callable(ni.bilateral_filter_4d)
-    assert ni.createNIfTIHeader is ni.create_nifti_header
-    assert ni.findAnatomy3D is ni.find_anatomy_3d
-    assert ni.mapToColors is ni.map_to_colors
-    assert ni.matrixToQuatern is ni.matrix_to_quatern
-    assert ni.quaternToMatrix is ni.quatern_to_matrix
-    assert ni.read_hyper_vec is ni.read_neurohypervec
-    assert getattr(ni, "None") is None
+    assert compat.as_array is not None
+    assert compat.as_dense is not None
+    assert compat.createNIfTIHeader is ni.create_nifti_header
+    assert compat.findAnatomy3D is ni.find_anatomy_3d
+    assert compat.mapToColors is ni.map_to_colors
+    assert compat.matrixToQuatern is ni.matrix_to_quatern
+    assert compat.quaternToMatrix is ni.quatern_to_matrix
+    assert compat.read_hyper_vec is ni.read_neurohypervec
+
+
+def test_deprecated_top_level_camelcase_shims_warn():
+    deprecated = {
+        "NeuroVecSeq": compat.NeuroVecSeq,
+        "createNIfTIHeader": compat.createNIfTIHeader,
+        "findAnatomy3D": compat.findAnatomy3D,
+        "mapToColors": compat.mapToColors,
+        "matrixToQuatern": compat.matrixToQuatern,
+        "quaternToMatrix": compat.quaternToMatrix,
+        "read_hyper_vec": compat.read_hyper_vec,
+    }
+
+    for name, expected in deprecated.items():
+        with pytest.warns(DeprecationWarning, match="neuroim.compat"):
+            assert getattr(ni, name) is expected
+
+
+def test_dotted_r_aliases_are_not_top_level_attributes():
+    for name in ["as.array", "as.dense", "as.mask", "as.matrix", "as.sparse", "None"]:
+        assert not hasattr(ni, name)
 
 
 def test_neuroim2_virtual_classes_are_structural_protocols():
@@ -203,10 +245,10 @@ def test_neuroim2_virtual_classes_are_structural_protocols():
     vol = ni.DenseNeuroVol(np.zeros((3, 4, 5)), sp)
     vec = ni.DenseNeuroVec(np.zeros((3, 4, 5, 2)), sp.add_dim(size=2))
 
-    assert isinstance(vol, ni.NeuroObj)
-    assert isinstance(vol, ni.ArrayLike3D)
-    assert isinstance(vec, ni.NeuroObj)
-    assert isinstance(vec, ni.ArrayLike4D)
+    assert isinstance(vol, compat.NeuroObj)
+    assert isinstance(vol, compat.ArrayLike3D)
+    assert isinstance(vec, compat.NeuroObj)
+    assert isinstance(vec, compat.ArrayLike4D)
 
 
 def test_automask_keeps_largest_component_and_fills_internal_holes():
@@ -217,7 +259,7 @@ def test_automask_keeps_largest_component_and_fills_internal_holes():
     arr[9, 9, 9] = 100.0
     vol = ni.DenseNeuroVol(arr, sp)
 
-    mask = ni.automask(vol, gradual=False, peels=0, connect="26-connect")
+    mask = compat.automask(vol, gradual=False, peels=0, connect="26-connect")
 
     assert mask.data[3, 3, 3]
     assert not mask.data[9, 9, 9]
@@ -229,7 +271,7 @@ def test_clip_level_gradual_returns_volume_thresholds():
     arr = np.linspace(1.0, 1000.0, 512).reshape((8, 8, 8), order="F")
     vol = ni.DenseNeuroVol(arr, sp)
 
-    gradual = ni.clip_level(vol, gradual=True)
+    gradual = compat.clip_level(vol, gradual=True)
 
     assert isinstance(gradual, ni.DenseNeuroVol)
     assert gradual.shape == vol.shape
@@ -238,16 +280,18 @@ def test_clip_level_gradual_returns_volume_thresholds():
 
 
 def test_output_aligned_space_accepts_scalar_voxel_size_and_deoblique_space():
-    aff = np.array([
-        [2.0, 0.5, 0.0, 10.0],
-        [0.0, 3.0, 0.25, 20.0],
-        [0.0, 0.0, 4.0, 30.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ])
+    aff = np.array(
+        [
+            [2.0, 0.5, 0.0, 10.0],
+            [0.0, 3.0, 0.25, 20.0],
+            [0.0, 0.0, 4.0, 30.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    )
     sp = ni.NeuroSpace((4, 5, 6), trans=aff)
 
-    out = ni.output_aligned_space(sp, voxel_sizes=2.0)
-    deob = ni.deoblique(sp)
+    out = compat.output_aligned_space(sp, voxel_sizes=2.0)
+    deob = compat.deoblique(sp)
 
     assert isinstance(out, ni.NeuroSpace)
     assert isinstance(deob, ni.NeuroSpace)

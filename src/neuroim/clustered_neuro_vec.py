@@ -1,6 +1,6 @@
 """ClusteredNeuroVec - 4D data with cluster assignments and shared time-series per cluster.
 
-Direct translation of R's neuroim2 ClusteredNeuroVec concept.
+Represents 4D data using cluster assignments and shared time series.
 """
 
 import numpy as np

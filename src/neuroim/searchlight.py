@@ -4,7 +4,6 @@ This module provides searchlight iterators for analyzing local neighborhoods
 of voxels within brain masks. Includes exhaustive, random, and clustered
 searchlight implementations.
 
-Direct translation of R's neuroim2 searchlight functions.
 """
 
 import numpy as np
@@ -14,7 +13,6 @@ from .neuro_vol import NeuroVol, LogicalNeuroVol
 from .neuro_space import NeuroSpace
 from .roi import ROIVolWindow, ROIVol, spherical_roi
 from .utils import LazyList
-
 
 def ellipsoid_shape(scales=(1.0, 1.0, 1.0), jitter: float = 0.0):
     """Return a shape callback for ellipsoidal resampled searchlights."""
@@ -38,7 +36,6 @@ def ellipsoid_shape(scales=(1.0, 1.0, 1.0), jitter: float = 0.0):
 
     return shape_fun
 
-
 def cube_shape():
     """Return a shape callback for cubic resampled searchlights."""
     def shape_fun(mask, center, radius, iter=0, nonzero=False):
@@ -53,7 +50,6 @@ def cube_shape():
         return np.column_stack([m.ravel() for m in mesh])
 
     return shape_fun
-
 
 def blobby_shape(drop: float = 0.3, edge_fraction: float = 0.7):
     """Return a shape callback that randomly drops edge voxels from a sphere."""
@@ -75,7 +71,6 @@ def blobby_shape(drop: float = 0.3, edge_fraction: float = 0.7):
 
     return shape_fun
 
-
 def _find_center_index(coords: np.ndarray, center_grid: np.ndarray) -> int:
     """Return the row index of the center voxel in ROI coordinates.
 
@@ -89,7 +84,6 @@ def _find_center_index(coords: np.ndarray, center_grid: np.ndarray) -> int:
     center_rows = np.where(matches)[0]
     return int(center_rows[0]) if len(center_rows) else 0
 
-
 def _mask_indices(mask: LogicalNeuroVol, nonzero_only: bool) -> np.ndarray:
     """Get linear indices for either mask voxels or all voxels.
 
@@ -99,14 +93,12 @@ def _mask_indices(mask: LogicalNeuroVol, nonzero_only: bool) -> np.ndarray:
         return np.where(mask.data.ravel(order='F'))[0]
     return np.arange(np.prod(mask.data.shape), dtype=int)
 
-
 def _center_grid_from_index(mask: LogicalNeuroVol, center_idx: int) -> np.ndarray:
     """Convert a linear index to a center-grid vector."""
     center_grid = mask.space.index_to_grid(center_idx)
     if center_grid.ndim == 2:
         center_grid = center_grid[0]
     return center_grid.astype(int)
-
 
 def searchlight_iterator(mask: Union[NeuroVol, LogicalNeuroVol], radius: float, 
                         eager: bool = False, nonzero: bool = False, 
@@ -139,9 +131,6 @@ def searchlight_iterator(mask: Union[NeuroVol, LogicalNeuroVol], radius: float,
         A deferred_list object containing ROIVolWindow objects, each
         representing a searchlight region
         
-    R Equivalent
-    ------------
-    neuroim2::searchlight
     """
     # Convert to LogicalNeuroVol if needed
     if not isinstance(mask, LogicalNeuroVol):
@@ -183,7 +172,6 @@ def searchlight_iterator(mask: Union[NeuroVol, LogicalNeuroVol], radius: float,
         # Return lazy list (single-threaded for now)
         return LazyList(generate_searchlight, len(indices))
 
-
 def searchlight_coords(mask: Union[NeuroVol, LogicalNeuroVol], radius: float,
                       nonzero: bool = False, cores: int = 0) -> LazyList:
     """Create an exhaustive searchlight iterator for voxel coordinates.
@@ -212,9 +200,6 @@ def searchlight_coords(mask: Union[NeuroVol, LogicalNeuroVol], radius: float,
         A deferred_list object containing matrices of integer-valued
         voxel coordinates, each representing a searchlight region
         
-    R Equivalent
-    ------------
-    neuroim2::searchlight_coords
     """
     # Convert to LogicalNeuroVol if needed
     if not isinstance(mask, LogicalNeuroVol):
@@ -250,7 +235,6 @@ def searchlight_coords(mask: Union[NeuroVol, LogicalNeuroVol], radius: float,
         # Return lazy list with deferred computation
         return LazyList(generate_coords, len(indices))
 
-
 def random_searchlight(mask: Union[NeuroVol, LogicalNeuroVol], 
                       radius: float,
                       nonzero: bool = True) -> List[ROIVolWindow]:
@@ -276,9 +260,6 @@ def random_searchlight(mask: Union[NeuroVol, LogicalNeuroVol],
         A list of ROIVolWindow objects, each representing a spherical
         searchlight region
         
-    R Equivalent
-    ------------
-    neuroim2::random_searchlight
     """
     # Convert to LogicalNeuroVol if needed
     if not isinstance(mask, LogicalNeuroVol):
@@ -315,7 +296,6 @@ def random_searchlight(mask: Union[NeuroVol, LogicalNeuroVol],
     
     return searchlights
 
-
 def clustered_searchlight(mask: Union[NeuroVol, LogicalNeuroVol], radius: float = 0,
                          cvol: Optional[NeuroVol] = None, 
                          csize: Optional[int] = None) -> Iterator[ROIVol]:
@@ -345,9 +325,6 @@ def clustered_searchlight(mask: Union[NeuroVol, LogicalNeuroVol], radius: float 
     ValueError
         If neither cvol nor csize is provided
         
-    R Equivalent
-    ------------
-    neuroim2::clustered_searchlight
     """
     # Convert to LogicalNeuroVol if needed
     if not isinstance(mask, LogicalNeuroVol):
@@ -389,7 +366,6 @@ def clustered_searchlight(mask: Union[NeuroVol, LogicalNeuroVol], radius: float 
             data=cluster_data
         )
 
-
 def bootstrap_searchlight(mask: Union[NeuroVol, LogicalNeuroVol], 
                          radius: float = 8, iter: int = 100) -> List[ROIVolWindow]:
     """Create a bootstrap searchlight iterator.
@@ -412,9 +388,6 @@ def bootstrap_searchlight(mask: Union[NeuroVol, LogicalNeuroVol],
         A list of ROIVolWindow objects, each representing a spherical
         searchlight region
         
-    R Equivalent
-    ------------
-    neuroim2::bootstrap_searchlight
     """
     # Convert to LogicalNeuroVol if needed
     if not isinstance(mask, LogicalNeuroVol):

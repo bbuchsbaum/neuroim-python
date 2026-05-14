@@ -6,7 +6,7 @@ LogicalNeuroVol(data, space, label='', indices=None)
 
 Logical/binary 3D neuroimaging volume.
 
-Direct translation of R's LogicalNeuroVol class.
+Boolean 3D volume with the same spatial contract as dense neuroim volumes.
 Extends DenseNeuroVol with boolean data.
 
 ## Parameters {.doc-section .doc-section-parameters}
