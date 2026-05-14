@@ -64,6 +64,7 @@ NN_<name>/
 | 11 | **Atlas parcel time series** — extract mean BOLD series per atlas parcel | **ergonomics + provenance win after PAIN-1/3/4** | 4 — first-class `parcel_means`, same-space gate, clustered provenance, and public clustered exports are now closed. See `11_atlas_parcel_timeseries/REPORT.md`. |
 | 12 | **File-backed affine drift** — compute tSNR from one 3-D file per time point, with one shifted same-shape volume | **backend safety win, originally falsified mission claim; now fixed** | 1 — **PAIN-12 (P0) closed**: `FileBackedNeuroVec` rejects per-volume affine drift, not only shape drift. See `12_file_backed_affine_drift/REPORT.md`. |
 | 13 | **Pipeline provenance audit** — recover chained resample + temporal-SNR lineage from the final NIfTI alone | **forensic inspectability win** | none — raw nibabel needs a sidecar manifest; neuroim rehydrates a chained Receipt from the NIfTI extension. See `13_provenance_audit/REPORT.md`. |
+| 14 | **Time-axis slicing as silent provenance loss** — drop pre-steady-state volumes, then compute tSNR; recover the truncation from the written `.nii.gz` | **falsifies mission claim on silent transform loss** (slicing surface) | 2 — **PAIN-13 (P1)**: `NeuroVec.__getitem__` time-slice drops to bare `ndarray`. **PAIN-14 (P2)**: `TemporalSliceParams(OpParams)` missing; `slice → temporal_snr` Receipt chain incomplete. See `14_temporal_slice_provenance/REPORT.md`. |
 
 ## Running
 
