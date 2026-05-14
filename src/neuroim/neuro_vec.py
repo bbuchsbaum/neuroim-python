@@ -793,6 +793,10 @@ class DenseNeuroVec(NeuroVec):
                 axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
             )
             mask = LogicalNeuroVol(mask_data, mask_space)
+        elif isinstance(mask, LogicalNeuroVol):
+            from .verify import assert_same_space
+
+            assert_same_space(self, mask)
         elif not isinstance(mask, LogicalNeuroVol):
             # Convert to LogicalNeuroVol
             mask_space = NeuroSpace(
@@ -1090,10 +1094,15 @@ class SparseNeuroVec(NeuroVec):
         """Already sparse, return self or apply new mask."""
         if mask is None:
             return self
-        else:
-            # Apply additional mask by converting to dense, then back to sparse with new mask
-            dense = self.to_dense()
-            return dense.to_sparse(mask)
+
+        if isinstance(mask, LogicalNeuroVol):
+            from .verify import assert_same_space
+
+            assert_same_space(self, mask)
+
+        # Apply additional mask by converting to dense, then back to sparse with new mask.
+        dense = self.to_dense()
+        return dense.to_sparse(mask)
 
     def as_dense(self) -> DenseNeuroVec:
         """Deprecated alias for :meth:`to_dense`."""
