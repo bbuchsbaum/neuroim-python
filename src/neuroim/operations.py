@@ -14,6 +14,7 @@ from .neuro_vol import NeuroVol, DenseNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_space import NeuroSpace
 from .typing import NeuroVecLike, NeuroVolLike
+from .verify import assert_same_space
 
 
 def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
@@ -42,11 +43,13 @@ def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
     spatial_shape = first.shape[:3]
 
     for v in vecs[1:]:
-        if v.shape[:3] != spatial_shape:
+        try:
+            assert_same_space(first.space, v.space)
+        except ValueError as exc:
             raise ValueError(
-                f"All NeuroVecs must share the same spatial dimensions. "
-                f"Expected {spatial_shape}, got {v.shape[:3]}"
-            )
+                "spatial contract mismatch: NeuroVecs must have same "
+                f"spatial dimensions and affine; {exc}"
+            ) from None
 
     # Collect 4D arrays, converting sparse to dense as needed
     arrays = []
@@ -65,6 +68,7 @@ def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
         spacing=first.spacing,
         origin=first.origin,
         axes=first.space.axes,
+        trans=first.space.trans,
     )
     out = DenseNeuroVec(concat_data, concat_space)
 

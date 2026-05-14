@@ -486,11 +486,12 @@ class NeuroVec(ABC):
 
     def concat(self, *others: "NeuroVec") -> "NeuroVec":
         """Concatenate multiple NeuroVecs along time dimension."""
+        from .verify import assert_same_space
+
         # Concatenate by converting all to dense and stacking
         all_vecs = [self] + list(others)
         for vec in all_vecs[1:]:
-            if vec.shape[:3] != self.shape[:3]:
-                raise ValueError("All NeuroVecs must have same spatial dimensions")
+            assert_same_space(self.space, vec.space)
         # Default: convert to dense and delegate
         dense_self = self.to_dense() if not isinstance(self, DenseNeuroVec) else self
         dense_others = [
@@ -838,14 +839,13 @@ class DenseNeuroVec(NeuroVec):
 
     def concat(self, *others: "DenseNeuroVec") -> "DenseNeuroVec":
         """Concatenate multiple NeuroVecs along time dimension."""
+        from .verify import assert_same_space
+
         all_vecs = [self] + list(others)
 
         # Check spatial compatibility
         for vec in all_vecs[1:]:
-            if vec.shape[:3] != self.shape[:3]:
-                raise ValueError("All NeuroVecs must have same spatial dimensions")
-            if not np.allclose(vec.spacing[:3], self.spacing[:3]):
-                raise ValueError("All NeuroVecs must have same spacing")
+            assert_same_space(self.space, vec.space)
 
         # Concatenate data
         all_data = [vec.data for vec in all_vecs]
@@ -857,6 +857,7 @@ class DenseNeuroVec(NeuroVec):
             spacing=self.spacing,
             origin=self.origin,
             axes=self.space.axes,
+            trans=self.space.trans,
         )
 
         return DenseNeuroVec(concat_data, concat_space, self.label)
@@ -1115,10 +1116,13 @@ class SparseNeuroVec(NeuroVec):
 
     def concat(self, *others: "SparseNeuroVec") -> "SparseNeuroVec":
         """Concatenate multiple SparseNeuroVecs along time dimension."""
+        from .verify import assert_same_space
+
         all_vecs = [self] + list(others)
 
         # Check compatibility
         for vec in all_vecs[1:]:
+            assert_same_space(self.space, vec.space)
             if not np.array_equal(vec.mask.data, self.mask.data):
                 raise ValueError("All SparseNeuroVecs must have same mask")
 
@@ -1132,6 +1136,7 @@ class SparseNeuroVec(NeuroVec):
             spacing=self.spacing,
             origin=self.origin,
             axes=self.space.axes,
+            trans=self.space.trans,
         )
 
         return SparseNeuroVec(concat_data, concat_space, self.mask, self.label)
