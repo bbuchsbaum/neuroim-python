@@ -52,11 +52,11 @@ jobs:
     
     - name: Run type checking
       run: |
-        mypy src/neuroimpy --ignore-missing-imports
+        mypy src/neuroim --ignore-missing-imports
     
     - name: Run tests with coverage
       run: |
-        pytest tests/ -v --cov=src/neuroimpy --cov-report=xml --cov-report=term
+        pytest tests/ -v --cov=src/neuroim --cov-report=xml --cov-report=term
     
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3

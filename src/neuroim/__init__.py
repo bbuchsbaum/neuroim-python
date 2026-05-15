@@ -1,6 +1,6 @@
 """neuroim - Python neuroimaging library"""
 
-import warnings as _warnings
+import importlib as _importlib
 
 __version__ = "0.1.0"
 
@@ -89,6 +89,8 @@ try:
         write_vec,
         read_meta_info,
         read_image,
+        read_volume,
+        read_series,
         load_data,
     )
 
@@ -232,7 +234,7 @@ from .simulation import simulate_fmri, prepare_confounds, make_time_weights
 # Import connected components
 from .connected_components import conn_comp, conn_comp_3D, ConnCompResult
 from .clustered_neuro_vol import ClusteredNeuroVol
-from .clustered_neuro_vec import ClusteredNeuroVec
+from .clustered_neuro_vec import ClusteredNeuroVec, ParcelEffectResult
 from .neuro_bucket import NeuroBucket
 
 # Import statistical operations
@@ -314,25 +316,9 @@ def from_nibabel(img):
     raise ValueError(f"Expected at least 3D image data, got shape {shape}")
 
 
-_DEPRECATED_COMPAT_ALIASES = {
-    "NeuroVecSeq",
-    "createNIfTIHeader",
-    "findAnatomy3D",
-    "mapToColors",
-    "matrixToQuatern",
-    "quaternToMatrix",
-    "read_hyper_vec",
-}
-
-
 def __getattr__(name):
-    if name in _DEPRECATED_COMPAT_ALIASES:
-        _warnings.warn(
-            f"neuroim.{name} is deprecated; use neuroim.compat.{name} instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return getattr(compat, name)
+    if name == "atlas":
+        return _importlib.import_module(".atlas", __name__)
     raise AttributeError(f"module 'neuroim' has no attribute {name!r}")
 
 
@@ -350,6 +336,7 @@ __all__ = [
     "FileBackedNeuroVec",
     "MappedNeuroVec",
     "ClusteredNeuroVec",
+    "ParcelEffectResult",
     "NeuroHyperVec",
     "DenseNeuroHyperVec",
     "SparseNeuroHyperVec",
@@ -363,6 +350,8 @@ __all__ = [
     "searchlight",
     "searchlight_apply",
     "read_image",
+    "read_volume",
+    "read_series",
     "read_vol",
     "write_vol",
     "read_vec",
@@ -370,11 +359,13 @@ __all__ = [
     "from_nibabel",
     "resample",
     "reorient",
+    "gaussian_blur",
     "plot_neuro_vol",
     "plot_ortho",
     "plot_montage",
     "plot_overlay",
     "ConnCompResult",
+    "conn_comp",
     "compat",
     "verify",
 ]

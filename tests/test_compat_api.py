@@ -7,18 +7,6 @@ import neuroim as ni
 import neuroim.compat as compat
 
 
-def test_legacy_package_aliases_import_primary_api():
-    import neuroimpy
-    import neuroimpy.neuro_space
-    import pyneuroim
-    import pyneuroim.neuro_space
-
-    assert neuroimpy.NeuroSpace is ni.NeuroSpace
-    assert pyneuroim.NeuroSpace is ni.NeuroSpace
-    assert neuroimpy.neuro_space.NeuroSpace.__name__ == ni.NeuroSpace.__name__
-    assert pyneuroim.neuro_space.NeuroSpace.__name__ == ni.NeuroSpace.__name__
-
-
 def test_compat_geometry_wrappers_delegate_to_space_methods():
     sp = ni.NeuroSpace((3, 4, 5), spacing=(2, 3, 4), origin=(10, 20, 30))
     vol = ni.DenseNeuroVol(np.arange(60).reshape((3, 4, 5), order="F"), sp)
@@ -217,22 +205,6 @@ def test_literal_neuroim2_export_aliases_live_in_compat_namespace():
     assert compat.matrixToQuatern is ni.matrix_to_quatern
     assert compat.quaternToMatrix is ni.quatern_to_matrix
     assert compat.read_hyper_vec is ni.read_neurohypervec
-
-
-def test_deprecated_top_level_camelcase_shims_warn():
-    deprecated = {
-        "NeuroVecSeq": compat.NeuroVecSeq,
-        "createNIfTIHeader": compat.createNIfTIHeader,
-        "findAnatomy3D": compat.findAnatomy3D,
-        "mapToColors": compat.mapToColors,
-        "matrixToQuatern": compat.matrixToQuatern,
-        "quaternToMatrix": compat.quaternToMatrix,
-        "read_hyper_vec": compat.read_hyper_vec,
-    }
-
-    for name, expected in deprecated.items():
-        with pytest.warns(DeprecationWarning, match="neuroim.compat"):
-            assert getattr(ni, name) is expected
 
 
 def test_dotted_r_aliases_are_not_top_level_attributes():

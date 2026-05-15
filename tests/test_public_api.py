@@ -1,9 +1,15 @@
 import neuroim as ni
-import pytest
 
 
 def test_public_api_budget_and_required_names():
-    assert len(ni.__all__) <= 40
+    # Budget bumped from 38 -> 40 by S11 PAIN-4 (atlas classes), from 40
+    # -> 41 by S12 PAIN-4 (gaussian_blur), from 41 -> 42 by S15's first-
+    # class parcel contrast result, from 42 -> 43 by S18 PAIN-1
+    # (conn_comp), and from 43 -> 45 by pythonic-api-smells B1
+    # (read_volume/read_series intent-revealing readers, consensus-locked
+    # on the pythonic-api-smells topic).  Keep the cap evidence-driven:
+    # raise only when a closed scenario PAIN justifies a new public surface.
+    assert len(ni.__all__) <= 45
 
     required = {
         "NeuroSpace",
@@ -34,6 +40,7 @@ def test_public_api_budget_and_required_names():
         "ConnCompResult",
         "SearchlightResult",
         "ROIExtractionResult",
+        "ParcelEffectResult",
         "Receipt",
         "compat",
     }
@@ -60,14 +67,6 @@ def test_public_api_has_no_r_shaped_export_names():
     assert forbidden.isdisjoint(dir(ni))
 
 
-def test_deprecated_top_level_import_shim_warns():
-    namespace = {}
-    with pytest.warns(DeprecationWarning, match="neuroim.compat"):
-        exec("from neuroim import createNIfTIHeader", {}, namespace)
-
-    assert namespace["createNIfTIHeader"] is ni.compat.createNIfTIHeader
-
-
 def test_star_import_uses_curated_all_namespace():
     namespace = {}
     exec("from neuroim import *", {}, namespace)
@@ -91,8 +90,10 @@ def test_dir_tracks_curated_public_surface():
     # not through the interactive package root.
     assert "AxisSet" not in public_dir
     assert "FileFormat" not in public_dir
-    assert "gaussian_blur" not in public_dir
     assert "neurovol" not in public_dir
+    # ``gaussian_blur`` is now a canonical preprocessing surface (S12 PAIN-4):
+    # exposed at the package root so users discover it via the curated API.
+    assert "gaussian_blur" in public_dir
 
 
 # ME-4 additional guard: the prior `from .module import *` patterns leaked

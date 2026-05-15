@@ -41,8 +41,8 @@ jobs:
     
     - name: Test installation from Test PyPI
       run: |
-        pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple neuroimpy
-        python -c "import neuroimpy; print(neuroimpy.__version__)"
+        pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple neuroim
+        python -c "import neuroim; print(neuroim.__version__)"
     
     - name: Publish to PyPI
       if: startsWith(github.ref, 'refs/tags/v')
