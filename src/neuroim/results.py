@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
@@ -133,7 +133,7 @@ class Receipt:
     def from_json(cls, payload: str) -> "Receipt":
         """Re-hydrate a Receipt from a :meth:`to_json` payload."""
         data = json.loads(payload)
-        return cls(**{field: data[field] for field in cls.__dataclass_fields__})
+        return cls(**{fname: data[fname] for fname in cls.__dataclass_fields__})
 
     def to_nifti_extension_bytes(self) -> bytes:
         """Serialize this Receipt to a NIfTI 'comment' extension payload.

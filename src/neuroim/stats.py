@@ -569,7 +569,6 @@ def partition(
         # Create label array
         label_flat = np.zeros(int(np.prod(x.shape)), dtype=int)
         label_flat[mask_indices] = labels + 1  # 1-indexed
-        label_array = label_flat.reshape(x.shape, order="F")
 
         # Create mask volume
         from .neuro_vol import LogicalNeuroVol

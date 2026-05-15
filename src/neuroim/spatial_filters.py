@@ -108,14 +108,6 @@ def gaussian_blur(
     )
     return DenseNeuroVol(output_data, vol.space, provenance=receipt)
 
-def box_blur(data: np.ndarray, mask_indices: np.ndarray, radius: int) -> np.ndarray:
-    """Helper function for guided filter: applies box blur to the data."""
-    kernel = np.ones((2 * radius + 1, 2 * radius + 1, 2 * radius + 1)) / (
-        (2 * radius + 1) ** 3
-    )
-    blurred = ndimage.convolve(data, kernel, mode="constant", cval=0.0)
-    return blurred[mask_indices]
-
 def guided_filter(
     vol: NeuroVol, radius: int = 4, epsilon: float = 0.49
 ) -> DenseNeuroVol:
