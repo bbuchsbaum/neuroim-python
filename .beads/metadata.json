@@ -1,4 +1,7 @@
 {
-  "database": "beads.db",
-  "jsonl_export": "issues.jsonl"
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "neuroim_python",
+  "project_id": "3e63bcd8-64a9-408d-b835-72451f69f7c9"
 }

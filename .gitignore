@@ -62,3 +62,8 @@ CLAUDE.md.bak
 feature_parity_chart.png
 missing_features_chart.png
 feature_parity_summary.py
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
