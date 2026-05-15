@@ -7,10 +7,8 @@ corresponding to the R neuroim2 test-vecseq.R tests.
 
 import pytest
 import numpy as np
-from neuroim import (
-    NeuroSpace, DenseNeuroVol, DenseNeuroVec, SparseNeuroVec,
-    LogicalNeuroVol, MappedNeuroVec, neurovec, neurovecseq, read_vec, read_vol
-)
+from neuroim import (NeuroSpace, DenseNeuroVol, DenseNeuroVec, SparseNeuroVec, LogicalNeuroVol, MappedNeuroVec, read_vec, read_vol)
+from neuroim.neuro_vec import neurovec, neurovecseq
 from neuroim.io import read_vol as io_read_vol, read_vec as io_read_vec
 import tempfile
 import nibabel as nib

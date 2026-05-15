@@ -4,11 +4,9 @@ import pytest
 import numpy as np
 import tempfile
 import os
-from neuroim import (
-    NeuroSpace, DenseNeuroVec, SparseNeuroVec, NeuroVec,
-    DenseNeuroVol, LogicalNeuroVol, neurovol, neurovec, neurovecseq,
-    BigNeuroVec, FileBackedNeuroVec, MappedNeuroVec
-)
+from neuroim import (NeuroSpace, DenseNeuroVec, SparseNeuroVec, NeuroVec, DenseNeuroVol, LogicalNeuroVol, BigNeuroVec, FileBackedNeuroVec, MappedNeuroVec)
+from neuroim.neuro_vec import neurovec, neurovecseq
+from neuroim.neuro_vol import neurovol
 
 
 def gen_dat(d1=12, d2=12, d3=12, d4=4, rand=False):

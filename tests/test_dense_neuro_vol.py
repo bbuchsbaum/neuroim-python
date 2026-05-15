@@ -145,7 +145,7 @@ def test_dense_neuro_vol_space_attributes(sample_space, sample_data):
     assert vol.space.axes.k.axis == sample_space.axes.k.axis
 
 def test_dense_neuro_vol_factory_function(sample_space, sample_data):
-    from neuroim import neurovol
+    from neuroim.neuro_vol import neurovol
     vol = neurovol(sample_data, sample_space)
     assert isinstance(vol, DenseNeuroVol)
 

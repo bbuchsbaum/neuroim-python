@@ -85,7 +85,9 @@ def test_neurovecseq_alias_matches_factory():
     vec = compat.NeuroVecSeq(vols)
     assert isinstance(vec, ni.DenseNeuroVec)
     assert vec.shape == (2, 2, 2, 2)
-    vec2 = ni.neurovecseq(vols)
+    from neuroim.neuro_vec import neurovecseq
+
+    vec2 = neurovecseq(vols)
     assert isinstance(vec2, ni.DenseNeuroVec)
     assert vec2.shape == vec.shape
 

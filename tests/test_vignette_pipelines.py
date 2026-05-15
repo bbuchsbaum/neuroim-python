@@ -3,9 +3,8 @@ import numpy as np
 
 # Test imports
 try:
-    from neuroim import (DenseNeuroVol, NeuroSpace, conn_comp,
-                          split_clusters, searchlight, searchlight_coords,
-                          neurovec, SparseNeuroVol)
+    from neuroim import (DenseNeuroVol, NeuroSpace, conn_comp, split_clusters, searchlight, searchlight_coords, SparseNeuroVol)
+    from neuroim.neuro_vec import neurovec
     from neuroim.stats import split_blocks, partition
     print("✓ Basic imports work")
 except ImportError as e:

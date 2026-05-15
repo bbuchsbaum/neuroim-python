@@ -122,8 +122,8 @@ class TestNeuroHyperVec:
         data1 = np.random.randn(10, 10, 10, 20, 3)
         data2 = np.random.randn(10, 10, 10, 20, 2)
         
-        hvec1 = pn.NeuroHyperVec(data1, space1)
-        hvec2 = pn.NeuroHyperVec(data2, space2)
+        hvec1 = pn.NeuroHyperVec.create(data1, space1)
+        hvec2 = pn.NeuroHyperVec.create(data2, space2)
         
         # Concatenate features
         combined = pn.concat_features([hvec1, hvec2])
@@ -151,7 +151,7 @@ class TestNeuroHyperVec:
         # 3 echoes at different TEs
         echo_space = NeuroSpace(dim=(64, 64, 40, 200, 3))
         echo_data = np.random.randn(64, 64, 40, 200, 3)
-        multi_echo = pn.NeuroHyperVec(echo_data, echo_space)
+        multi_echo = pn.NeuroHyperVec.create(echo_data, echo_space)
         
         # Combine echoes using weighted average
         te_weights = np.array([0.5, 0.3, 0.2])
@@ -162,7 +162,7 @@ class TestNeuroHyperVec:
         # Power in 5 frequency bands
         freq_space = NeuroSpace(dim=(64, 64, 40, 100, 5))
         freq_data = np.random.randn(64, 64, 40, 100, 5)
-        spectral = pn.NeuroHyperVec(freq_data, freq_space)
+        spectral = pn.NeuroHyperVec.create(freq_data, freq_space)
         
         # Extract alpha band (index 2)
         alpha_power = spectral[:, :, :, :, 2]
@@ -195,13 +195,13 @@ class TestNeuroHyperVecEdgeCases:
         with pytest.raises(ValueError):
             space = NeuroSpace(dim=(10, 10, 10, 20))  # Only 4D
             data = np.random.randn(10, 10, 10, 20)
-            pn.NeuroHyperVec(data, space)
+            pn.NeuroHyperVec.create(data, space)
         
         # Data shape must match space
         with pytest.raises(ValueError):
             space = NeuroSpace(dim=(10, 10, 10, 20, 5))
             data = np.random.randn(10, 10, 10, 20, 4)  # Wrong feature dim
-            pn.NeuroHyperVec(data, space)
+            pn.NeuroHyperVec.create(data, space)
     
     def test_single_feature_handling(self):
         """Test behavior with single feature dimension."""

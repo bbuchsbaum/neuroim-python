@@ -4,13 +4,10 @@ import pytest
 import numpy as np
 import tempfile
 import os
-from neuroim import (
-    NeuroSpace, DenseNeuroVol, DenseNeuroVec,
-    BigNeuroVec, big_neurovecseq,
-    FileBackedNeuroVec, file_backed_neurovec,
-    MappedNeuroVec, mapped_neurovecseq,
-    scale_mapper, log_mapper, threshold_mapper
-)
+from neuroim import (NeuroSpace, DenseNeuroVol, DenseNeuroVec, BigNeuroVec, FileBackedNeuroVec, MappedNeuroVec, scale_mapper, log_mapper, threshold_mapper)
+from neuroim.big_neuro_vec import big_neurovecseq
+from neuroim.file_backed_neuro_vec import file_backed_neurovec
+from neuroim.mapped_neuro_vec import mapped_neurovecseq
 
 
 class TestBigNeuroVec:

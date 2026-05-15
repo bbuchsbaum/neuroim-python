@@ -315,7 +315,7 @@ def _invocation_for(qualified_name: str, vec, vol, mask, roi) -> Optional[Callab
     if qualified_name == "neuroim.NeuroHyperVec":
         hyper_space = ni.NeuroSpace(dim=[8, 8, 4, 3, 2])
         data = np.zeros((2, 3, int(mask.sum)), dtype=np.float32)
-        return lambda: ni.NeuroHyperVec(data, hyper_space, mask=mask)
+        return lambda: ni.NeuroHyperVec.create(data, hyper_space, mask=mask)
     if qualified_name == "neuroim.values_roi":
         return lambda: ni.values_roi(vol, roi)
     if qualified_name == "neuroim.series_roi":

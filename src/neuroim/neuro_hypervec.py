@@ -15,6 +15,7 @@ from .neuro_space import NeuroSpace
 from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_vol import NeuroVol, DenseNeuroVol, LogicalNeuroVol
 from .neuro_vec import SparseNeuroVec
+from ._array_guard import refuse_array_conversion
 
 
 class NeuroHyperVec(ABC):
@@ -35,7 +36,31 @@ class NeuroHyperVec(ABC):
             raise ValueError(f"NeuroHyperVec requires at least 5D space, got {space.ndim}D")
         self.space = space
         self.label = label
-    
+
+    @classmethod
+    def create(
+        cls,
+        data: Union[np.ndarray, str],
+        space: NeuroSpace,
+        mask: Optional[LogicalNeuroVol] = None,
+        label: str = "",
+    ) -> "NeuroHyperVec":
+        """Construct the appropriate concrete NeuroHyperVec subtype.
+
+        Returns a :class:`SparseNeuroHyperVec` when ``mask`` is given
+        (after a same-space check), otherwise a :class:`DenseNeuroHyperVec`.
+        """
+        data = np.asarray(data)
+        if mask is not None:
+            from .verify import assert_same_space
+
+            assert_same_space(space, mask)
+            return SparseNeuroHyperVec(data, mask, space, label)
+        return DenseNeuroHyperVec(data, space, label)
+
+    def __array__(self, *args, **kwargs):
+        refuse_array_conversion(self, ".data")
+
     @property
     def shape(self) -> Tuple[int, ...]:
         """Shape of the data array."""
@@ -594,35 +619,3 @@ def read_neurohypervec(filename: str) -> NeuroHyperVec:
             return DenseNeuroHyperVec(data, space, label)
 
 
-# Factory function
-def NeuroHyperVec(data: Union[np.ndarray, str], space: NeuroSpace, 
-                  mask: Optional[LogicalNeuroVol] = None, label: str = "") -> NeuroHyperVec:
-    """Factory function to create appropriate NeuroHyperVec type.
-    
-    Parameters
-    ----------
-    data : array-like or str
-        The hypervector data or filename for memory-mapped
-    space : NeuroSpace
-        5D+ spatial metadata
-    mask : LogicalNeuroVol, optional
-        Mask for sparse representation
-    label : str, optional
-        Hypervector label
-        
-    Returns
-    -------
-    NeuroHyperVec
-        Appropriate hypervector type
-    """
-    data = np.asarray(data)
-
-    if mask is not None:
-        from .verify import assert_same_space
-
-        assert_same_space(space, mask)
-        # Sparse representation
-        return SparseNeuroHyperVec(data, mask, space, label)
-    else:
-        # Dense representation
-        return DenseNeuroHyperVec(data, space, label)

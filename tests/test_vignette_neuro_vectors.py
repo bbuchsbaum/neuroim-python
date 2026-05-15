@@ -5,8 +5,8 @@ import os
 
 # Test imports
 try:
-    from neuroim import read_vec, neurovec, DenseNeuroVol, DenseNeuroVec, NeuroSpace
-    from neuroim.neuro_vec import neurovecseq
+    from neuroim import read_vec, DenseNeuroVol, DenseNeuroVec, NeuroSpace
+    from neuroim.neuro_vec import neurovec, neurovecseq
     print("✓ Basic imports work")
 except ImportError as e:
     print(f"✗ Import error: {e}")

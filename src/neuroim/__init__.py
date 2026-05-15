@@ -39,22 +39,19 @@ from .axis import (
     permute_axes,
     find_anatomy_3d,
 )
-from .neuro_space import NeuroSpace, neurospace
+from .neuro_space import NeuroSpace
 from .neuro_vol import (
     NeuroVol,
     DenseNeuroVol,
     SparseNeuroVol,
     LogicalNeuroVol,
-    neurovol,
 )
 from .neuro_vec import (
     NeuroVec,
     DenseNeuroVec,
     SparseNeuroVec,
-    neurovec,
-    neurovecseq,
 )
-from .neuro_slice import NeuroSlice, neuroslice, slices
+from .neuro_slice import NeuroSlice
 from .roi import (
     ROI,
     ROICoords,
@@ -70,8 +67,6 @@ from .roi import (
     ellipsoid_roi,
     square_roi,
     patch_set,
-    roicoords,
-    roivol,
     series_roi,
     values_roi,
 )
@@ -268,11 +263,10 @@ from . import compat as compat
 from . import verify as verify
 
 # Import memory-mapped variants
-from .big_neuro_vec import BigNeuroVec, big_neurovecseq
-from .file_backed_neuro_vec import FileBackedNeuroVec, file_backed_neurovec
+from .big_neuro_vec import BigNeuroVec
+from .file_backed_neuro_vec import FileBackedNeuroVec
 from .mapped_neuro_vec import (
     MappedNeuroVec,
-    mapped_neurovecseq,
     scale_mapper,
     log_mapper,
     threshold_mapper,

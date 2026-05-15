@@ -5,12 +5,8 @@ Tests ROI, ROICoords, ROIVol, ROIVec, ROIVolWindow and construction functions.
 
 import pytest
 import numpy as np
-from neuroim import (
-    NeuroSpace, DenseNeuroVol,
-    ROI, ROICoords, ROIVol, ROIVec, ROIVolWindow,
-    roicoords, roivol,
-    square_roi, cuboid_roi, spherical_roi, spherical_roi_set
-)
+from neuroim import (NeuroSpace, DenseNeuroVol, ROI, ROICoords, ROIVol, ROIVec, ROIVolWindow, square_roi, cuboid_roi, spherical_roi, spherical_roi_set)
+from neuroim.roi import roicoords, roivol
 
 
 class TestROICoords:

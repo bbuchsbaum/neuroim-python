@@ -7,10 +7,8 @@ import os
 from pathlib import Path
 import nibabel as nib
 
-from neuroim import (
-    NeuroSpace, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol,
-    neurovol, read_vol, write_vol
-)
+from neuroim import (NeuroSpace, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol, read_vol, write_vol)
+from neuroim.neuro_vol import neurovol
 
 
 class TestNeuroVolConstruction:
