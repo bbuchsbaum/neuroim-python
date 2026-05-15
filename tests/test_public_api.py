@@ -2,14 +2,13 @@ import neuroim as ni
 
 
 def test_public_api_budget_and_required_names():
-    # Budget bumped from 38 -> 40 by S11 PAIN-4 (atlas classes), from 40
-    # -> 41 by S12 PAIN-4 (gaussian_blur), from 41 -> 42 by S15's first-
-    # class parcel contrast result, from 42 -> 43 by S18 PAIN-1
-    # (conn_comp), and from 43 -> 45 by pythonic-api-smells B1
-    # (read_volume/read_series intent-revealing readers, consensus-locked
-    # on the pythonic-api-smells topic).  Keep the cap evidence-driven:
-    # raise only when a closed scenario PAIN justifies a new public surface.
-    assert len(ni.__all__) <= 45
+    # Mission cap: the curated public surface stays <= 40 names.
+    # Pre-alpha cleanup trimmed glue/result/plot helpers out of __all__
+    # (from_nibabel, Receipt, ParcelEffectResult, ConnCompResult,
+    # plot_montage, plot_overlay) -- they remain importable from their
+    # submodules. Raise the cap only when a closed scenario PAIN
+    # justifies new public surface.
+    assert len(ni.__all__) <= 40
 
     required = {
         "NeuroSpace",
@@ -33,14 +32,10 @@ def test_public_api_budget_and_required_names():
         "read_series",
         "write_vol",
         "write_vec",
-        "from_nibabel",
         "resample",
         "reorient",
-        "ConnCompResult",
         "SearchlightResult",
         "ROIExtractionResult",
-        "ParcelEffectResult",
-        "Receipt",
         "compat",
     }
     assert required <= set(ni.__all__)
