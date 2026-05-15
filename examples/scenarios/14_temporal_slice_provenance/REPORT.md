@@ -49,30 +49,27 @@ different surface.
 
 ## Pain points surfaced
 
-### PAIN-13 (P1) — `NeuroVec.__getitem__` with a time-axis slice drops to ndarray
+### PAIN-13 (P1, fixed) — `NeuroVec.__getitem__` with a time-axis slice drops to ndarray
 
-`DenseNeuroVec.__getitem__` has explicit branches for the 4-tuple and
-the `(int, int, int)` cases; every other key falls through to
-`self.data[key]` and returns the raw `ndarray`. For the very common
+`DenseNeuroVec.__getitem__` had explicit branches for the 4-tuple and
+the `(int, int, int)` cases; every other key fell through to
+`self.data[key]` and returned the raw `ndarray`. For the very common
 `bold[..., :N]` / `bold[..., N:]` / `bold[..., start:stop]` idiom,
-this means:
+this meant:
 
-- the typed `NeuroSpace` is lost;
-- any upstream `.provenance` is lost;
-- the user must manually rebuild a `DenseNeuroVec` on a derived
-  4-D space (the helper in `neuroim_version.py` does this) to keep
-  the rest of the pipeline typed.
+- the typed `NeuroSpace` was lost;
+- any upstream `.provenance` was lost;
+- the user had to manually rebuild a `DenseNeuroVec` on a derived
+  4-D space to keep the rest of the pipeline typed.
 
-**Suggested fix.** When the key targets only the time axis (e.g.
-`(Ellipsis, slice_obj)` or `(slice(None), slice(None), slice(None),
-slice_obj)`), derive a new 4-D `NeuroSpace` with the appropriate
-shortened time dim and return a `DenseNeuroVec` on it. Attach a
-`TemporalSliceParams` Receipt (see PAIN-14). For non-pure-time keys
-(e.g. a tuple that slices a spatial axis), the current
-fall-through-to-numpy behavior is acceptable because the result is no
-longer spatially well-defined.
+**Fix.** A new branch in the existing `else` clause detects pure
+time-axis selection (`result.ndim == 4` and `result.shape[:3] ==
+self.data.shape[:3]`) and returns a `DenseNeuroVec` on a derived
+4-D `NeuroSpace`. Non-pure-time keys (e.g. a tuple that slices a
+spatial axis) keep the original fall-through-to-numpy behavior because
+the result is no longer spatially well-defined.
 
-**Tracker:** to be filed.
+**Tracker:** bd-01KRM193KP32NRAJRMC2Y13RM9 (closed).
 
 ### PAIN-14 (P2) — `TemporalSliceParams(OpParams)` missing from the catalogue
 

@@ -145,7 +145,7 @@ class TestCorePerformance:
             
             # Read performance
             with Timer() as t_read:
-                vol_loaded = pn.read_vol(tmp.name)
+                vol_loaded = pn.io.read_vol(tmp.name)
             
             assert t_read.elapsed < self.R_BASELINES['io_read_small'] * 1.2
     

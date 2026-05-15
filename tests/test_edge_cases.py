@@ -300,7 +300,7 @@ class TestIOEdgeCases:
             pn.write_vol(vol, tmp.name)
             
             # Should read back successfully
-            vol2 = pn.read_vol(tmp.name)
+            vol2 = pn.io.read_vol(tmp.name)
             np.testing.assert_array_equal(vol.data, vol2.data)
     
     def test_write_read_special_values(self):
@@ -318,7 +318,7 @@ class TestIOEdgeCases:
             # Some formats might not support inf/nan
             try:
                 pn.write_vol(vol, tmp.name)
-                vol2 = pn.read_vol(tmp.name)
+                vol2 = pn.io.read_vol(tmp.name)
                 
                 # Check what was preserved
                 np.testing.assert_array_equal(vol.data[0], vol2.data[0])
@@ -340,7 +340,7 @@ class TestIOEdgeCases:
             filepath = os.path.join(subdir, "test file.nii.gz")
             
             pn.write_vol(vol, filepath)
-            vol2 = pn.read_vol(filepath)
+            vol2 = pn.io.read_vol(filepath)
             np.testing.assert_array_equal(vol.data, vol2.data)
     
     def test_readonly_file_handling(self):
@@ -358,7 +358,7 @@ class TestIOEdgeCases:
             os.chmod(tmp.name, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
             
             # Should still be able to read
-            vol2 = pn.read_vol(tmp.name)
+            vol2 = pn.io.read_vol(tmp.name)
             assert vol2 is not None
             
             # But not write

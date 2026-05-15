@@ -100,7 +100,9 @@ class TestNeuroVecEdgeCases:
 
         # Empty time slice
         empty = vec[..., 100:100]
+        assert isinstance(empty, DenseNeuroVec)
         assert empty.shape[-1] == 0
+        assert empty.space.dim[-1] == 0
 
         # Reversed time slice: indices 10, 9, 8, 7, 6
         reversed_slice = vec[..., 10:5:-1]

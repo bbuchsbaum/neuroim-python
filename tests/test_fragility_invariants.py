@@ -689,7 +689,7 @@ def test_write_back_disk_round_trip_rehydrates_receipt(tmp_path, qualified_name)
 
     out = tmp_path / "write_back.nii.gz"
     nib.save(img, str(out))
-    recovered = ni.read_image(str(out))
+    recovered = ni.io.read_image(str(out))
     assert hasattr(recovered, "provenance"), (
         f"{qualified_name}: read_image() did not surface .provenance on the "
         "returned object after write+read"

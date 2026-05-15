@@ -855,6 +855,11 @@ from .neuro_hypervec import read_neurohypervec as read_hyper_vec
 from .plotting import map_to_colors as mapToColors
 from .spatial_filters import bilateral_filter_4d
 
+# neuroim2-style readers. The Python-native public API uses
+# read_volume / read_series; read_vol / read_vec keep the R names
+# for migration parity and the regression oracle.
+from .io import read_vol, read_vec
+
 __all__ = [
     name
     for name in globals()

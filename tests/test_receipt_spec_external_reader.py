@@ -154,7 +154,7 @@ def test_reference_writer_produces_a_file_neuroim_can_re_hydrate(tmp_path: Path)
     out = tmp_path / "from_external.nii.gz"
     nib.save(img, str(out))
 
-    recovered_via_neuroim = ni.read_image(str(out))
+    recovered_via_neuroim = ni.io.read_image(str(out))
     assert hasattr(recovered_via_neuroim, "provenance")
     rcpt = recovered_via_neuroim.provenance
     assert rcpt.method_name == receipt_dict["method_name"]

@@ -3,7 +3,7 @@ import pytest
 
 from neuroim import NeuroSpace
 from neuroim.axis import AxisSet3D, NamedAxis
-from neuroim.typing import voxel_coord, world_coord
+from neuroim.protocols import voxel_coord, world_coord
 
 
 def test_neurospace_hash_and_equality_for_identical_fields():

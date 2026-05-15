@@ -161,6 +161,24 @@ def test_neurovec_exposes_first_class_parcel_means(fixture, atlas):
     np.testing.assert_allclose(direct.ts, factory.ts, rtol=1e-10, atol=1e-10)
 
 
+def test_scenario_rewrite_accepts_typed_atlas_with_source_provenance(
+    fixture, atlas, nib_bold
+):
+    typed_atlas = neuroim_version.typed_schaefer_fixture(atlas)
+
+    base_labels, base_ts = baseline_nibabel.parcel_timeseries(
+        nib_bold, _atlas_to_nifti(atlas)
+    )
+    rewrite = neuroim_version.parcel_timeseries(fixture.bold, typed_atlas)
+
+    np.testing.assert_allclose(base_ts.T, rewrite.ts, rtol=1e-10, atol=1e-10)
+    assert rewrite.atlas_provenance.family == "schaefer"
+    assert rewrite.atlas_provenance.canonical_source == "ThomasYeoLab/CBIG"
+    assert rewrite.atlas_provenance.delivery_backend == "scenario_fixture"
+    assert rewrite.atlas_provenance.label_table_hash != "none"
+    assert rewrite.atlas_provenance.image_hash != "none"
+
+
 def test_clustered_neuro_vec_carries_provenance(fixture, atlas):
     cv = fixture.bold.parcel_means(atlas)
     assert isinstance(cv.provenance, Receipt)

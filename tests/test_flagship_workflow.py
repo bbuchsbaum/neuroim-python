@@ -18,8 +18,8 @@ MASK_PATH = FIXTURE_DIR / "tiny_mask.nii.gz"
 
 def test_flagship_workflow_uses_neuroim_as_public_surface():
     """A user enters through neuroim, gets typed spatial analysis, and exits to NIfTI."""
-    bold = ni.read_image(BOLD_PATH)
-    mask = ni.read_image(MASK_PATH)
+    bold = ni.io.read_image(BOLD_PATH)
+    mask = ni.io.read_image(MASK_PATH)
 
     source_img = nib.load(BOLD_PATH)
     assert np.allclose(bold.space.affine, source_img.affine)

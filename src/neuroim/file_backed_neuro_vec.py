@@ -13,6 +13,7 @@ from .neuro_vec import NeuroVec
 from .neuro_space import NeuroSpace
 from .neuro_vol import NeuroVol, DenseNeuroVol
 from .io import read_vol
+from .exceptions import BackendDriftError
 
 class FileBackedNeuroVec(NeuroVec):
     """A file-backed 4D neuroimaging vector.
@@ -105,7 +106,7 @@ class FileBackedNeuroVec(NeuroVec):
         try:
             vol.space.compatible_with(self.vol_space)
         except ValueError as exc:
-            raise ValueError(
+            raise BackendDriftError(
                 f"Volume {idx} has inconsistent affine/space: {exc}"
             ) from None
 

@@ -17,6 +17,7 @@ from typing import Any, Optional
 import numpy as np
 
 from .results import Receipt, hash_ndarray, hash_neurospace
+from .exceptions import SpaceMismatchError, MaskMismatchError
 
 __all__ = [
     "assert_same_space",
@@ -100,7 +101,7 @@ def assert_same_space(a: Any, b: Any) -> None:
         try:
             sa.compatible_with(sb)
         except ValueError as exc:
-            raise ValueError(
+            raise SpaceMismatchError(
                 f"assert_same_space: spatial contract mismatch — {exc}"
             ) from None
         return
@@ -108,7 +109,7 @@ def assert_same_space(a: Any, b: Any) -> None:
     ha = _space_hash_of(a)
     hb = _space_hash_of(b)
     if ha != hb:
-        raise ValueError(
+        raise SpaceMismatchError(
             "assert_same_space: input_space_hash mismatch\n"
             f"  a.input_space_hash = {ha!r}\n"
             f"  b.input_space_hash = {hb!r}"
@@ -122,7 +123,7 @@ def assert_same_mask(a: Any, b: Any) -> None:
     ha = _mask_hash_of(a)
     hb = _mask_hash_of(b)
     if ha != hb:
-        raise ValueError(
+        raise MaskMismatchError(
             "assert_same_mask: mask_hash mismatch\n"
             f"  a.mask_hash = {ha!r}\n"
             f"  b.mask_hash = {hb!r}"

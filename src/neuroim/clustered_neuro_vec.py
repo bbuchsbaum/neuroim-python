@@ -4,11 +4,67 @@ Represents 4D data using cluster assignments and shared time series.
 """
 
 import numpy as np
-from typing import Dict, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 from .neuro_space import NeuroSpace
 from .clustered_neuro_vol import ClusteredNeuroVol
-from .results import Receipt
+from .results import ParcelContrastParams, Receipt, chain_receipt, receipt_for
+
+
+@dataclass(frozen=True)
+class ParcelEffectResult:
+    """Per-cluster scalar effects with owned projection back to volume space."""
+
+    labels: np.ndarray
+    effects: np.ndarray
+    cvol: ClusteredNeuroVol
+    provenance: Receipt
+    atlas_provenance: Optional[Any] = None
+    positive_name: str = "task"
+    negative_name: str = "rest"
+
+    @property
+    def values(self) -> np.ndarray:
+        """Alias for the numeric parcel effects."""
+        return self.effects
+
+    @property
+    def winning_label(self) -> int:
+        """Cluster id with the largest positive effect."""
+        return int(self.labels[int(np.argmax(self.effects))])
+
+    def map_to_volume(
+        self, *, dtype: Any = np.float64, fill: float = 0.0
+    ):
+        """Project parcel effects into a dense 3-D volume.
+
+        Voxel values are filled by cluster id, preserving the underlying
+        ``ClusteredNeuroVol`` spatial frame and carrying this result's Receipt.
+        """
+        from .neuro_vol import DenseNeuroVol
+
+        labels = np.asarray(self.labels, dtype=np.int32)
+        effects = np.asarray(self.effects, dtype=dtype)
+        if labels.ndim != 1 or effects.ndim != 1:
+            raise ValueError("labels and effects must be 1-D")
+        if labels.size != effects.size:
+            raise ValueError(
+                f"labels has {labels.size} entries but effects has {effects.size}"
+            )
+
+        flat = np.full(int(np.prod(self.cvol.shape)), fill, dtype=dtype)
+        for label, effect in zip(labels, effects):
+            indices = self.cvol.cluster_map.get(int(label))
+            if indices is None:
+                raise KeyError(f"Cluster ID {int(label)} not found")
+            flat[indices] = effect
+
+        out = flat.reshape(self.cvol.shape, order="F")
+        vol = DenseNeuroVol(out, self.cvol.space, label="parcel_effect")
+        vol.provenance = self.provenance
+        return vol
+
 
 class ClusteredNeuroVec:
     """4D neuroimaging data with cluster assignments and shared time-series per cluster.
@@ -45,6 +101,7 @@ class ClusteredNeuroVec:
         ts: np.ndarray,
         label: str = "",
         provenance: Optional[Receipt] = None,
+        atlas_provenance: Optional[Any] = None,
     ):
         if not isinstance(cvol, ClusteredNeuroVol):
             raise TypeError("cvol must be a ClusteredNeuroVol")
@@ -64,6 +121,7 @@ class ClusteredNeuroVec:
         self.cl_map = cvol.clusters
         self.label = label
         self.provenance = provenance
+        self.atlas_provenance = atlas_provenance
 
         # sorted unique cluster IDs for column mapping
         self._cluster_ids = np.sort(np.array(list(cvol.cluster_map.keys())))
@@ -151,6 +209,54 @@ class ClusteredNeuroVec:
         """
         for cid in self._cluster_ids:
             yield int(cid), self.cluster_timeseries(int(cid))
+
+    def contrast(
+        self,
+        condition,
+        *,
+        positive_name: str = "task",
+        negative_name: str = "rest",
+    ) -> ParcelEffectResult:
+        """Compute a positive-minus-negative mean contrast per cluster.
+
+        ``condition`` is a boolean vector aligned to the time axis. ``True``
+        samples form the positive condition; ``False`` samples form the
+        negative condition. The returned result owns label/effect alignment,
+        volume projection, atlas provenance, and chained Receipt metadata.
+        """
+        condition = np.asarray(condition, dtype=bool)
+        if condition.shape != (self.n_time,):
+            raise ValueError(
+                f"condition shape {condition.shape} != time axis {(self.n_time,)}"
+            )
+        if not condition.any() or condition.all():
+            raise ValueError("condition must contain both positive and negative samples")
+
+        effects = self.ts[condition].mean(axis=0) - self.ts[~condition].mean(axis=0)
+        method_name = f"contrast[{positive_name}-{negative_name}]"
+        params = ParcelContrastParams(
+            method_name=method_name,
+            positive_name=positive_name,
+            negative_name=negative_name,
+        )
+        if isinstance(self.provenance, Receipt):
+            receipt = chain_receipt(self, params=params, n_voxels=self.n_clusters)
+        else:
+            receipt = receipt_for(
+                self.cvol,
+                mask=self.cvol.as_dense().data,
+                n_voxels=self.n_clusters,
+                params=params,
+            )
+        return ParcelEffectResult(
+            labels=self.cluster_ids,
+            effects=effects,
+            cvol=self.cvol,
+            provenance=receipt,
+            atlas_provenance=self.atlas_provenance,
+            positive_name=positive_name,
+            negative_name=negative_name,
+        )
 
     # ------------------------------------------------------------------
     # Properties

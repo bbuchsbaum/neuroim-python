@@ -291,7 +291,7 @@ def test_rpy_cross_nifti_read_vol(tmp_path):
     nii = tmp_path / "x.nii"
     nib.save(nib.Nifti1Image(data, np.eye(4)), str(nii))
 
-    py_vol = pn.read_vol(nii)
+    py_vol = pn.io.read_vol(nii)
     r_arr = _r_read_vol_array(str(nii))
     np.testing.assert_allclose(py_vol.data, r_arr)
 
@@ -301,7 +301,7 @@ def test_rpy_cross_nifti_read_vec_indices(tmp_path):
     nii = tmp_path / "vec.nii"
     nib.save(nib.Nifti1Image(data4d, np.eye(4)), str(nii))
 
-    py_vec = pn.read_vec(nii, indices=[0, 2])
+    py_vec = pn.io.read_vec(nii, indices=[0, 2])
     r_arr = _r_read_vec_array(str(nii), np.array([1, 3], dtype=int))
     np.testing.assert_allclose(py_vec.data, r_arr)
 
@@ -310,7 +310,7 @@ def test_rpy_cross_afni_header_and_vol(tmp_path):
     base = np.arange(4 * 3 * 2 * 2, dtype=np.float32).reshape((4, 3, 2, 2), order="F")
     head = _write_afni_pair(tmp_path, "mini+orig", base, float_facs=[1.0, 2.0])
 
-    py_hdr = pn.read_header(head)
+    py_hdr = pn.io.read_header(head)
     r_dim, r_spacing, r_origin = _r_read_header_vectors(str(head))
 
     py_dim = np.asarray(py_hdr["dim"], dtype=int)
@@ -320,7 +320,7 @@ def test_rpy_cross_afni_header_and_vol(tmp_path):
     np.testing.assert_allclose(np.asarray(py_hdr["spacing"])[:3], r_spacing[:3])
     np.testing.assert_allclose(np.asarray(py_hdr["origin"])[:3], r_origin[:3])
 
-    py_vol = pn.read_vol(head, index=0)
+    py_vol = pn.io.read_vol(head, index=0)
     r_arr = _r_read_vol_array(str(head), index_1based=1)
     np.testing.assert_allclose(py_vol.data, r_arr)
 
@@ -330,7 +330,7 @@ def test_rpy_cross_afni_scaling_first_brick(tmp_path):
     scale = 2.5
     head = _write_afni_pair(tmp_path, "scaled+orig", base, float_facs=[scale])
 
-    py_vol = pn.read_vol(head)
+    py_vol = pn.io.read_vol(head)
     r_arr = _r_read_vol_array(str(head), index_1based=1)
 
     np.testing.assert_allclose(py_vol.data, base * scale)
@@ -412,7 +412,7 @@ def test_rpy_cross_afni_integer_brick_types(tmp_path, brick_type_code, storage_d
         brick_type_code=brick_type_code,
     )
 
-    py_vol = pn.read_vol(head)
+    py_vol = pn.io.read_vol(head)
     r_arr = _r_read_vol_array(str(head), index_1based=1)
     expected = np.asarray(base, dtype=storage_dtype).astype(np.float64) * scale
 

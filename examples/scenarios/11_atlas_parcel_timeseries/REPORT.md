@@ -16,17 +16,20 @@ demonstrated for masks, played out at the atlas boundary.
 
 ## Verdict
 
-| Axis | Baseline | neuroim after PAIN-1/3/4 |
+| Axis | Baseline | neuroim after PAIN-1/3/4/A4 |
 |---|---|---|
 | User-facing body statements | 7 | 1 (call site) |
 | Same-space mismatch caught | no | yes (inside `parcel_means`) |
 | Output carries provenance Receipt | no | yes (`method_name="parcel_means"`) |
+| Atlas source metadata | no | yes (`atlas_provenance`) |
 | Classes discoverable from `ni.__all__` | n/a | yes |
 
 **After PAIN-1/3: neuroim now wins the call-site shape for this workflow.**
 The rewrite collapses the hand-rolled atlas loop to one statement:
 `bold.parcel_means(atlas)`.  That method owns the same-space gate and returns
-a `ClusteredNeuroVec` with a provenance `Receipt`.
+a `ClusteredNeuroVec` with a provenance `Receipt`.  The typed-atlas path now
+adds source metadata on the result: canonical source, delivery backend, DOI,
+template space, image hash, and label-table hash.
 
 **The bug class is real and silent.**  The baseline returns an `(N, T)`
 matrix of the right shape on an LR-flipped atlas; the numbers are
@@ -72,6 +75,18 @@ True
 green: budget, dir(), star-import, and implementation-detail-leakage
 checks all pass.
 
+### A4 atlas module update -- closed: typed atlas object proves value add
+
+Scenario 11 now wraps the synthetic integer label image in a
+`neuroim.atlas.VolumetricAtlas` via `typed_schaefer_fixture()`.  The numeric
+projection still matches the raw nibabel baseline, but the neuroim result now
+also carries `atlas_provenance` with the Schaefer source policy:
+ThomasYeoLab/CBIG as canonical source, DOI `10.1093/cercor/bhx179`,
+fixture/TemplateFlow/CBIG as delivery backend, plus content hashes for the
+label image and label table.  This is the value over nibabel: not just fewer
+lines and better space checks, but an inspectable answer to "which atlas
+artifact produced these parcel time series?"
+
 ## Fixture
 
 Atlas built from the same `realistic_bold` fixture used by S02-S10 via
@@ -83,7 +98,8 @@ elliptical mask into 18 cuboid bins (3 x 3 x 2), labelled 1..18.
 
 `PYTHONPATH=src:tests:. python -m pytest tests/test_s11_atlas_parcel_timeseries.py`:
 
-- **6 passed, 0 xfailed** -- happy-path numeric parity, built-in
+- **7 passed, 0 xfailed** -- happy-path numeric parity, typed-atlas
+  source provenance, built-in
   same-space gate, baseline's silent acceptance of the affine mismatch,
   first-class `parcel_means`, `ClusteredNeuroVec` provenance, and the
   public-namespace export check.  All four scenario PAINs are closed.

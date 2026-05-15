@@ -69,8 +69,13 @@ class TestConnComp:
         assert result.cluster_table is not None
         assert isinstance(result.cluster_table, pd.DataFrame)
         
-        # Check columns
-        expected_columns = ['index', 'x', 'y', 'z', 'N', 'Area', 'value']
+        # Check columns.  The first seven are the legacy centroid-flavoured
+        # stats; the trailing four are the per-cluster peak in world mm +
+        # signed peak value, added by S18 PAIN-5.
+        expected_columns = [
+            'index', 'x', 'y', 'z', 'N', 'Area', 'value',
+            'peak_x_mm', 'peak_y_mm', 'peak_z_mm', 'peak_value',
+        ]
         assert list(result.cluster_table.columns) == expected_columns
         
         # Check number of rows

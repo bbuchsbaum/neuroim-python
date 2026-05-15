@@ -8,8 +8,8 @@ import neuroim as ni
 def test_docs_quickstart_flagship_workflow():
     root = Path(__file__).resolve().parents[1]
 
-    bold = ni.read_image(str(root / "golden_tests/fixtures/tiny_bold.nii.gz"))
-    mask = ni.read_image(
+    bold = ni.io.read_image(str(root / "golden_tests/fixtures/tiny_bold.nii.gz"))
+    mask = ni.io.read_image(
         str(root / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol"
     )
 

@@ -113,7 +113,7 @@ def test_disk_round_trip_recovers_provenance(tmp_path: Path):
     )
     out = tmp_path / "roi_map.nii.gz"
     nib.save(result.to_nibabel(), str(out))
-    back = ni.read_image(str(out))
+    back = ni.io.read_image(str(out))
     assert hasattr(back, "provenance")
     assert back.provenance == result.provenance
 

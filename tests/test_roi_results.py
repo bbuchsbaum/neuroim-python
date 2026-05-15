@@ -115,3 +115,39 @@ def test_values_roi_rejects_roi_space_mismatch():
 
     with pytest.raises(ValueError, match="spatial contract mismatch"):
         values_roi(vol, roi)
+
+
+def test_neuro_vol_values_roi_method_matches_free_function():
+    """API consistency: ``vol.values_roi(roi)`` mirrors
+    ``ni.values_roi(vol, roi)``.
+
+    Closes the parity gap with ``NeuroVec.series_roi``, which has had a
+    method form alongside the free function since ME-1; ``NeuroVol.values_roi``
+    is the corresponding shape on the volume side.
+    """
+    space = NeuroSpace(dim=(4, 4, 3))
+    shape = tuple(space.dim)
+    data = np.arange(np.prod(shape), dtype=np.float32).reshape(shape)
+    vol = DenseNeuroVol(data, space)
+    roi = _make_roi()
+
+    method_result = vol.values_roi(roi)
+    free_result = values_roi(vol, roi)
+    assert isinstance(method_result, ROIExtractionResult)
+    np.testing.assert_array_equal(method_result.values, free_result.values)
+    assert (
+        method_result.provenance.method_name == free_result.provenance.method_name
+    )
+
+
+def test_neuro_vol_values_roi_method_rejects_mismatched_space():
+    """Method form inherits the free function's same-space contract."""
+    space = NeuroSpace(dim=(4, 4, 3))
+    shape = tuple(space.dim)
+    vol = DenseNeuroVol(np.zeros(shape, dtype=np.float32), space)
+    shifted_affine = np.eye(4)
+    shifted_affine[1, 3] = 5.0
+    roi = ROICoords(_make_roi().coords, NeuroSpace(dim=(4, 4, 3), trans=shifted_affine))
+
+    with pytest.raises(ValueError, match="spatial contract mismatch"):
+        vol.values_roi(roi)

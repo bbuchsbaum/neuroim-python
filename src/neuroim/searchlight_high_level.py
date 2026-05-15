@@ -14,7 +14,7 @@ from .neuro_vec import NeuroVec
 from .results import SearchlightResult, make_receipt
 from .searchlight import searchlight_iterator
 from .clustered_neuro_vol import ClusteredNeuroVol
-from .typing import MaskLike, NeuroVecLike, NeuroVolLike
+from .protocols import MaskLike, NeuroVecLike, NeuroVolLike
 
 
 _LEGACY_DEPRECATION_MSG = (

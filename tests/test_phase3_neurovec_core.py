@@ -15,6 +15,16 @@ from neuroim.neuro_vec import (
 )
 
 
+def _unwrap(x):
+    """Explicitly cross the typed->ndarray boundary.
+
+    A1a: typed containers no longer implicitly coerce via np.asarray.
+    ``.data`` is the native-shaped ndarray for both DenseNeuroVol (3-D)
+    and DenseNeuroVec (4-D); plain ndarrays pass through unchanged.
+    """
+    return x.data if hasattr(x, "space") and hasattr(x, "data") else np.asarray(x)
+
+
 def gen_dat(d1=12, d2=12, d3=12, d4=4, rand=False):
     """Helper function to generate test data (matches R's gen_dat)."""
     if rand:
@@ -122,8 +132,8 @@ class TestNeuroVecOperations:
         # Extract specific volumes
         vols2 = bv1.vols([1, 2])
         assert len(vols2) == 2
-        assert_array_equal(vols2[0].data, bv1[..., 1])
-        assert_array_equal(vols2[1].data, bv1[..., 2])
+        assert_array_equal(vols2[0].data, _unwrap(bv1[..., 1]))
+        assert_array_equal(vols2[1].data, _unwrap(bv1[..., 2]))
 
 
 class TestNeuroVecSeries:
@@ -280,13 +290,13 @@ class TestSparseNeuroVec:
         
         assert_array_equal(bvec.dim, dat.shape)
         assert bvec[0, 0, 0, 0] == dat[0, 0, 0, 0]
-        assert_array_equal(bvec[0, 0, 0, :], dat[0, 0, 0, :])
-        assert_array_equal(bvec[0, 0, :, :], dat[0, 0, :, :])
-        assert_array_equal(bvec[0, :, :, :], dat[0, :, :, :])
-        assert_array_equal(bvec[0, 1:3, :, :], dat[0, 1:3, :, :])
-        assert_array_equal(bvec[0, 1:3, :, 1:3], dat[0, 1:3, :, 1:3])
-        assert_array_equal(bvec[0:3, 1:3, :, :], dat[0:3, 1:3, :, :])
-        assert_array_equal(bvec[0, 1:3, 1:3, :], dat[0, 1:3, 1:3, :])
+        assert_array_equal(_unwrap(bvec[0, 0, 0, :]), dat[0, 0, 0, :])
+        assert_array_equal(_unwrap(bvec[0, 0, :, :]), dat[0, 0, :, :])
+        assert_array_equal(_unwrap(bvec[0, :, :, :]), dat[0, :, :, :])
+        assert_array_equal(_unwrap(bvec[0, 1:3, :, :]), dat[0, 1:3, :, :])
+        assert_array_equal(_unwrap(bvec[0, 1:3, :, 1:3]), dat[0, 1:3, :, 1:3])
+        assert_array_equal(_unwrap(bvec[0:3, 1:3, :, :]), dat[0:3, 1:3, :, :])
+        assert_array_equal(_unwrap(bvec[0, 1:3, 1:3, :]), dat[0, 1:3, 1:3, :])
     
     def test_sparse_arithmetic(self):
         """Test arithmetic on SparseNeuroVec."""

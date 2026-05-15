@@ -16,6 +16,35 @@ from .neuro_vol import (
     _restore_nibabel_xforms,
 )
 from .axis import drop_axis
+from ._array_guard import refuse_array_conversion
+from .exceptions import OutOfBoundsError, WorldOutOfBoundsError, InvalidArgumentError
+
+
+def _readonly_array(value, *, dtype):
+    arr = np.array(value, dtype=dtype, copy=True)
+    arr.setflags(write=False)
+    return arr
+
+
+def _empty_time_slice_space(dim, spacing, origin, axes):
+    """Build the private space needed for NumPy-valid empty time slices."""
+    ndim = len(dim)
+    trans = np.eye(ndim + 1)
+    trans[:ndim, :ndim] = np.diag(spacing)
+    trans[:ndim, ndim] = origin
+
+    space = object.__new__(NeuroSpace)
+    object.__setattr__(space, "_frozen", False)
+    object.__setattr__(space, "dim", _readonly_array(dim, dtype=int))
+    object.__setattr__(space, "spacing", _readonly_array(spacing, dtype=float))
+    object.__setattr__(space, "origin", _readonly_array(origin, dtype=float))
+    object.__setattr__(space, "trans", _readonly_array(trans, dtype=float))
+    object.__setattr__(
+        space, "inverse", _readonly_array(np.linalg.inv(trans), dtype=float)
+    )
+    object.__setattr__(space, "axes", axes)
+    object.__setattr__(space, "_frozen", True)
+    return space
 
 
 def _warn_legacy_method(name: str, replacement: str) -> None:
@@ -45,6 +74,9 @@ class NeuroVec(ABC):
         if space.ndim != 4:
             raise ValueError("NeuroVec requires 4D space")
         self.space = space
+
+    def __array__(self, *args, **kwargs):
+        refuse_array_conversion(self, ".as_matrix()")
 
     @classmethod
     def from_array(cls, data, space: NeuroSpace) -> "DenseNeuroVec":
@@ -128,7 +160,7 @@ class NeuroVec(ABC):
 
     def _validate_out_of_bounds_mode(self, out_of_bounds: str) -> None:
         if out_of_bounds not in {"raise", "zero"}:
-            raise ValueError("out_of_bounds must be 'raise' or 'zero'")
+            raise InvalidArgumentError("out_of_bounds must be 'raise' or 'zero'")
 
     def _spatial_shape(self) -> Tuple[int, int, int]:
         return tuple(int(d) for d in self.shape[:3])
@@ -162,7 +194,7 @@ class NeuroVec(ABC):
         bad = values[~valid_mask]
         preview = bad[:5].tolist()
         suffix = "" if bad.shape[0] <= 5 else f" ... (+{bad.shape[0] - 5} more)"
-        raise IndexError(
+        raise OutOfBoundsError(
             f"{label} out of bounds for spatial shape {self._spatial_shape()}: "
             f"{preview}{suffix}"
         )
@@ -253,7 +285,7 @@ class NeuroVec(ABC):
         return np.asarray(self.space.world_to_grid(world), dtype=int)
 
     def _raise_world_oob(self, world_xyz: np.ndarray, voxel: np.ndarray) -> None:
-        raise ValueError(
+        raise WorldOutOfBoundsError(
             f"world coord {tuple(float(x) for x in world_xyz)} mm maps to voxel "
             f"{tuple(int(v) for v in voxel)} which is outside the image grid "
             f"of shape {self._spatial_shape()}."
@@ -485,8 +517,9 @@ class NeuroVec(ABC):
     def parcel_means(self, atlas, *, label: str = ""):
         """Extract per-parcel mean BOLD time series from an atlas.
 
-        ``atlas`` may be an integer-labelled :class:`DenseNeuroVol` or an
-        already-built :class:`ClusteredNeuroVol`.  The returned
+        ``atlas`` may be a typed :class:`neuroim.atlas.VolumetricAtlas`, an
+        integer-labelled :class:`DenseNeuroVol`, or an already-built
+        :class:`ClusteredNeuroVol`.  The returned
         :class:`ClusteredNeuroVec` stores a ``(n_time, n_clusters)`` matrix,
         sorted by ascending cluster id, and carries a provenance
         :class:`Receipt` recording the input space and atlas label payload.
@@ -496,9 +529,15 @@ class NeuroVec(ABC):
         from .results import RoiOpParams, receipt_for
         from .verify import assert_same_space
 
-        if isinstance(atlas, ClusteredNeuroVol):
+        atlas_provenance = None
+        if hasattr(atlas, "to_clustered_vol") and hasattr(atlas, "label_image"):
+            cvol = atlas.to_clustered_vol()
+            atlas_payload = np.asarray(atlas.label_image.data, dtype=np.int32)
+            atlas_provenance = getattr(atlas, "provenance", None)
+        elif isinstance(atlas, ClusteredNeuroVol):
             cvol = atlas
             atlas_payload = cvol.as_dense().data
+            atlas_provenance = getattr(cvol, "atlas_provenance", None)
         elif isinstance(atlas, DenseNeuroVol):
             atlas_payload = np.asarray(atlas.data, dtype=np.int32)
             mask = LogicalNeuroVol(atlas_payload > 0, atlas.space)
@@ -530,7 +569,13 @@ class NeuroVec(ABC):
             params=RoiOpParams(method_name="parcel_means"),
             upstream=self,
         )
-        return ClusteredNeuroVec(cvol, ts, label=label, provenance=receipt)
+        return ClusteredNeuroVec(
+            cvol,
+            ts,
+            label=label,
+            provenance=receipt,
+            atlas_provenance=atlas_provenance,
+        )
 
     @abstractmethod
     def as_sparse(self, mask=None) -> "SparseNeuroVec":
@@ -770,6 +815,72 @@ class DenseNeuroVec(NeuroVec):
                     trans=self.trans[:4, :4] if self.space.ndim <= 4 else None,
                 )
                 return DenseNeuroVol(result, vol_space)
+            # PAIN-13: a pure time-axis selection (spatial dims unchanged) must
+            # remain a typed NeuroVec so downstream callers do not need to
+            # re-wrap.  PAIN-14: attach a TemporalSliceParams Receipt that
+            # records the slice indices and chains any upstream provenance,
+            # so a downstream temporal_snr / series_roi composes the lineage.
+            if (
+                result.ndim == 4
+                and tuple(result.shape[:3]) == tuple(self.data.shape[:3])
+            ):
+                from .axis import AxisSet4D, NamedAxis
+                from .results import TemporalSliceParams, receipt_for
+
+                spatial = self.spatial_space
+                t_axis = NamedAxis("t", int(result.shape[3]))
+                axes_4d = AxisSet4D(
+                    spatial.axes.i, spatial.axes.j, spatial.axes.k, t_axis
+                )
+                new_dim = [int(d) for d in result.shape]
+                new_spacing = [float(s) for s in spatial.spacing] + [1.0]
+                new_origin = [float(o) for o in spatial.origin] + [0.0]
+                if new_dim[3] == 0:
+                    new_space = _empty_time_slice_space(
+                        new_dim, new_spacing, new_origin, axes_4d
+                    )
+                else:
+                    new_space = NeuroSpace(
+                        dim=new_dim,
+                        spacing=new_spacing,
+                        origin=new_origin,
+                        axes=axes_4d,
+                    )
+                sliced = DenseNeuroVec(result, new_space)
+
+                # Extract the (start, stop, step) the caller passed on the
+                # time axis, if any.  Handles ``vec[..., :N]`` (key is a
+                # 2-tuple) and the explicit ``vec[:, :, :, slice]`` form.
+                t_slice: Optional[slice] = None
+                if isinstance(key, tuple):
+                    if len(key) > 0 and key[-1] is Ellipsis:
+                        t_slice = None
+                    elif len(key) >= 1 and isinstance(key[-1], slice):
+                        t_slice = key[-1]
+                start = t_slice.start if t_slice is not None else None
+                stop = t_slice.stop if t_slice is not None else None
+                step = t_slice.step if t_slice is not None else None
+
+                # Encode the slice in the method_name so a chained Receipt
+                # reads e.g. "temporal_slice(start=10,stop=None,step=None)+
+                # temporal_snr" — same shape as resample_vec(order=1,...).
+                pieces = ["temporal_slice("]
+                pieces.append(f"start={start},stop={stop},step={step}")
+                pieces.append(")")
+                slice_method_name = "".join(pieces)
+
+                sliced.provenance = receipt_for(
+                    new_space,
+                    n_voxels=int(np.prod(new_space.dim[:3])),
+                    params=TemporalSliceParams(
+                        method_name=slice_method_name,
+                        start=start,
+                        stop=stop,
+                        step=step,
+                    ),
+                    upstream=self,
+                )
+                return sliced
             return result
 
     def __setitem__(self, key, value):

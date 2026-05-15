@@ -13,8 +13,9 @@ from typing import Union, Callable
 from .neuro_vol import NeuroVol, DenseNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_space import NeuroSpace
-from .typing import NeuroVecLike, NeuroVolLike
+from .protocols import NeuroVecLike, NeuroVolLike
 from .verify import assert_same_space
+from .exceptions import SpaceMismatchError
 
 
 def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
@@ -46,7 +47,7 @@ def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
         try:
             assert_same_space(first.space, v.space)
         except ValueError as exc:
-            raise ValueError(
+            raise SpaceMismatchError(
                 "spatial contract mismatch: NeuroVecs must have same "
                 f"spatial dimensions and affine; {exc}"
             ) from None

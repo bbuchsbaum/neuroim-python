@@ -6,7 +6,8 @@ from pathlib import Path
 
 # Test what imports work
 try:
-    from neuroim import read_vol, write_vol, DenseNeuroVol, NeuroSpace
+    from neuroim import (write_vol, DenseNeuroVol, NeuroSpace)
+    from neuroim.io import read_vol
     print("✓ Basic imports work")
 except ImportError as e:
     print(f"✗ Import error: {e}")

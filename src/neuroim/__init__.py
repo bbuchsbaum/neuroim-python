@@ -75,18 +75,15 @@ from .roi_vec_window import ROIVecWindow
 
 # Import I/O functions only if nibabel is available
 try:
+    # Curated public readers/writers. The full I/O surface
+    # (read_vol, read_vec, read_image, read_header, read_meta_info,
+    # read_vol_list, load_data) lives in the neuroim.io subpackage;
+    # neuroim2-style read_vol/read_vec also live in neuroim.compat.
     from .io import (
-        read_vol,
-        write_vol,
-        read_header,
-        read_vol_list,
-        read_vec,
-        write_vec,
-        read_meta_info,
-        read_image,
         read_volume,
         read_series,
-        load_data,
+        write_vol,
+        write_vec,
     )
 
     # File format and metadata
@@ -343,12 +340,9 @@ __all__ = [
     "cuboid_roi",
     "searchlight",
     "searchlight_apply",
-    "read_image",
     "read_volume",
     "read_series",
-    "read_vol",
     "write_vol",
-    "read_vec",
     "write_vec",
     "from_nibabel",
     "resample",

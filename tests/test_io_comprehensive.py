@@ -12,13 +12,9 @@ try:
 except ImportError:
     NIBABEL_AVAILABLE = False
 
-from neuroim import (
-    read_vol, write_vol, read_vec, write_vec, 
-    read_vol_list, read_header, read_meta_info,
-    DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol,
-    DenseNeuroVec, SparseNeuroVec,
-    NeuroSpace
-)
+from neuroim import (write_vol, write_vec, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol, DenseNeuroVec, SparseNeuroVec, NeuroSpace)
+from neuroim.io import read_header, read_meta_info
+from neuroim.io import read_vol, read_vec, read_vol_list
 
 
 @pytest.mark.skipif(not NIBABEL_AVAILABLE, reason="nibabel not available")

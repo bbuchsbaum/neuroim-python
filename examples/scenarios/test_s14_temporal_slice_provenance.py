@@ -62,7 +62,6 @@ def test_neuroim_tsnr_after_slice_is_typed_and_compatible(fixture):
     assert out.provenance.mask_hash
 
 
-@pytest.mark.xfail(strict=True, reason="PAIN-13: NeuroVec.__getitem__ time-slice drops type")
 def test_pain_13_time_axis_slice_preserves_neurovec_type(fixture):
     sliced = fixture.bold[..., _DROP_FIRST:]
     assert isinstance(sliced, ni.NeuroVec), (
@@ -70,6 +69,7 @@ def test_pain_13_time_axis_slice_preserves_neurovec_type(fixture):
         "expected NeuroVec (PAIN-13)"
     )
     assert sliced.shape[-1] == fixture.bold.shape[-1] - _DROP_FIRST
+    assert sliced.space.compatible_with(fixture.bold.spatial_space)
 
 
 @pytest.mark.xfail(strict=True, reason="PAIN-14: TemporalSliceParams missing, no chain through slice -> temporal_snr")

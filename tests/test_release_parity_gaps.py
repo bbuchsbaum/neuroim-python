@@ -133,7 +133,7 @@ def test_read_header_exposes_neuroim2_style_fields(tmp_path):
     path = tmp_path / "header.nii"
     nib.save(img, path)
 
-    header = ni.read_header(path)
+    header = ni.io.read_header(path)
 
     required = {
         "dim",

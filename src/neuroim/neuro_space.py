@@ -14,7 +14,8 @@ from .axis import (
     axis_names,
     axis_set,
 )
-from .typing import VoxelCoord, WorldCoord
+from .protocols import VoxelCoord, WorldCoord
+from .exceptions import InvalidSpaceError, ImmutableError, SpaceMismatchError
 
 
 def _readonly_array(value: np.ndarray, *, dtype=None) -> np.ndarray:
@@ -59,7 +60,7 @@ class NeuroSpace:
         if len(self.dim) == 0:
             raise ValueError("Dimensions cannot be empty")
         if np.any(self.dim <= 0):
-            raise ValueError("All dimensions must be positive")
+            raise InvalidSpaceError("All dimensions must be positive")
 
         ndim = len(self.dim)
 
@@ -83,7 +84,7 @@ class NeuroSpace:
 
         # Validate spacing
         if np.any(self.spacing <= 0):
-            raise ValueError("Spacing values must be positive")
+            raise InvalidSpaceError("Spacing values must be positive")
 
         # Handle transformation matrix
         if trans is None:
@@ -103,7 +104,7 @@ class NeuroSpace:
             object.__setattr__(self, "trans", np.array(trans, dtype=float, copy=True))
             # For 4D+ spaces, allow larger transformation matrices
             if ndim <= 3 and self.trans.shape != (4, 4):
-                raise ValueError(
+                raise InvalidSpaceError(
                     f"trans must be 4x4 matrix for {ndim}D space, got {self.trans.shape}"
                 )
             elif ndim > 3 and self.trans.shape != (ndim + 1, ndim + 1):
@@ -128,7 +129,7 @@ class NeuroSpace:
                         full_trans[i, i] = compact[i, -1]
                     object.__setattr__(self, "trans", full_trans)
                 else:
-                    raise ValueError(
+                    raise InvalidSpaceError(
                         f"trans must be {ndim+1}x{ndim+1} matrix for {ndim}D space, got {self.trans.shape}"
                     )
 
@@ -154,7 +155,7 @@ class NeuroSpace:
             if ndim < 3 and rank >= ndim + 1:
                 object.__setattr__(self, "inverse", np.linalg.pinv(self.trans))
             else:
-                raise ValueError("Transformation matrix must be invertible")
+                raise InvalidSpaceError("Transformation matrix must be invertible")
 
         # Handle axes
         # Convert list of axis names to AxisSet
@@ -193,7 +194,7 @@ class NeuroSpace:
 
     def __setattr__(self, name, value):
         if getattr(self, "_frozen", False):
-            raise AttributeError("NeuroSpace is immutable")
+            raise ImmutableError("NeuroSpace is immutable")
         object.__setattr__(self, name, value)
 
     @classmethod
@@ -267,13 +268,13 @@ class NeuroSpace:
         self_dim = tuple(int(d) for d in self.dim[:3])
         other_dim = tuple(int(d) for d in other.dim[:3])
         if self_dim != other_dim:
-            raise ValueError(
+            raise SpaceMismatchError(
                 "NeuroSpace mismatch in spatial dim: "
                 f"left={self_dim}, right={other_dim}"
             )
 
         if not np.allclose(self.affine, other.affine, atol=atol):
-            raise ValueError(
+            raise SpaceMismatchError(
                 "NeuroSpace mismatch in affine: "
                 f"left={self.affine.tolist()}, right={other.affine.tolist()}"
             )

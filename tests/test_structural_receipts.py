@@ -33,6 +33,8 @@ _KNOWN_OPPARAMS = {
     "RoiOpParams",
     "SearchlightParams",
     "TemporalReductionParams",
+    "SpatialFilterParams",
+    "ParcelContrastParams",
     "ConcatParams",
 }
 

@@ -9,7 +9,7 @@ import numpy as np
 from typing import Union, Tuple, Optional, List
 from abc import ABC, abstractmethod
 from .neuro_space import NeuroSpace
-from .typing import MaskLike, NeuroVolLike
+from .protocols import MaskLike, NeuroVolLike
 
 _VolumeInput = Union[NeuroVolLike, MaskLike]
 

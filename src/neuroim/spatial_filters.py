@@ -15,52 +15,98 @@ def gaussian_blur(
     mask: Optional[LogicalNeuroVol] = None,
     sigma: float = 2,
     window: int = 1,
+    *,
+    fwhm_mm: Optional[float] = None,
 ) -> DenseNeuroVol:
-    """Apply Gaussian blur to a volumetric image.
+    """Apply a Gaussian blur to a volumetric image.
 
-    This function applies an isotropic discrete Gaussian kernel to smooth
-    a volumetric image (3D brain MRI data). The blurring is performed within
-    a specified image mask, with customizable kernel parameters.
+    For fMRI workflows, prefer ``fwhm_mm=`` over the legacy ``sigma=``.  The
+    R neuroim2 ``gaussian_blur`` interprets sigma in millimetres and applies
+    per-axis voxel spacing inside its C++ kernel; the Python port historically
+    accepted sigma in *voxel* units and did not apply spacing, which silently
+    produced anisotropic-in-mm smoothing on anisotropic voxels.  Passing
+    ``fwhm_mm`` restores the mm-space contract: the value is converted to
+    per-axis voxel sigma via ``vol.space.spacing``, so smoothing is
+    isotropic in millimetres regardless of voxel anisotropy.
 
     Parameters
     ----------
     vol : NeuroVol
-        The image volume to be smoothed
+        The image volume to be smoothed.
     mask : LogicalNeuroVol, optional
-        Image mask defining the region where blurring is applied.
-        If not provided, the entire volume is processed.
-    sigma : float
-        Standard deviation of the Gaussian kernel (default is 2)
+        Image mask defining the region where blurring is applied.  When
+        supplied, ``verify.assert_same_space(vol, mask)`` is invoked first
+        so a foreign-affine mask raises before any smoothing occurs.
+    sigma : float, optional
+        Voxel-space sigma for the legacy scalar form.  Used only when
+        ``fwhm_mm`` is None.  Default is 2 voxels.
     window : int
-        Number of voxels to include on each side of the center voxel.
-        For example, window=1 results in a 3x3x3 kernel (default is 1)
+        Truncation half-width in voxels (``window=1`` corresponds to the
+        scipy default ``truncate=1``).
+    fwhm_mm : float, optional (keyword only)
+        Full width at half maximum, in millimetres.  When supplied, this
+        takes precedence over ``sigma`` and is converted to per-axis voxel
+        sigma using ``vol.space.spacing``.
 
     Returns
     -------
     DenseNeuroVol
-        The smoothed image
-
+        The smoothed image.  Carries a populated
+        :class:`~neuroim.results.Receipt` in ``.provenance`` recording
+        ``method_name="gaussian_blur"`` or an upstream-chained method name
+        such as ``"temporal_snr+gaussian_blur"``, the FWHM (when supplied),
+        and the mask hash.
     """
     if window < 1:
         raise ValueError("Window size must be at least 1")
-    if sigma <= 0:
-        raise ValueError("Sigma must be positive")
-
-    # Work with the original data when possible
-    data = vol.data
+    if fwhm_mm is not None:
+        if fwhm_mm <= 0:
+            raise ValueError("fwhm_mm must be positive")
+        spacing = np.asarray(vol.space.spacing[:3], dtype=float)
+        # FWHM -> sigma conversion, per axis.
+        sigma_used: Union[float, np.ndarray] = (
+            fwhm_mm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+        ) / spacing
+        # Use scipy's default kernel extent (~4 sigma each side) rather than the
+        # legacy ``window=1`` voxel-truncation; otherwise the kernel is so narrow
+        # that anisotropic-voxel correctness is lost to discretisation.
+        truncate_used = 4.0
+    else:
+        if sigma <= 0:
+            raise ValueError("Sigma must be positive")
+        sigma_used = sigma
+        truncate_used = float(window)
 
     if mask is not None:
-        # Create output array only when mask is provided
+        from .verify import assert_same_space
+
+        assert_same_space(vol, mask)
+
+    data = vol.data
+    blurred_data = ndimage.gaussian_filter(
+        data, sigma=sigma_used, truncate=truncate_used
+    )
+    if mask is not None:
         output_data = data.copy()
         mask_indices = np.where(mask.data)
-        # Apply gaussian filter only to masked region for efficiency
-        blurred_data = ndimage.gaussian_filter(data, sigma=sigma, truncate=window)
         output_data[mask_indices] = blurred_data[mask_indices]
     else:
-        # When no mask, directly apply filter (no copy needed)
-        output_data = ndimage.gaussian_filter(data, sigma=sigma, truncate=window)
+        output_data = blurred_data
 
-    return DenseNeuroVol(output_data, vol.space)
+    from .results import SpatialFilterParams, receipt_for
+
+    mask_payload = np.asarray(mask.data, dtype=bool) if mask is not None else None
+    receipt = receipt_for(
+        vol,
+        mask=mask_payload,
+        n_voxels=int(np.prod(vol.shape)) if mask is None else int(mask_payload.sum()),
+        params=SpatialFilterParams(
+            method_name="gaussian_blur",
+            radius=float(fwhm_mm) if fwhm_mm is not None else float(sigma),
+        ),
+        upstream=vol,
+    )
+    return DenseNeuroVol(output_data, vol.space, provenance=receipt)
 
 def box_blur(data: np.ndarray, mask_indices: np.ndarray, radius: int) -> np.ndarray:
     """Helper function for guided filter: applies box blur to the data."""

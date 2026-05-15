@@ -15,7 +15,7 @@ Same numeric pipeline as :mod:`baseline_nibabel`:
      comment extension (ecode 6, prefix ``neuroim/receipt/v1:``) on
      write.
 
-At audit time, ``ni.read_image(path).provenance`` re-hydrates the same
+At audit time, ``ni.io.read_image(path).provenance`` re-hydrates the same
 Receipt and the audit succeeds for the file alone — no producer, no
 sidecar, no Slack thread.
 """
@@ -62,7 +62,7 @@ def audit(file_path: Path) -> Dict[str, Any]:
     function reads it back through :func:`neuroim.read_image` and
     surfaces the five questions S13 stakes the mission claim on.
     """
-    vol = ni.read_image(str(file_path))
+    vol = ni.io.read_image(str(file_path))
     prov = vol.provenance
     if prov is None:
         return {

@@ -60,5 +60,5 @@ def read_provenance_from_file(out_path: Path) -> Optional[Receipt]:
     current state on main (PAIN-6).  The acceptance test treats
     ``None`` as the falsifying observation.
     """
-    img = ni.read_image(str(out_path))
+    img = ni.io.read_image(str(out_path))
     return getattr(img, "provenance", None)

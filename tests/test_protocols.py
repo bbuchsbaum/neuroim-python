@@ -13,7 +13,7 @@ from neuroim import searchlight_apply
 from neuroim.neuro_space import NeuroSpace
 from neuroim.neuro_vol import LogicalNeuroVol
 from neuroim.results import SearchlightResult
-from neuroim.typing import (
+from neuroim.protocols import (
     MaskLike,
     NeuroVecLike,
     NeuroVolLike,

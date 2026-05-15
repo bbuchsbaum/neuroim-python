@@ -56,7 +56,7 @@ def split_run(tmp_path):
     mask_img = nib.Nifti1Image(mask, affine)
     mask_path = tmp_path / "mask.nii.gz"
     nib.save(mask_img, str(mask_path))
-    mask_vol = ni.read_image(str(mask_path)).as_logical()
+    mask_vol = ni.io.read_image(str(mask_path)).as_logical()
     return paths, drift_paths, mask_img, mask_vol
 
 

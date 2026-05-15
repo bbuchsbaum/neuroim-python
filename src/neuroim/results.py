@@ -34,12 +34,16 @@ __all__ = [
     "hash_neurospace",
     "make_receipt",
     "receipt_for",
+    "chain_receipt",
     "OpParams",
     "RoiOpParams",
     "SearchlightParams",
     "TemporalReductionParams",
+    "SpatialFilterParams",
+    "ParcelContrastParams",
     "ConcatParams",
     "ResampleParams",
+    "TemporalSliceParams",
     "RECEIPT_NIFTI_PREFIX",
 ]
 
@@ -204,10 +208,19 @@ class Receipt:
             merged_mask = other.mask_hash
         else:
             merged_mask = self.mask_hash
+        if self.radius == other.radius:
+            merged_radius = self.radius
+        elif self.radius is None:
+            merged_radius = other.radius
+        elif other.radius is None:
+            merged_radius = self.radius
+        else:
+            merged_radius = None
         return replace(
             self,
             method_name=method_name,
             mask_hash=merged_mask,
+            radius=merged_radius,
             n_voxels=max(self.n_voxels, other.n_voxels),
             seed=self.seed if self.seed == other.seed else None,
             source_affine_hash=(
@@ -434,6 +447,19 @@ class TemporalReductionParams(OpParams):
 
 
 @dataclass(frozen=True)
+class SpatialFilterParams(OpParams):
+    """Op-params for spatial filters such as ``gaussian_blur``."""
+
+
+@dataclass(frozen=True)
+class ParcelContrastParams(OpParams):
+    """Op-params for parcel-level condition contrasts."""
+
+    positive_name: str = "task"
+    negative_name: str = "rest"
+
+
+@dataclass(frozen=True)
 class ConcatParams(OpParams):
     """Op-params for time-axis concat across inputs."""
 
@@ -449,6 +475,21 @@ class ResampleParams(OpParams):
     """
 
     interpolation: int = 1
+
+
+@dataclass(frozen=True)
+class TemporalSliceParams(OpParams):
+    """Op-params for a pure time-axis slice of a 4-D :class:`NeuroVec`.
+
+    Records the ``slice(start, stop, step)`` the caller applied so a
+    downstream consumer can tell which timepoints the derived vec
+    actually came from.  The defaults (``None``) match Python's
+    ``slice(None)`` shorthand for "whole axis".
+    """
+
+    start: Optional[int] = None
+    stop: Optional[int] = None
+    step: Optional[int] = None
 
 
 def receipt_for(
@@ -501,6 +542,36 @@ def receipt_for(
             method_name=f"{upstream_receipt.method_name}+{params.method_name}",
         )
     return receipt
+
+
+def chain_receipt(
+    upstream: Any,
+    *,
+    params: OpParams,
+    n_voxels: Optional[int] = None,
+) -> Receipt:
+    """Extend an upstream Receipt with a typed downstream operation.
+
+    Use this when a downstream operation is a pure reduction/projection of an
+    already-typed result and should preserve the upstream spatial contract
+    rather than re-anchor provenance to the reduced container's own shape.
+    """
+    if isinstance(upstream, Receipt):
+        upstream_receipt = upstream
+    else:
+        upstream_receipt = getattr(upstream, "provenance", None)
+    if not isinstance(upstream_receipt, Receipt):
+        raise ValueError("chain_receipt requires an upstream Receipt")
+
+    return replace(
+        upstream_receipt,
+        method_name=f"{upstream_receipt.method_name}+{params.method_name}",
+        n_voxels=(
+            upstream_receipt.n_voxels
+            if n_voxels is None
+            else int(n_voxels)
+        ),
+    )
 
 
 def _carrier_space(carrier: Any) -> Any:

@@ -7,6 +7,7 @@ import numpy as np
 from scipy import sparse
 
 from .neuro_space import NeuroSpace
+from ._array_guard import refuse_array_conversion
 
 
 class NeuroVol(ABC):
@@ -22,6 +23,9 @@ class NeuroVol(ABC):
         if not isinstance(space, NeuroSpace):
             raise TypeError("space must be a NeuroSpace object")
         self.space = space
+
+    def __array__(self, *args, **kwargs):
+        refuse_array_conversion(self, ".as_array()")
 
     @classmethod
     def from_array(cls, data, space: NeuroSpace, coords=None) -> "DenseNeuroVol":
@@ -87,6 +91,31 @@ class NeuroVol(ABC):
         _restore_nibabel_xforms(img, self)
         _embed_receipt_extension(img, getattr(self, "provenance", None))
         return img
+
+    def values_roi(self, roi, *, return_legacy: bool = False):
+        """Extract volume values for all voxels in an ROI.
+
+        Method counterpart to the free function :func:`neuroim.values_roi`,
+        landed so that the ROI extraction API matches the dominant
+        carrier-method pattern (``NeuroVec.series_roi(roi)``) for both
+        volumes and vectors.  Returns the same typed
+        :class:`~neuroim.results.ROIExtractionResult` (or legacy ndarray
+        with ``return_legacy=True``).
+
+        Parameters
+        ----------
+        roi : ROIVol or ROICoords
+            The region of interest.  Its spatial space must match this
+            volume's; ``verify.assert_same_space`` is invoked by the
+            underlying free function and raises ``ValueError`` on
+            mismatch.
+        return_legacy : bool, optional
+            Default ``False`` returns the typed result; ``True`` returns
+            the bare 1-D ndarray and emits a ``DeprecationWarning``.
+        """
+        from .roi import values_roi as _values_roi
+
+        return _values_roi(self, roi, return_legacy=return_legacy)
 
     # Abstract methods that subclasses must implement
     @abstractmethod

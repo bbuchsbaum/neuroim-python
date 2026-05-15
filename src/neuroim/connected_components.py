@@ -15,16 +15,26 @@ import pandas as pd
 from .neuro_vol import NeuroVol, LogicalNeuroVol, DenseNeuroVol
 from .neuro_space import NeuroSpace
 from .clustered_neuro_vol import ClusteredNeuroVol
+from .results import OpParams, Receipt, receipt_for
+
 
 @dataclass
 class ConnCompResult:
-    """Result of connected components analysis."""
+    """Result of connected components analysis.
+
+    The ``cluster_table`` columns are documented at ``_compute_cluster_table``
+    -- the canonical schema is ``index, x, y, z, N, Area, value`` for the
+    centroid-flavoured stats, followed by ``peak_x_mm, peak_y_mm,
+    peak_z_mm, peak_value`` for the per-cluster local maximum (signed value
+    retained from the original input, so two-tailed maps keep the sign).
+    """
 
     index: ClusteredNeuroVol
     size: NeuroVol
     voxels: List[np.ndarray]
     cluster_table: Optional[pd.DataFrame] = None
     local_maxima: Optional[np.ndarray] = None
+    provenance: Optional[Receipt] = None
 
 def conn_comp(
     x: NeuroVol,
@@ -33,44 +43,67 @@ def conn_comp(
     local_maxima: bool = True,
     local_maxima_dist: float = 15,
     connect: str = "26-connect",
+    *,
+    mask: Optional[LogicalNeuroVol] = None,
+    two_tailed: bool = False,
 ) -> ConnCompResult:
     """Find connected components in an image.
 
-    This function identifies and labels spatially connected regions in
-    neuroimaging data, supporting both binary masks and thresholded volumes.
+    Identifies and labels spatially connected regions in neuroimaging data,
+    supporting both binary masks and thresholded volumes.
 
     Parameters
     ----------
     x : NeuroVol
-        The image object
+        The image object.
     threshold : float, optional
-        Threshold defining lower intensity bound for image mask. Default is 0.
+        Threshold defining lower intensity bound for the binary mask.
+        Default is 0.  See ``two_tailed`` for two-sided thresholding.
     cluster_table : bool, optional
-        Whether to return cluster statistics table. Default is True.
+        Whether to return the cluster statistics table.  Default True.
     local_maxima : bool, optional
-        Whether to compute local maxima within clusters. Default is True.
+        Whether to compute local maxima within clusters.  Default True.
     local_maxima_dist : float, optional
-        Minimum distance between local maxima in mm. Default is 15.
+        Minimum distance between local maxima in mm.  Default 15.
     connect : str, optional
         Connectivity pattern: "26-connect", "18-connect", or "6-connect".
-        Default is "26-connect".
+        Default "26-connect".
+    mask : LogicalNeuroVol, optional (keyword only)
+        Restrict clustering to voxels where ``mask`` is True.  When
+        supplied, ``verify.assert_same_space(x, mask)`` is invoked first
+        so a foreign-affine mask raises before any clustering.
+    two_tailed : bool, optional (keyword only)
+        When True, threshold the absolute value (``|x.data| > threshold``)
+        so both positive- and negative-tail clusters survive.  ``peak_value``
+        in the cluster table is read back from the original signed data so
+        the sign of each cluster is retained.  Default False (one-tailed
+        ``x.data > threshold``, the legacy behaviour).
 
     Returns
     -------
     ConnCompResult
-        Object containing:
-        - index: ClusteredNeuroVol with cluster labels
-        - size: NeuroVol with cluster sizes
-        - voxels: List of cluster voxel coordinates
-        - cluster_table: DataFrame with cluster statistics (if requested)
-        - local_maxima: Array of local maxima coordinates (if requested)
-
+        ``index`` (``ClusteredNeuroVol``), ``size`` (``NeuroVol``),
+        ``voxels``, ``cluster_table``, ``local_maxima``, and
+        ``provenance`` (populated with ``method_name="conn_comp"`` and the
+        input space + mask hashes).
     """
-    # Apply threshold to create binary mask
+    if mask is not None:
+        from .verify import assert_same_space
+
+        assert_same_space(x, mask)
+
+    # Apply threshold to create binary mask.  LogicalNeuroVol input is
+    # already a mask -- no threshold or two-tailed semantics apply.
     if isinstance(x, LogicalNeuroVol):
-        mask_data = x.data
+        mask_data = np.asarray(x.data, dtype=bool)
+    elif two_tailed:
+        mask_data = np.abs(np.asarray(x.data)) > threshold
     else:
-        mask_data = x.data > threshold
+        mask_data = np.asarray(x.data) > threshold
+
+    # Optional brain-mask restriction.
+    if mask is not None:
+        mask_data = mask_data & np.asarray(mask.data, dtype=bool)
 
     # Get connectivity structure
     structure = _get_structure(connect)
@@ -84,12 +117,12 @@ def conn_comp(
 
     # Compute sizes and collect voxel coordinates
     for i in range(1, num_features + 1):
-        mask = labeled_array == i
-        size = np.sum(mask)
-        size_array[mask] = size
+        cluster_mask = labeled_array == i
+        size = int(np.sum(cluster_mask))
+        size_array[cluster_mask] = size
 
         # Get voxel coordinates (grid indices)
-        coords = np.column_stack(np.where(mask))
+        coords = np.column_stack(np.where(cluster_mask))
         voxels_list.append(coords)
 
     # Create ClusteredNeuroVol for index
@@ -100,7 +133,28 @@ def conn_comp(
     # Create NeuroVol for sizes
     size_vol = DenseNeuroVol(size_array.astype(float), x.space)
 
-    result = ConnCompResult(index=index_vol, size=size_vol, voxels=voxels_list)
+    # Receipt -- populated regardless of whether clustering produced any
+    # features, so a downstream consumer can still inspect the threshold
+    # and mask that produced an empty result.  Goes through the structural
+    # ``receipt_for`` path so the call site cannot silently omit fields
+    # an op should always record (the bd-01KRKRZPDC6V5CZF7SH0C9KEDD
+    # contract).
+    mask_payload = (
+        np.asarray(mask.data, dtype=bool) if mask is not None else None
+    )
+    receipt = receipt_for(
+        x,
+        mask=mask_payload,
+        n_voxels=int(np.sum(mask_data)),
+        params=OpParams(method_name="conn_comp", radius=float(threshold)),
+    )
+
+    result = ConnCompResult(
+        index=index_vol,
+        size=size_vol,
+        voxels=voxels_list,
+        provenance=receipt,
+    )
 
     # Compute cluster table if requested
     if cluster_table and num_features > 0:
@@ -257,37 +311,45 @@ def _compute_cluster_table(
         Table with columns: index, x, y, z, N, Area, value
     """
     rows = []
+    data = np.asarray(vol.data)
 
     for i, voxels in enumerate(voxels_list, start=1):
         if len(voxels) == 0:
             continue
 
-        # Get center of mass in grid coordinates
+        # Center of mass in grid coordinates, then to world mm.
         center_grid = np.mean(voxels, axis=0)
-
-        # Convert to world coordinates
         center_world = space.grid_to_coord(center_grid.reshape(1, -1))[0]
 
-        # Get cluster size
         n_voxels = len(voxels)
-
-        # Calculate area in mm^3
-        voxel_volume = np.prod(space.spacing)
+        voxel_volume = float(np.prod(space.spacing[:3]))
         area = n_voxels * voxel_volume
 
-        # Get mean value in cluster
+        # Per-cluster mean and per-cluster peak (largest |value|, retain
+        # sign from original data so two-tailed maps don't lose direction).
         cluster_mask = labeled_array == i
-        mean_value = np.mean(vol.data[cluster_mask])
+        cluster_values = data[cluster_mask]
+        mean_value = float(np.mean(cluster_values))
+        peak_local_idx = int(np.argmax(np.abs(cluster_values)))
+        peak_value = float(cluster_values[peak_local_idx])
+        peak_ijk = voxels[peak_local_idx]
+        peak_world = space.grid_to_coord(
+            np.asarray(peak_ijk, dtype=float).reshape(1, -1)
+        )[0]
 
         rows.append(
             {
                 "index": i,
-                "x": center_world[0],
-                "y": center_world[1],
-                "z": center_world[2],
+                "x": float(center_world[0]),
+                "y": float(center_world[1]),
+                "z": float(center_world[2]),
                 "N": n_voxels,
                 "Area": area,
                 "value": mean_value,
+                "peak_x_mm": float(peak_world[0]),
+                "peak_y_mm": float(peak_world[1]),
+                "peak_z_mm": float(peak_world[2]),
+                "peak_value": peak_value,
             }
         )
 

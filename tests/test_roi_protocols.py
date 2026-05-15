@@ -4,7 +4,7 @@ import numpy as np
 
 from neuroim import NeuroSpace
 from neuroim.roi import cuboid_roi, ellipsoid_roi, spherical_roi, square_roi
-from neuroim.typing import MaskLike, NeuroVolLike
+from neuroim.protocols import MaskLike, NeuroVolLike
 
 
 class MinimalVolume:

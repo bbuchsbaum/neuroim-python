@@ -694,6 +694,42 @@ def read_image(
         )
 
 
+def read_volume(
+    file_path: Union[str, Path],
+    *,
+    index: int = 0,
+    mask=None,
+) -> DenseNeuroVol:
+    """Read a file as a 3-D :class:`DenseNeuroVol`.
+
+    Intent-revealing wrapper over ``read_image(..., type="vol")`` with the
+    stringly-typed ``type=`` and the hand-rolled index sentinel removed.
+
+    Rank contract (see ``docs/concepts/images.qmd``): a 4-D file is **not**
+    refused — the volume reader extracts a single 3-D volume, ``index``
+    (default 0). A 3-D file is read directly. This is reader dispatch, not
+    a rank gate.
+    """
+    return read_image(file_path, type="vol", index=index, mask=mask)
+
+
+def read_series(
+    file_path: Union[str, Path, Sequence[Union[str, Path]]],
+    *,
+    indices=None,
+    mask=None,
+) -> "DenseNeuroVec":
+    """Read a file as a 4-D :class:`DenseNeuroVec` time series.
+
+    Intent-revealing wrapper over ``read_image(..., type="vec")``.
+
+    Rank contract (see ``docs/concepts/images.qmd``): a 3-D file is
+    promoted to singleton-time 4-D, shape ``(..., 1)``; a 4-D file is read
+    as-is. This is reader dispatch, not a rank gate.
+    """
+    return read_image(file_path, type="vec", indices=indices, mask=mask)
+
+
 def load_data(source):
     """Convenience wrapper that calls ``source.load()``.
 

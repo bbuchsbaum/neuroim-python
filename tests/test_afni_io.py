@@ -8,7 +8,9 @@ from typing import Optional, Sequence
 import numpy as np
 import pytest
 
-from neuroim import read_meta_info, read_header, read_vol, read_vec, write_vol, write_vec
+from neuroim import (write_vol, write_vec)
+from neuroim.io import read_meta_info, read_header
+from neuroim.io import read_vol, read_vec
 from neuroim import DenseNeuroVol, DenseNeuroVec, NeuroSpace
 from neuroim.afni_io import parse_niml_element, parse_niml_file
 from neuroim.meta_info import AFNIMetaInfo

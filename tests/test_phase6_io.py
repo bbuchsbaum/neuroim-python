@@ -11,19 +11,14 @@ from pathlib import Path
 
 try:
     from neuroim import (
-        # File formats
         FileFormat, NIFTIFormat, AFNIFormat,
         NIFTI, NIFTI_GZ, NIFTI_PAIR, NIFTI_PAIR_GZ, AFNI, AFNI_GZ,
         find_descriptor,
-        # Metadata
         MetaInfo, FileMetaInfo, NIFTIMetaInfo, AFNIMetaInfo,
-        # Binary I/O
         BinaryReader, BinaryWriter, ColumnReader,
-        # I/O functions
-        read_header, read_meta_info,
-        # Supporting classes
-        DenseNeuroVol, NeuroSpace, find_anatomy_3d
+        DenseNeuroVol, NeuroSpace, find_anatomy_3d,
     )
+    from neuroim.io import read_header, read_meta_info
     NIBABEL_AVAILABLE = True
 except ImportError:
     # Import components that don't require nibabel

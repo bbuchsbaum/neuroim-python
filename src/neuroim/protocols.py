@@ -1,5 +1,11 @@
 """Typed coordinate primitives and structural Protocols for neuroim.
 
+Formerly ``neuroim.typing``. Renamed to ``neuroim.protocols`` because a
+package-local module named ``typing`` shadows the standard-library
+``typing`` whenever the package directory itself lands early on
+``sys.path`` (editable installs, some test/tooling layouts), which can
+make ``from typing import ...`` resolve here and fail at import time.
+
 Two surfaces live in this module:
 
 1. Coordinate newtypes (``VoxelCoord``, ``WorldCoord``) for the "I forgot to
