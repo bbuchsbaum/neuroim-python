@@ -461,6 +461,8 @@ class TestMemoryMappedVec:
     def test_big_neurovec(self, tmp_path):
         """Test BigNeuroVec construction and operations."""
         tmp_name = tmp_path / "big_neurovec.dat"
+        vec = None
+        vec2 = None
 
         try:
             # Create BigNeuroVec
@@ -471,7 +473,7 @@ class TestMemoryMappedVec:
             assert vec.shape == (10, 10, 10, 4)
 
             # Test series extraction
-            ts = vec.series(5, 5, 5)
+            ts = np.array(vec.series(5, 5, 5))
             np.testing.assert_array_equal(ts, data[5, 5, 5, :])
 
             # Test arithmetic
@@ -480,6 +482,9 @@ class TestMemoryMappedVec:
             assert vec2[5, 5, 5, 0] == vec[5, 5, 5, 0] + 1
 
         finally:
+            for candidate in (vec2, vec):
+                if candidate is not None:
+                    candidate.close()
             if os.path.exists(tmp_name):
                 os.unlink(tmp_name)
 
