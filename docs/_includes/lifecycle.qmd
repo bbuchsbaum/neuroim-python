@@ -1,0 +1,15 @@
+```{mermaid}
+%%| fig-cap: "The neuroim value lifecycle. Spatial context and provenance are intrinsic at every step — never reconstructed, never carried in a sidecar."
+flowchart LR
+    A["raw array<br/>+ affine"] --> B["typed object<br/>NeuroVec / NeuroVol"]
+    B --> C["operation<br/>series_roi · temporal_snr · searchlight_apply"]
+    C --> D["typed result<br/>+ Receipt (.provenance)"]
+    D --> E["file<br/>.nii.gz + neuroim/receipt/v1: extension"]
+    E --> F["typed object again<br/>read_image → .provenance rehydrated"]
+    F -. "audit / chain / reduce" .-> C
+```
+
+The loop is the point: a value that leaves the library as a `.nii.gz`
+re-enters it with the same Receipt, so the next operation can chain,
+audit, or reduce against a frame it can verify — not one it has to
+trust.

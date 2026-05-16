@@ -1,12 +1,10 @@
 # DenseNeuroVol { #neuroim.DenseNeuroVol }
 
 ```python
-DenseNeuroVol(data, space, label='', indices=None)
+DenseNeuroVol(data, space, label='', indices=None, *, provenance=None)
 ```
 
 Dense 3D neuroimaging volume.
-
-Dense 3D volume with voxel data attached to a `NeuroSpace`.
 
 ## Parameters {.doc-section .doc-section-parameters}
 
@@ -16,10 +14,6 @@ Dense 3D volume with voxel data attached to a `NeuroSpace`.
 | space   | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | Spatial metadata                                         | _required_ |
 | label   | [str](`str`)                                   | Volume label                                             | `''`       |
 | indices | [array](`array`) - [like](`like`)              | If provided, only these indices will be filled with data | `None`     |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::DenseNeuroVol
 
 ## Methods
 
@@ -40,10 +34,6 @@ DenseNeuroVol.as_array()
 ```
 
 Convert to numpy array.
-
-#### R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::as.array
 
 ### as_dense { #neuroim.DenseNeuroVol.as_dense }
 
@@ -68,10 +58,6 @@ DenseNeuroVol.as_mask(indices=None)
 ```
 
 Convert to mask.
-
-#### R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::as.mask
 
 ### as_sparse { #neuroim.DenseNeuroVol.as_sparse }
 

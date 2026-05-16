@@ -1,0 +1,49 @@
+---
+title: "Receipt"
+subtitle: "Content-addressable provenance — what's hashed, what isn't, why."
+sidebar: concepts
+---
+
+## What it is
+
+A `Receipt` is a frozen dataclass with eight fields. It travels on the side of every typed result `neuroim` produces: `ROIExtractionResult.provenance`, `SearchlightResult.provenance`, `DenseNeuroVol.provenance`. Its purpose is one thing: make silent space/orientation/mask mismatches visible at the contract layer, and survive serialization through both pickle and the file boundary.
+
+| Field | Type | What it hashes / records |
+|-------|------|---------------------------|
+| `input_space_hash` | `str` | `hash_neurospace` of the input `NeuroSpace` (dim + spacing + origin + affine bytes). |
+| `mask_hash` | `str` | `hash_ndarray` of the mask coordinates, or `"none"`. |
+| `radius` | `float \| None` | Searchlight / neighborhood radius in mm; `None` when not applicable. |
+| `n_voxels` | `int` | Voxels produced or consumed by the operation. |
+| `method_name` | `str` | `"series_roi"`, `"searchlight"`, `"mean_over_time"`, … composed: `"a+b"`. |
+| `seed` | `int \| None` | RNG seed if randomized; `None` otherwise. |
+| `neuroim_version` | `str` | The version that produced the receipt. |
+| `source_affine_hash` | `str` | `hash_ndarray` of the source affine bytes, or `"none"`. |
+
+## Invariants
+
+- **Content-addressable.** Same inputs → same hashes. A pickle round-trip produces an equal `Receipt`. A file round-trip produces an equal `Receipt`.
+- **Frozen.** `@dataclass(frozen=True)`. You produce a derived receipt via `replace(receipt, ...)` or `chain_receipt(...)`, never by mutation.
+- **Hashes are 16 hex chars.** First 16 chars of SHA-256 over the canonical byte representation. Collision-resistant enough to be a misalignment alarm; not a cryptographic signature.
+- **`diff(other)`** returns a structured mapping of fields that disagree (empty when receipts agree). `verify.diff_receipts(a, b)` is the module-level form that accepts result objects or bare receipts.
+
+## What it refuses
+
+A `Receipt` itself does not raise — it is data. The refusals it powers live in the *operations* that consume it:
+
+- `series_roi(roi)` routes through `verify.assert_same_space`; mismatch raises `ValueError: assert_same_space: spatial contract mismatch — …`.
+- `searchlight_apply(mask=…, data=…)` routes through the same check; mismatch raises the same wrapped message.
+- `concat(*vecs)` checks every pair and raises `ValueError: spatial contract mismatch: NeuroVecs must have same spatial dimensions and affine; …`.
+- `verify.assert_same_space(a, b)` / `verify.assert_same_mask(a, b)` raise `ValueError` (with both hashes in the message) when receipt-only inputs disagree; `verify.diff_receipts(a, b)` returns the structured diff without raising.
+
+## What it doesn't do
+
+- **Not a cryptographic signature.** The hashes detect silent misalignment, not tampering.
+- **Not a hash of pixel content.** `input_space_hash` does *not* depend on voxel values. Two volumes with the same frame and different data produce the same `input_space_hash`. Use `hash_ndarray(vol.data)` separately if you need a content hash.
+- **Not a full operation log.** A `Receipt` records *the* operation that produced its carrier, plus chained predecessors when the operation chained them in. It is not a journal of every method call that ever touched the array.
+- **Not a typed parameter blob.** Operation parameters that matter for reproducibility (kernel sigma, contrast coefficients, resample order) live in `OpParams` subclasses referenced from the chain, not in the eight headline fields.
+
+## See also
+
+- [Start 04 — Derived maps](../start/04-derived-maps.qmd) — where Receipts first show up on a volume.
+- [Provenance](provenance.qmd) — chaining and rehydration semantics.
+- [Spec: Receipt v1](../spec/receipt-nifti-extension.html) — the on-disk JSON schema.

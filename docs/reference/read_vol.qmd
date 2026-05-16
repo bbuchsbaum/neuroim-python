@@ -23,7 +23,3 @@ Read a 3D neuroimaging volume from file.
 
 Unlike R which uses 1-based indexing, Python uses 0-based indexing
 for the volume index parameter.
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::read_vol

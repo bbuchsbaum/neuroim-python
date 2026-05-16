@@ -1,0 +1,68 @@
+---
+title: "Time series at a coordinate"
+subtitle: "Pull one voxel's series at a world-mm point."
+jupyter: python3
+sidebar: cookbook
+---
+
+## Goal
+
+Open a 4-D BOLD and extract the time series at a world-millimetre
+coordinate — with the affine inversion, rounding, and bounds check
+behind a named operation.
+
+## Code
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "cookbook" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+
+xyz = bold.space.grid_to_world((4, 4, 2))     # a point known to be in-grid
+ts = bold.series_at_world(xyz)                # bare ndarray, length n_timepoints
+typed = bold.series_roi_world(xyz)            # typed result with a Receipt
+
+ts.shape, type(typed).__name__, typed.provenance.method_name
+```
+
+`series_at_world` is the array form; `series_roi_world` is the typed
+form that carries provenance forward.
+
+## What's guaranteed
+
+- The affine inversion and rounding happen inside the call. There is
+  no hand-written `np.linalg.inv(affine) @ [x, y, z, 1]`.
+- A coordinate that maps off-grid raises before any indexing.
+
+## What survives the file
+
+`series_roi_world` returns an `ROIExtractionResult`. Its
+`.provenance` is a `Receipt`; if you build a volume from it and
+`to_nibabel()` it, the Receipt rides the NIfTI extension (see
+[Save a derived map](save-derived-map-with-provenance.qmd)).
+
+## Trapdoors
+
+```{python}
+#| error: true
+bold.series_at_world((9999.0, 9999.0, 9999.0))
+```
+
+An off-grid world coordinate raises `ValueError`:
+`world coord (…) mm maps to voxel (…) which is outside the image grid
+of shape (…).` — *before* signed indexing can return a value from the
+opposite corner. The `out_of_bounds="zero"` opt-in exists for
+algorithms that intentionally want zero-fill; the default is `"raise"`.
+Backed by [scenario S01](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/01_mni_spotlight/REPORT.md).
+
+## See also
+
+- [Start 03 — ROI extraction](../start/03-roi.qmd)
+- [Concept: Contract failures](../concepts/contract-failures.qmd) — the `WORLD-OOB` refusal.
+- [Spec: contract-failure vocabulary](../spec/contract-failure-vocabulary.html)

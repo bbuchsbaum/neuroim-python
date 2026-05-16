@@ -1,0 +1,56 @@
+---
+title: "01 — Read an image"
+subtitle: "`read_image` returns a typed object. The type names what is safe to do with it."
+jupyter: python3
+sidebar: start
+---
+
+The starting move in every neuroim workflow is one function call. The point of typing the return value is not file-extension dispatch — it is that the returned object's *interface* tells the rest of your code what is safe.
+
+## The call
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "start" else Path.cwd()
+
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+type(bold).__name__, bold.shape
+```
+
+A 4-D BOLD comes back as a `DenseNeuroVec` because the trailing dimension is a time axis. A 3-D mask comes back as a `DenseNeuroVol`.
+
+```{python}
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+type(mask).__name__, mask.shape
+```
+
+The `type=` argument is reader dispatch, not a cast. `type="vol"` runs the volume reader — on a 4-D file it extracts volume index 0; `type="vec"` runs the vector reader — on a 3-D file it promotes to singleton-time 4-D `(…, 1)`. On this 3-D mask, `type="vol"` is the matching reader and returns a `DenseNeuroVol`.
+
+## What the return type is for
+
+The type is the contract. A `DenseNeuroVec` exposes time-aware operations: `.series_roi(roi)`, `.series_at_world((x, y, z))`, `.temporal_snr(mask=...)`. A `DenseNeuroVol` exposes volume-aware operations: `.to_nibabel()`, mask coercion, ROI extraction without time. You do not check `bold.ndim == 4` in your analysis code; you call the time method directly and let the static type catch the wrong call.
+
+```{python}
+bold.temporal_snr  # bound method on NeuroVec — present
+```
+
+Both types share a single attribute: `.space`. That is the spatial frame. The [next page](02-space.qmd) is about what that object guarantees.
+
+## What it doesn't do
+
+`read_image` is the documented entry point. It uses `nibabel` as substrate underneath — that is an implementation detail, not the API. If you already hold a nibabel `SpatialImage` for some other reason, `ni.from_nibabel(img)` exists as an explicit interchange. It is not the hero of the on-ramp; the hero is the typed return value.
+
+## Refuses to
+
+- **Accept an unknown reader mode.** `type=` takes only `"auto"`, `"vol"`, or `"vec"`; anything else raises `ValueError: type must be one of 'auto', 'vol', or 'vec'`. It does not silently fall back to a guess.
+- **Hand back an anonymous array.** A bare `numpy.ndarray` is never the documented return of `read_image`; the spatial frame stays attached. The explicit accessors (`vol[...]`, `as_array()`) are where you opt into the raw array.
+
+## Next
+
+[02 — Spatial frames](02-space.qmd) introduces `NeuroSpace` — the value object that travels with every image and is the basis for every contract check on the pages after it.

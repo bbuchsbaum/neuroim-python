@@ -1,0 +1,53 @@
+---
+title: "Provenance"
+subtitle: "How `.provenance` is produced, chained, and rehydrated across the file boundary."
+sidebar: concepts
+---
+
+## What it is
+
+*Provenance* in `neuroim` is the policy by which every typed result carries a [`Receipt`](receipt.qmd) describing what produced it, the spatial frame it lives in, and — when relevant — the chain of prior receipts that fed it. It is also the policy by which that information survives a write/read cycle through `.nii.gz` and a pickle through `multiprocessing.Pool`.
+
+{{< include ../_includes/lifecycle.qmd >}}
+
+## Invariants
+
+- **Every typed analysis output has `.provenance`.** `ROIExtractionResult`, `SearchlightResult`, `DenseNeuroVol` produced by a reduction or filter, and `ParcelEffectResult` all carry a `Receipt`.
+- **Identical inputs → identical receipts.** Two `temporal_snr` calls with the same BOLD and mask produce equal `provenance` objects (modulo `neuroim_version`).
+- **Chained operations chain receipts.** When `gaussian_blur` consumes a volume that already has `.provenance`, the result records the upstream method in its `method_name` (e.g. `"temporal_snr+gaussian_blur"`) and threads the predecessor.
+- **Round-trip safe through pickle.** A pickled-then-unpickled result produces equal `provenance`. Backed by [scenario S08](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/08_pickle_multiprocessing_handoff/REPORT.md).
+- **Round-trip safe through `.nii.gz`.** `to_nibabel()` + `nib.save()` is the receipt-preserving write path today; `write_vol` gaining the same embedding is tracked as `neuroim-python-ur0` and is the single change that will retire this note. `read_image` then rehydrates the JSON Receipt from the NIfTI `comment` extension. Backed by [scenario S05](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/05_receipt_io_boundary/REPORT.md).
+- **Spec-conformant.** The on-disk format is [`spec/receipt-nifti-extension.md`](../spec/receipt-nifti-extension.html), version v1. Future format changes use a new prefix; readers that know only v1 silently ignore unknown prefixes.
+
+## What survives the file
+
+- The eight Receipt fields, byte-identical.
+- The version prefix (`neuroim/receipt/v1:`).
+- The JSON body, sorted-key, UTF-8 encoded.
+
+## What doesn't survive the file (yet)
+
+- **Full operation-parameter blobs.** `gaussian_blur`'s `sigma`, `resample`'s `order`, `searchlight_apply`'s `method` reference are recorded in the in-process chain but the v1 receipt records only the eight headline fields on disk. A future v2 prefix is reserved for richer payloads; readers that know only v1 are expected to ignore unknown prefixes without raising.
+- **Numeric content hashes.** v1 hashes the *frame*, not the *bytes*. Recomputing a `Receipt` from a written volume's numeric payload is not part of the spec.
+- **Cross-file references.** A Receipt records `input_space_hash` and `mask_hash`, not the paths of the source files. The hashes are the join key.
+
+## What it refuses
+
+`provenance` is data and never raises by itself. The refusals it enables:
+
+- `verify.assert_same_space(a, b)` and `verify.assert_same_mask(a, b)` raise `ValueError` when two results/receipts disagree on space or mask; `verify.diff_receipts(a, b)` returns the structured diff without raising.
+- `read_image` refuses to silently treat a foreign `comment` extension as a Receipt — the `neuroim/receipt/v1:` prefix is mandatory.
+- `read_image` refuses to coerce a future `neuroim/receipt/v2:` payload as v1.
+
+## What it doesn't do
+
+- **It is not a journal.** Provenance records *the* operation that produced a carrier (plus its chained predecessors). It is not an audit log of every method call ever applied to a buffer.
+- **It is not a manifest.** No paths, no host names, no timestamps. The Receipt identifies *what kind of thing was done with what spatial inputs*, not where the file lived.
+- **It is not authenticated.** Two different processes producing the same operation on the same inputs produce indistinguishable receipts. Treat receipts as misalignment alarms, not as signatures.
+
+## See also
+
+- [Start 05 — Round-trip](../start/05-roundtrip.qmd) — the on-ramp's encounter with the file boundary.
+- [Receipt](receipt.qmd) — the eight fields, in detail.
+- [Spec: Receipt v1](../spec/receipt-nifti-extension.html) — the public on-disk contract.
+- Scenarios: [S05](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/05_receipt_io_boundary/REPORT.md), [S08](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/08_pickle_multiprocessing_handoff/REPORT.md), [S09](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/09_native_to_template_provenance/REPORT.md), [S13](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/13_provenance_audit/REPORT.md), [S14](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/14_temporal_slice_provenance/REPORT.md).

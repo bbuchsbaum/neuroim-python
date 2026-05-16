@@ -1,0 +1,19 @@
+---
+title: "Start"
+subtitle: "Five pages, ~30 minutes. Each one introduces exactly one new contract."
+sidebar: start
+---
+
+The on-ramp is sequenced so that each page adds *one* idea you can name. By the end you have read every public type the rest of the docs build on.
+
+| # | Page | New idea |
+|---|------|----------|
+| 01 | [Read an image](01-image.qmd) | `read_image` returns a typed object; the type names what is safe to do with it. |
+| 02 | [Spatial frames](02-space.qmd) | `NeuroSpace` is a value object; `compatible_with` is the alignment check. |
+| 03 | [ROI extraction](03-roi.qmd) | ROI extraction returns a *result* with `.values`, `.coords`, `.space`, `.provenance`. |
+| 04 | [Derived maps](04-derived-maps.qmd) | A `DenseNeuroVol` carrying `.provenance` is the unit of derived output. |
+| 05 | [Round-trip](05-roundtrip.qmd) | Writing then reading is provenance-safe by spec. |
+
+Each page ends with a **Refuses to** block — the calls neuroim raises on, with links to the runnable scenario that asserts the refusal.
+
+If you have used the library before and want vocabulary first, the [Concepts](../concepts/space.qmd) pages are short and indexed.

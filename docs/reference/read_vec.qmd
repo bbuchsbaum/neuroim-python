@@ -24,7 +24,3 @@ Read a 4D neuroimaging vector from file.
 
 Unlike R which uses 1-based indexing, Python uses 0-based indexing
 for the indices parameter.
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::read_vec

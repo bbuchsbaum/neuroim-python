@@ -1,30 +1,32 @@
 # gaussian_blur { #neuroim.gaussian_blur }
 
 ```python
-gaussian_blur(vol, mask=None, sigma=2, window=1)
+gaussian_blur(vol, mask=None, sigma=2, window=1, *, fwhm_mm=None)
 ```
 
-Apply Gaussian blur to a volumetric image.
+Apply a Gaussian blur to a volumetric image.
 
-This function applies an isotropic discrete Gaussian kernel to smooth
-a volumetric image (3D brain MRI data). The blurring is performed within
-a specified image mask, with customizable kernel parameters.
+For fMRI workflows, prefer ``fwhm_mm=`` over the legacy ``sigma=``.  The
+R neuroim2 ``gaussian_blur`` interprets sigma in millimetres and applies
+per-axis voxel spacing inside its C++ kernel; the Python port historically
+accepted sigma in *voxel* units and did not apply spacing, which silently
+produced anisotropic-in-mm smoothing on anisotropic voxels.  Passing
+``fwhm_mm`` restores the mm-space contract: the value is converted to
+per-axis voxel sigma via ``vol.space.spacing``, so smoothing is
+isotropic in millimetres regardless of voxel anisotropy.
 
 ## Parameters {.doc-section .doc-section-parameters}
 
-| Name   | Type                                                   | Description                                                                                                                  | Default    |
-|--------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|------------|
-| vol    | [NeuroVol](`neuroim.neuro_vol.NeuroVol`)               | The image volume to be smoothed                                                                                              | _required_ |
-| mask   | [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | Image mask defining the region where blurring is applied. If not provided, the entire volume is processed.                   | `None`     |
-| sigma  | [float](`float`)                                       | Standard deviation of the Gaussian kernel (default is 2)                                                                     | `2`        |
-| window | [int](`int`)                                           | Number of voxels to include on each side of the center voxel. For example, window=1 results in a 3x3x3 kernel (default is 1) | `1`        |
+| Name    | Type                                                   | Description                                                                                                                                                                                     | Default    |
+|---------|--------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------|
+| vol     | [NeuroVol](`neuroim.neuro_vol.NeuroVol`)               | The image volume to be smoothed.                                                                                                                                                                | _required_ |
+| mask    | [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | Image mask defining the region where blurring is applied.  When supplied, ``verify.assert_same_space(vol, mask)`` is invoked first so a foreign-affine mask raises before any smoothing occurs. | `None`     |
+| sigma   | [float](`float`)                                       | Voxel-space sigma for the legacy scalar form.  Used only when ``fwhm_mm`` is None.  Default is 2 voxels.                                                                                        | `2`        |
+| window  | [int](`int`)                                           | Truncation half-width in voxels (``window=1`` corresponds to the scipy default ``truncate=1``).                                                                                                 | `1`        |
+| fwhm_mm | float, optional (keyword only)                         | Full width at half maximum, in millimetres.  When supplied, this takes precedence over ``sigma`` and is converted to per-axis voxel sigma using ``vol.space.spacing``.                          | `None`     |
 
 ## Returns {.doc-section .doc-section-returns}
 
-| Name   | Type                                               | Description        |
-|--------|----------------------------------------------------|--------------------|
-|        | [DenseNeuroVol](`neuroim.neuro_vol.DenseNeuroVol`) | The smoothed image |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::gaussian_blur
+| Name   | Type                                               | Description                                                                                                                                                                                                                                                       |
+|--------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|        | [DenseNeuroVol](`neuroim.neuro_vol.DenseNeuroVol`) | The smoothed image.  Carries a populated :class:`~neuroim.results.Receipt` in ``.provenance`` recording ``method_name="gaussian_blur"`` or an upstream-chained method name such as ``"temporal_snr+gaussian_blur"``, the FWHM (when supplied), and the mask hash. |

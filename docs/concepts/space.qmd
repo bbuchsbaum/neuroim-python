@@ -1,0 +1,47 @@
+---
+title: "NeuroSpace"
+subtitle: "The frozen spatial frame that travels with every typed image."
+sidebar: concepts
+---
+
+## What it is
+
+`NeuroSpace` is a value object that records the four fields needed to map array indices to anatomical locations: `dim`, `spacing`, `origin`, and the 4×4 affine `trans`. Every typed image (`NeuroVol`, `NeuroVec`, `NeuroHyperVec`) carries one. Every contract check in the public API compares two `NeuroSpace`s; nothing in the documented API compares two raw affines by hand.
+
+## Invariants
+
+- **Frozen.** `dim`, `spacing`, `origin`, `trans` are set at construction and never mutate. The backing arrays are read-only.
+- **Hashable.** `hash_neurospace(space)` produces a stable 16-character hex digest over the four fields. Same inputs, same digest, forever.
+- **Identity-by-value.** Two `NeuroSpace`s with the same dim, spacing, origin, and affine compare equal and hash identically.
+- **Defensive copies.** A caller passing in a mutable array gets a frozen private copy; mutating the original never aliases into the space.
+- **Affine shape gated.** A 3-D space stores a 4×4 affine; a 4-D space stores a 5×5 (or accepts a 4×4 spatial sub-affine and extends it). Shape mismatches raise at construction.
+- **`compatible_with` is true-or-raise.** It returns `True` when two spaces agree on the first three dims and the affine within `atol=1e-6`, and raises `ValueError` otherwise. It never returns `False`. Every public operation that takes a `mask=` argument routes through `verify.assert_same_space`, which calls it.
+
+## What it refuses
+
+| Trigger | Exception | Canonical message |
+|---|---|---|
+| Non-positive `dim` | `ValueError` | `All dimensions must be positive` |
+| Non-positive `spacing` | `ValueError` | `Spacing values must be positive` |
+| Wrong `trans` shape (3-D) | `ValueError` | `trans must be 4x4 matrix for {ndim}D space, got {shape}` |
+| Wrong `trans` shape (4-D+) | `ValueError` | `trans must be {ndim+1}x{ndim+1} matrix for {ndim}D space, got {shape}` |
+| Non-invertible affine | `ValueError` | `Transformation matrix must be invertible` |
+| Mutating `dim`/`spacing`/`origin`/`trans` | `AttributeError` | `NeuroSpace is immutable` |
+| `compatible_with` dim mismatch | `ValueError` | `NeuroSpace mismatch in spatial dim: left=…, right=…` |
+| `compatible_with` affine mismatch | `ValueError` | `NeuroSpace mismatch in affine: left=…, right=…` |
+
+The full closed grammar is in [Spec: contract-failure vocabulary](../spec/contract-failure-vocabulary.html).
+
+## What it doesn't do
+
+- **No units of time.** A 4-D `NeuroSpace` records the time dimension but not the repetition time. TR is data, not contract.
+- **No implicit world↔voxel conversion.** Use `apply_affine(space.trans, [x, y, z])` for grid→world and the inverse for world→grid.
+- **No reorientation.** Reorientation is an explicit operation (`reorient(vol, axcodes)`); it returns a *new* volume with a *new* space.
+- **No tracking of derived state.** A space describes a grid, not the history of operations that landed on it. History lives in `Receipt`.
+
+## See also
+
+- [Typed images](images.qmd) — the `NeuroVol` / `NeuroVec` / `NeuroHyperVec` family that carries this frame.
+- [Start 02 — Spatial frames](../start/02-space.qmd) — the same idea in tutorial form.
+- [Receipt](receipt.qmd) — how `NeuroSpace` is hashed into the provenance carrier.
+- [Contract failures](contract-failures.qmd) — the refusals that depend on `compatible_with`.

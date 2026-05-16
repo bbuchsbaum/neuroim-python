@@ -4,33 +4,43 @@ website:
     - reference/index.qmd
     - contents:
       - reference/NeuroSpace.qmd
+      - reference/neurospace.qmd
+      section: Spaces & frames
+    - contents:
       - reference/DenseNeuroVol.qmd
       - reference/SparseNeuroVol.qmd
       - reference/LogicalNeuroVol.qmd
+      - reference/neurovol.qmd
+      section: Volumes
+    - contents:
       - reference/DenseNeuroVec.qmd
       - reference/SparseNeuroVec.qmd
+      - reference/neurovec.qmd
+      section: Vectors
+    - contents:
       - reference/DenseNeuroHyperVec.qmd
       - reference/SparseNeuroHyperVec.qmd
-      section: Core data structures
+      section: Hypervectors
     - contents:
-      - reference/neurospace.qmd
-      - reference/neurovol.qmd
-      - reference/neurovec.qmd
-      - reference/read_vol.qmd
-      - reference/write_vol.qmd
-      - reference/read_vec.qmd
-      - reference/write_vec.qmd
-      section: Constructors and I/O
+      - reference/spherical_roi.qmd
+      - reference/cuboid_roi.qmd
+      section: ROI & extraction
+    - contents:
+      - reference/searchlight.searchlight_iterator.qmd
+      - reference/conn_comp.qmd
+      section: Searchlight & derived maps
     - contents:
       - reference/gaussian_blur.qmd
       - reference/bilateral_filter.qmd
       - reference/resample.qmd
       - reference/reorient.qmd
-      - reference/spherical_roi.qmd
-      - reference/cuboid_roi.qmd
-      - reference/searchlight.searchlight_iterator.qmd
-      - reference/conn_comp.qmd
-      section: Spatial operations
+      section: Spatial filters
+    - contents:
+      - reference/read_vol.qmd
+      - reference/write_vol.qmd
+      - reference/read_vec.qmd
+      - reference/write_vec.qmd
+      section: I/O & interop
     - contents:
       - reference/plot_neuro_vol.qmd
       - reference/plot_ortho.qmd

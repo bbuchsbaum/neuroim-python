@@ -1,42 +1,101 @@
 /*-- scss:defaults --*/
 
-$body-bg: #0e1116;
-$body-color: #e6e8eb;
-$body-secondary-color: rgba(230, 232, 235, 0.75);
-$body-tertiary-color: rgba(230, 232, 235, 0.55);
-$body-secondary-bg: #161a21;
-$body-tertiary-bg: #11151b;
+$body-bg: #0c1117;
+$body-color: #edf2f7;
+$body-secondary-color: #aab6c6;
+$body-tertiary-color: #8593a6;
+$body-secondary-bg: #131b26;
+$body-tertiary-bg: #101827;
 $body-emphasis-color: #ffffff;
 
-$link-color: #6aa3ff;
-$link-hover-color: #93bbff;
+$link-color: #8bb8ff;
+$link-hover-color: #b9d4ff;
 
-$border-color: #20242b;
-$border-color-translucent: rgba(255, 255, 255, 0.15);
+$border-color: #243044;
+$border-color-translucent: rgba(255, 255, 255, 0.12);
 
-$code-bg: #1a1f27;
-$code-color: #e6e8eb;
+$code-bg: #182131;
+$code-color: #e6edf5;
+$code-block-bg: #101827;
 
-$navbar-bg: #0e1116;
-$navbar-fg: #e6e8eb;
+// Navbar + sidebar share the body palette so the chrome stops fighting
+// the content. Reported issue: white sidebar on concept/reference pages.
+// NOTE: sidebar/toc colors are enforced in `scss:rules` below, not via
+// $sidebar-*/$toc-* defaults — those are not Bootstrap variables and
+// Quarto's own framework SCSS breaks if they are reassigned here.
+$navbar-bg: #0c1117;
+$navbar-fg: #dbe6f3;
 
-$card-bg: #161a21;
-$card-color: #e6e8eb;
-$card-border-color: #20242b;
-$card-cap-bg: #1a1f27;
+$card-bg: #111a26;
+$card-color: #edf2f7;
+$card-border-color: #243044;
+$card-cap-bg: #182131;
 
 $secondary: #6c757d;
-$secondary-color: #adb5bd;
+$secondary-color: #aab6c6;
 
 /*-- scss:rules --*/
 
+// The dark color sat only on <body>; <html> was transparent, so the
+// browser's white canvas showed through the left gutter and below the
+// short floating sidebar. Paint the root so no white can leak.
+html {
+  background-color: #0c1117;
+}
+html,
+body {
+  min-height: 100%;
+}
+
+.navbar {
+  border-bottom: 1px solid #1d2634;
+  background: rgba(12, 17, 23, 0.94);
+  backdrop-filter: saturate(180%) blur(8px);
+}
+.navbar .nav-link,
+.navbar-brand {
+  color: #dbe6f3 !important;
+}
+.navbar .nav-link.active,
+.navbar .nav-link:hover,
+.navbar-brand:hover {
+  color: #ffffff !important;
+}
+
+.sidebar nav[role="doc-toc"],
+.sidebar,
+.sidebar-navigation,
+.sidebar-menu-container {
+  background: #0d141e;
+  color: #b8c4d4;
+}
+.sidebar a,
+.sidebar-item-text {
+  color: #b8c4d4;
+}
+.sidebar-item.active > .sidebar-item-container .sidebar-item-text {
+  color: #8bb8ff;
+  font-weight: 650;
+}
+nav[role="doc-toc"] ul > li > a.active,
+nav[role="doc-toc"] ul > li > a:hover {
+  color: #8bb8ff;
+  border-left-color: #68a2ff;
+}
+
+code:not(pre code) {
+  background: #182131;
+  color: #e6edf5;
+  border: 1px solid #26364b;
+}
+
 .card {
-  background-color: #161a21;
-  color: #e6e8eb;
-  border-color: #20242b !important;
+  background-color: #111a26;
+  color: #edf2f7;
+  border-color: #243044 !important;
 }
 .card:hover {
-  border-color: #3a4a7a !important;
+  border-color: #3a5380 !important;
 }
 .card .card-title,
 .card h1,
@@ -46,20 +105,30 @@ $secondary-color: #adb5bd;
 .card h5,
 .card h6,
 .card p {
-  color: #e6e8eb;
+  color: #edf2f7;
 }
 .card a {
-  color: #6aa3ff;
+  color: #8bb8ff;
 }
 
-.quarto-title .subtitle {
-  color: rgba(230, 232, 235, 0.75);
+.nav-footer,
+footer.footer,
+.footer {
+  background: #0c1117;
+  color: #aab6c6;
+  border-top: 1px solid #1d2634;
+}
+.nav-footer a,
+.footer a,
+.toc-action {
+  color: #b8c4d4;
 }
 
+.quarto-title .subtitle,
 .hero p.lead {
-  color: rgba(230, 232, 235, 0.75);
+  color: #aab6c6;
 }
 
 a {
-  text-decoration-color: rgba(106, 163, 255, 0.45);
+  text-decoration-color: rgba(139, 184, 255, 0.4);
 }

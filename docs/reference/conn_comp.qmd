@@ -8,31 +8,32 @@ conn_comp(
     local_maxima=True,
     local_maxima_dist=15,
     connect='26-connect',
+    *,
+    mask=None,
+    two_tailed=False,
 )
 ```
 
 Find connected components in an image.
 
-This function identifies and labels spatially connected regions in
-neuroimaging data, supporting both binary masks and thresholded volumes.
+Identifies and labels spatially connected regions in neuroimaging data,
+supporting both binary masks and thresholded volumes.
 
 ## Parameters {.doc-section .doc-section-parameters}
 
-| Name              | Type                                     | Description                                                                                | Default        |
-|-------------------|------------------------------------------|--------------------------------------------------------------------------------------------|----------------|
-| x                 | [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | The image object                                                                           | _required_     |
-| threshold         | [float](`float`)                         | Threshold defining lower intensity bound for image mask. Default is 0.                     | `0`            |
-| cluster_table     | [bool](`bool`)                           | Whether to return cluster statistics table. Default is True.                               | `True`         |
-| local_maxima      | [bool](`bool`)                           | Whether to compute local maxima within clusters. Default is True.                          | `True`         |
-| local_maxima_dist | [float](`float`)                         | Minimum distance between local maxima in mm. Default is 15.                                | `15`           |
-| connect           | [str](`str`)                             | Connectivity pattern: "26-connect", "18-connect", or "6-connect". Default is "26-connect". | `'26-connect'` |
+| Name              | Type                                     | Description                                                                                                                                                                                                                                                                                                                   | Default        |
+|-------------------|------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------|
+| x                 | [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | The image object.                                                                                                                                                                                                                                                                                                             | _required_     |
+| threshold         | [float](`float`)                         | Threshold defining lower intensity bound for the binary mask. Default is 0.  See ``two_tailed`` for two-sided thresholding.                                                                                                                                                                                                   | `0`            |
+| cluster_table     | [bool](`bool`)                           | Whether to return the cluster statistics table.  Default True.                                                                                                                                                                                                                                                                | `True`         |
+| local_maxima      | [bool](`bool`)                           | Whether to compute local maxima within clusters.  Default True.                                                                                                                                                                                                                                                               | `True`         |
+| local_maxima_dist | [float](`float`)                         | Minimum distance between local maxima in mm.  Default 15.                                                                                                                                                                                                                                                                     | `15`           |
+| connect           | [str](`str`)                             | Connectivity pattern: "26-connect", "18-connect", or "6-connect". Default "26-connect".                                                                                                                                                                                                                                       | `'26-connect'` |
+| mask              | LogicalNeuroVol, optional (keyword only) | Restrict clustering to voxels where ``mask`` is True.  When supplied, ``verify.assert_same_space(x, mask)`` is invoked first so a foreign-affine mask raises before any clustering.                                                                                                                                           | `None`         |
+| two_tailed        | bool, optional (keyword only)            | When True, threshold the absolute value (``\|x.data\| > threshold``) so both positive- and negative-tail clusters survive.  ``peak_value`` in the cluster table is read back from the original signed data so the sign of each cluster is retained.  Default False (one-tailed ``x.data > threshold``, the legacy behaviour). | `False`        |
 
 ## Returns {.doc-section .doc-section-returns}
 
-| Name   | Type                                                            | Description                                                                                                                                                                                                                                                                          |
-|--------|-----------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-|        | [ConnCompResult](`neuroim.connected_components.ConnCompResult`) | Object containing: - index: ClusteredNeuroVol with cluster labels - size: NeuroVol with cluster sizes - voxels: List of cluster voxel coordinates - cluster_table: DataFrame with cluster statistics (if requested) - local_maxima: Array of local maxima coordinates (if requested) |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::conn_comp
+| Name   | Type                                                            | Description                                                                                                                                                                                                     |
+|--------|-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|        | [ConnCompResult](`neuroim.connected_components.ConnCompResult`) | ``index`` (``ClusteredNeuroVol``), ``size`` (``NeuroVol``), ``voxels``, ``cluster_table``, ``local_maxima``, and ``provenance`` (populated with ``method_name="conn_comp"`` and the input space + mask hashes). |

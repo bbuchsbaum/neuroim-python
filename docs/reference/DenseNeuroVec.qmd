@@ -6,8 +6,6 @@ DenseNeuroVec(data, space, label='')
 
 Dense 4D neuroimaging vector.
 
-Dense 4D vector container with voxel-series data attached to a `NeuroSpace`.
-
 ## Parameters {.doc-section .doc-section-parameters}
 
 | Name   | Type                                           | Description                        | Default    |
@@ -16,22 +14,27 @@ Dense 4D vector container with voxel-series data attached to a `NeuroSpace`.
 | space  | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | 4D spatial metadata                | _required_ |
 | label  | [str](`str`)                                   | Vector label                       | `''`       |
 
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::DenseNeuroVec
-
 ## Methods
 
 | Name | Description |
 | --- | --- |
+| [as_dense](#neuroim.DenseNeuroVec.as_dense) | Deprecated alias for :meth:`to_dense`. |
 | [as_matrix](#neuroim.DenseNeuroVec.as_matrix) | Convert to matrix (voxels x time). |
-| [as_sparse](#neuroim.DenseNeuroVec.as_sparse) | Convert to sparse representation. |
+| [as_sparse](#neuroim.DenseNeuroVec.as_sparse) | Deprecated alias for :meth:`to_sparse`. |
 | [concat](#neuroim.DenseNeuroVec.concat) | Concatenate multiple NeuroVecs along time dimension. |
 | [scale_series](#neuroim.DenseNeuroVec.scale_series) | Scale (center and/or normalize) each time series. |
-| [series](#neuroim.DenseNeuroVec.series) | Extract time series for voxel(s). |
+| [series](#neuroim.DenseNeuroVec.series) | Deprecated dispatcher for voxel time-series extraction. |
 | [series_3d](#neuroim.DenseNeuroVec.series_3d) | Extract time series for a single voxel using 3D coordinates. |
-| [sub_vector](#neuroim.DenseNeuroVec.sub_vector) | Extract subset of volumes. |
+| [sub_vector](#neuroim.DenseNeuroVec.sub_vector) | Deprecated alias for :meth:`subvolumes`. |
 | [vectors](#neuroim.DenseNeuroVec.vectors) | Extract per-voxel time series as a list of 1D arrays. |
+
+### as_dense { #neuroim.DenseNeuroVec.as_dense }
+
+```python
+DenseNeuroVec.as_dense()
+```
+
+Deprecated alias for :meth:`to_dense`.
 
 ### as_matrix { #neuroim.DenseNeuroVec.as_matrix }
 
@@ -41,17 +44,13 @@ DenseNeuroVec.as_matrix()
 
 Convert to matrix (voxels x time).
 
-#### R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::as.matrix
-
 ### as_sparse { #neuroim.DenseNeuroVec.as_sparse }
 
 ```python
 DenseNeuroVec.as_sparse(mask=None)
 ```
 
-Convert to sparse representation.
+Deprecated alias for :meth:`to_sparse`.
 
 ### concat { #neuroim.DenseNeuroVec.concat }
 
@@ -69,17 +68,13 @@ DenseNeuroVec.scale_series(center=True, scale=True)
 
 Scale (center and/or normalize) each time series.
 
-#### R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::scale_series
-
 ### series { #neuroim.DenseNeuroVec.series }
 
 ```python
 DenseNeuroVec.series(x, y=None, z=None)
 ```
 
-Extract time series for voxel(s).
+Deprecated dispatcher for voxel time-series extraction.
 
 ### series_3d { #neuroim.DenseNeuroVec.series_3d }
 
@@ -103,17 +98,13 @@ Extract time series for a single voxel using 3D coordinates.
 |--------|------------------------------------------|-------------------------------------|
 |        | [np](`numpy`).[ndarray](`numpy.ndarray`) | Time series for the specified voxel |
 
-#### R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::series(vec, c(x+1, y+1, z+1))  # R uses 1-based indexing
-
 ### sub_vector { #neuroim.DenseNeuroVec.sub_vector }
 
 ```python
 DenseNeuroVec.sub_vector(indices)
 ```
 
-Extract subset of volumes.
+Deprecated alias for :meth:`subvolumes`.
 
 ### vectors { #neuroim.DenseNeuroVec.vectors }
 

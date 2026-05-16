@@ -1,0 +1,28 @@
+---
+title: "Concepts"
+subtitle: "The vocabulary, one page per idea."
+sidebar: concepts
+---
+
+Every concept page in this section follows the same five-section spine:
+
+1. **What it is.** One paragraph definition.
+2. **Invariants.** The things that are *always true* about it.
+3. **What it refuses.** Canonical error strings.
+4. **What it doesn't do.** Things that surprise newcomers.
+5. **See also.** Cross-links.
+
+| Concept | One-line summary |
+|---------|------------------|
+| [Typed images](images.qmd) | The container family the API hands you — `NeuroVol`, `NeuroVec`, `NeuroHyperVec`. |
+| [NeuroSpace](space.qmd) | The frozen spatial frame that travels with every typed image. |
+| [Receipt](receipt.qmd) | Content-addressable provenance — what's hashed, what isn't, why. |
+| [Provenance](provenance.qmd) | How `.provenance` is produced, chained, and rehydrated across the file boundary. |
+| [VoxelSeriesStore](voxel-series-store.qmd) | The one protocol behind dense, sparse, mapped, and file-backed 4-D containers. |
+| [ROI result](roi-result.qmd) | The `ROIExtractionResult` / `SearchlightResult` family. |
+| [Contract failures](contract-failures.qmd) | The closed set of canonical refusals the API raises. |
+| [Atlas](atlas.qmd) | Typed parcellation as an analysis input. |
+
+The first time you read these, read top-to-bottom. After that, treat the pages as glossary entries — every other doc page links here instead of redefining vocabulary.
+
+Need the inverse — concept → API symbols → recipe → spec, in one table? See the [Concept ↔ API map](../api-map.qmd).

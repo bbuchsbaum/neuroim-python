@@ -10,7 +10,7 @@ Construct a spherical ROI from a brain volume.
 
 | Name     | Type                                     | Description                                                  | Default    |
 |----------|------------------------------------------|--------------------------------------------------------------|------------|
-| bvol     | [NeuroVol](`neuroim.neuro_vec.NeuroVol`) | The brain volume to extract ROI from                         | _required_ |
+| bvol     | [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | The brain volume to extract ROI from                         | _required_ |
 | centroid | [array](`array`) - [like](`like`)        | 3D coordinates (i,j,k) of the ROI center (0-based)           | _required_ |
 | radius   | [float](`float`)                         | Radius of sphere in voxel units                              | _required_ |
 | fill     | [float](`float`)                         | Value to assign to ROI voxels. If None, use original values. | `None`     |
@@ -21,7 +21,3 @@ Construct a spherical ROI from a brain volume.
 | Name   | Type                           | Description          |
 |--------|--------------------------------|----------------------|
 |        | [ROIVol](`neuroim.roi.ROIVol`) | Spherical ROI object |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::spherical_roi

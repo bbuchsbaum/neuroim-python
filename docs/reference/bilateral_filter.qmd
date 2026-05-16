@@ -25,7 +25,3 @@ similarity for smoothing.
 | Name   | Type                                               | Description        |
 |--------|----------------------------------------------------|--------------------|
 |        | [DenseNeuroVol](`neuroim.neuro_vol.DenseNeuroVol`) | The smoothed image |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::bilateral_filter

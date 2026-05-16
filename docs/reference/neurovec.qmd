@@ -20,7 +20,3 @@ Factory function to create appropriate NeuroVec type.
 | Name   | Type                                     | Description                     |
 |--------|------------------------------------------|---------------------------------|
 |        | [NeuroVec](`neuroim.neuro_vec.NeuroVec`) | DenseNeuroVec or SparseNeuroVec |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::NeuroVec

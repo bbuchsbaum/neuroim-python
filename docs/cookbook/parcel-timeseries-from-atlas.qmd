@@ -1,0 +1,82 @@
+---
+title: "Parcel time series from an atlas"
+subtitle: "Mean BOLD per parcel as a typed clustered vector."
+jupyter: python3
+sidebar: cookbook
+---
+
+## Goal
+
+Reduce a 4-D BOLD to one mean time series per atlas parcel, with the
+parcellation's spatial frame validated against the BOLD's, and the
+result carrying provenance.
+
+## Code
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import numpy as np
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "cookbook" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+
+# A 3-parcel label volume in the mask's frame (stand-in for an atlas).
+m = np.asarray(mask.data).astype(int)
+labels = np.zeros_like(m)
+for n, (i, j, k) in enumerate(np.argwhere(m > 0)):
+    labels[i, j, k] = (n % 3) + 1
+atlas = ni.DenseNeuroVol(labels.astype(np.int16), mask.space)
+
+clustered = bold.parcel_means(atlas)
+
+(type(clustered).__name__,
+ np.asarray(clustered.ts).shape,          # (n_timepoints, n_parcels)
+ clustered.n_clusters,
+ clustered.provenance.method_name)
+```
+
+`parcel_means` accepts a label `DenseNeuroVol` (or a typed
+`neuroim.atlas.VolumetricAtlas`) and returns a `ClusteredNeuroVec`.
+
+## What's guaranteed
+
+- The atlas/BOLD spatial frame is checked at the API surface before
+  any reduction — `parcel_means` routes through the same
+  `verify.assert_same_space` gate as `series_roi`.
+- `.ts` is time-major `(n_timepoints, n_parcels)`; `.n_clusters` and
+  `.space` travel with it; `.provenance` records the reduction.
+
+## What survives the file
+
+`ClusteredNeuroVec.provenance` is a `Receipt`. Projecting a parcel
+statistic back to a volume (`map_to_volume()` on a derived
+`ParcelEffectResult`, see [Block parcel contrast scenario
+S15](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/15_block_parcel_contrast/REPORT.md))
+yields a `DenseNeuroVol` whose Receipt embeds on `to_nibabel()`.
+
+## Trapdoors
+
+```{python}
+#| error: true
+from neuroim.neuro_space import NeuroSpace
+
+wrong = NeuroSpace(tuple(mask.space.dim), spacing=(9, 9, 9))
+bold.parcel_means(ni.DenseNeuroVol(labels.astype(np.int16), wrong))
+```
+
+A parcellation whose affine disagrees with the BOLD raises
+`ValueError` containing `spatial contract mismatch` — the same leaf
+refusal every spatial operation bottoms out in. Backed by
+[scenario S11](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/11_atlas_parcel_timeseries/REPORT.md).
+
+## See also
+
+- [Concept: Atlas](../concepts/atlas.qmd)
+- [Concept: Contract failures](../concepts/contract-failures.qmd)
+- Scenarios [S11](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/11_atlas_parcel_timeseries/REPORT.md), [S15](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/15_block_parcel_contrast/REPORT.md)

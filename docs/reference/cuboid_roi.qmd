@@ -10,7 +10,7 @@ Construct a cuboid (3D box) ROI from a brain volume.
 
 | Name     | Type                                              | Description                                                                                      | Default    |
 |----------|---------------------------------------------------|--------------------------------------------------------------------------------------------------|------------|
-| bvol     | [NeuroVol](`neuroim.neuro_vec.NeuroVol`)          | The brain volume to extract ROI from                                                             | _required_ |
+| bvol     | [NeuroVol](`neuroim.neuro_vol.NeuroVol`)          | The brain volume to extract ROI from                                                             | _required_ |
 | centroid | [array](`array`) - [like](`like`)                 | 3D coordinates (i,j,k) of the ROI center (0-based)                                               | _required_ |
 | surround | [int](`int`) or [array](`array`) - [like](`like`) | Number of voxels around center. If int, same for all dims. If array, specify for each dimension. | _required_ |
 | fill     | [float](`float`)                                  | Value to assign to ROI voxels. If None, use original values.                                     | `None`     |
@@ -21,7 +21,3 @@ Construct a cuboid (3D box) ROI from a brain volume.
 | Name   | Type                           | Description       |
 |--------|--------------------------------|-------------------|
 |        | [ROIVol](`neuroim.roi.ROIVol`) | Cuboid ROI object |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::cuboid_roi

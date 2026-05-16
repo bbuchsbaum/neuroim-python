@@ -4,10 +4,4 @@
 neurospace(dim, spacing=None, origin=None, axes=None, trans=None)
 ```
 
-Create a NeuroSpace object.
-
-This is a factory function that matches R's NeuroSpace() constructor style.
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::NeuroSpace
+Construct a :class:`NeuroSpace` from spacing/origin/axes or a 4x4 affine.

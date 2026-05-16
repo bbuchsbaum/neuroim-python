@@ -14,7 +14,3 @@ Write a neuroimaging vector to file.
 | filename  | [str](`str`) or [Path](`pathlib.Path`)   | Output filename                                                                                         | _required_ |
 | format    | [str](`str`)                             | Output format (currently only "NIFTI" supported)                                                        | `'NIFTI'`  |
 | data_type | [str](`str`)                             | Output data type (e.g., "FLOAT32", "INT16") Defaults to "FLOAT" for NIfTI, inferred from input for AFNI | `None`     |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::write_vec

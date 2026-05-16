@@ -19,10 +19,6 @@ Remap the grid-to-world coordinates mapping of an image.
 |--------|--------------------------------------------------------------------------------------------|---------------------------|
 |        | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) or [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | A reoriented version of x |
 
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::reorient
-
 ## Examples {.doc-section .doc-section-examples}
 
 ```python

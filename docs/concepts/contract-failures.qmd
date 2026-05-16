@@ -1,0 +1,42 @@
+---
+title: "Contract failures"
+subtitle: "The set of canonical refusals the API raises."
+sidebar: concepts
+---
+
+## What it is
+
+The API documents its refusals as a *named vocabulary*. When a contract layer fails, the exception has a canonical message shape — stable enough to grep for, structured enough that tests and downstream tools can match on it. This page lists the headline refusals, the exception class, the operations they fire from, and the scenarios that gate them. Every string below is the verbatim message in the current source; the full closed grammar with parameterization rules is [the spec page](../spec/contract-failure-vocabulary.html).
+
+| Trigger | Exception | Canonical message (verbatim) | Backed by |
+|---|---|---|---|
+| Mask/data spatial mismatch in `series_roi`, `searchlight_apply`, `temporal_snr(mask=…)` | `ValueError` | `assert_same_space: spatial contract mismatch — NeuroSpace mismatch in {dim\|affine}: left=…, right=…` | [S02](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/02_roi_mean_timeseries/REPORT.md), [S04](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/04_temporal_snr_map/REPORT.md), [S10](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/10_searchlight_space_mismatch/REPORT.md) |
+| Cross-subject `concat(*vecs)` frame mismatch | `ValueError` | `spatial contract mismatch: NeuroVecs must have same spatial dimensions and affine; assert_same_space: …` | [S07](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/07_multi_subject_concat/REPORT.md) |
+| `series_at_world` world coord off-grid | `ValueError` | `world coord (x, y, z) mm maps to voxel (i, j, k) which is outside the image grid of shape (…).` | [S01](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/01_mni_spotlight/REPORT.md) |
+| Voxel/index off-grid (`series_at`, `series_at_coords`) | `IndexError` | `{coordinate\|index} out of bounds for spatial shape (…): [[…]]` | [S01](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/01_mni_spotlight/REPORT.md) |
+| Per-volume affine drift in `FileBackedNeuroVec` | `ValueError` | `Volume {idx} has inconsistent affine/space: {underlying}` | [S12](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/12_file_backed_affine_drift/REPORT.md) |
+| `verify.assert_same_space` on receipt-only inputs | `ValueError` | `assert_same_space: input_space_hash mismatch` (+ both hashes) | exercised by `tests/test_structural_receipts.py` |
+| `verify.assert_same_mask` mismatch | `ValueError` | `assert_same_mask: mask_hash mismatch` (+ both hashes) | exercised by `tests/test_structural_receipts.py` |
+| Mutating a frozen `NeuroSpace` | `AttributeError` | `NeuroSpace is immutable` | — |
+
+The mask/data spatial check is layered: the leaf predicate is `NeuroSpace.compatible_with`, which raises `NeuroSpace mismatch in spatial dim: …` or `NeuroSpace mismatch in affine: …`; `verify.assert_same_space` wraps it as `assert_same_space: spatial contract mismatch — …`; `concat` wraps *that* again with its own prefix. The leaf message is always present in the chain, which is what makes it greppable across every operation.
+
+## Invariants
+
+- **One leaf predicate per failure mode.** A spatial mismatch in `series_roi` and in `searchlight_apply` both bottom out in the same `NeuroSpace.compatible_with` message. Tests grep on the leaf; the wrapping prefixes identify which operation raised.
+- **Refusal precedes side-effect.** A contract failure raises *before* any voxel data is read, allocated, or written. A failed `temporal_snr(mask=…)` leaves the BOLD untouched.
+- **Refusal precedes silent indexing.** `series_at_world` off-grid raises *before* signed indexing returns a value from the far corner of the array. The wrong-but-plausible result is the failure mode [S01](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/01_mni_spotlight/REPORT.md) was filed against. (The `out_of_bounds="zero"` opt-in exists for algorithms that *want* zero-fill; the default is `"raise"`.)
+- **Refusal carries structured detail.** The message includes the offending pair — both frames for a space mismatch, both hashes for a receipt mismatch, the offending coordinates and grid shape for an off-grid index — so a mask/space mistake is diagnosable from the traceback alone.
+
+## What it doesn't do
+
+- **It is not a warnings system.** Refusals are exceptions, not warnings. There is no quiet mode that downgrades a contract failure to a log line.
+- **It is not pluggable.** A backend or operation cannot redefine `NeuroSpace mismatch in affine` to mean something else. Adding a new refusal means adding a vocabulary entry, not overloading an existing message.
+- **It is not exhaustive of all errors.** Plain bugs still surface as ordinary exceptions. The canonical refusals are the *contract* failures the docs and tests guarantee — the ones a wrong-but-plausible silent return would otherwise mask.
+- **The two layers are different exception types.** Off-grid *voxel/index* access is `IndexError`; off-grid *world coordinate* access is `ValueError`. That is intentional: the world-coordinate path has already done the affine inversion and is reporting a domain error, not an indexing error.
+
+## See also
+
+- [Concept: NeuroSpace](space.qmd) — `compatible_with`, the leaf predicate behind most spatial refusals.
+- [Concept: Receipt](receipt.qmd) — the hashes behind the `input_space_hash` / `mask_hash` mismatch messages.
+- [Spec: contract-failure vocabulary](../spec/contract-failure-vocabulary.html) — the full closed grammar and parameterization rules.

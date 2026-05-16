@@ -1,0 +1,128 @@
+---
+title: "Use neuroim data with NumPy / SciPy / scikit-learn / matplotlib"
+subtitle: "Cross into the array world once, on purpose, with the frame-faithful accessor."
+jupyter: python3
+sidebar: cookbook
+---
+
+## Goal
+
+You hold a typed `neuroim` container and you want to run a NumPy,
+SciPy, scikit-learn, or matplotlib operation on the numbers. The
+scientific stack speaks `numpy.ndarray`. Cross that boundary in one
+explicit step and know exactly which array shape you handed over.
+
+## Why the explicit step exists
+
+`np.asarray(vol)` does **not** return the voxel data. A typed image
+refuses implicit array conversion — because the alternative is
+silently dropping the `NeuroSpace`, which is the failure the typed
+contract exists to prevent.
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import numpy as np
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "cookbook" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+
+try:
+    np.asarray(bold)
+except TypeError as exc:
+    print(exc)
+```
+
+The refusal names the accessor to call. That message is the contract,
+not an error to work around.
+
+## The frame-faithful accessors
+
+Each container has one accessor that returns the ndarray at its
+**natural rank** — the array `np.asarray` would have produced if
+implicit conversion were allowed:
+
+| Container | Accessor | Returned shape |
+|---|---|---|
+| `NeuroVol` (3-D) | `.as_array()` | `(x, y, z)` |
+| `NeuroVec` (4-D) | `.data` | `(x, y, z, t)` |
+| `NeuroHyperVec` (5-D+) | `.data` | `(x, y, z, t, …)` |
+
+```{python}
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+
+vol_arr = mask.as_array()        # 3-D ndarray
+bold_arr = bold.data             # 4-D ndarray, frame-faithful
+
+(vol_arr.shape, bold_arr.shape)
+```
+
+## SciPy / scikit-learn
+
+Hand the ndarray to the library directly. `.data` is the 4-D array;
+when an estimator wants a 2-D `(samples, features)` matrix, ask for
+that shape explicitly with `.as_matrix()` so the reshape is in *your*
+code, not hidden:
+
+```{python}
+from scipy import ndimage
+
+# SciPy on the 3-D mask: label connected components.
+labels, n = ndimage.label(mask.as_array())
+
+# scikit-learn-style 2-D matrix: voxels x timepoints, asked for by name.
+mat = bold.as_matrix()
+(n, mat.shape)
+```
+
+`.data` and `.as_matrix()` are different on purpose: `.data` is the
+frame-faithful array; `.as_matrix()` is the deliberate
+voxels-by-timepoints matricization for 2-D estimators. Pick the one
+whose shape you want; neither is reached by accident.
+
+## matplotlib
+
+```{python}
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+mid = bold.data[:, :, bold.shape[2] // 2, 0]
+fig, ax = plt.subplots()
+ax.imshow(mid.T, origin="lower")
+ax.set_title("axial slice, t=0")
+fig.savefig("_slice.png", dpi=110)
+print("wrote _slice.png", mid.shape)
+```
+
+## What's guaranteed
+
+- The accessor returns a real `numpy.ndarray`; from there the whole
+  scientific stack works normally.
+- The crossing is in your code, at a named call. Nothing downstream
+  silently dropped the spatial frame to get there.
+- Going back: rebuild a typed container from a result array with
+  `ni.DenseNeuroVol(result, vol.space)` /
+  `ni.DenseNeuroVec(result, vec.space)` to re-attach the frame and
+  resume the typed contract.
+
+## Trapdoors
+
+- A library that calls `np.asarray()` on the container *internally*
+  raises the same refusal from inside its own stack trace. Convert
+  first, then pass the ndarray — do not pass the typed object into
+  array-only code.
+- `.as_matrix()` on a `NeuroVec` returns `(n_voxels, n_time)`, not the
+  4-D array. If you wanted the volume-shaped data, use `.data`.
+- A result ndarray has no `NeuroSpace`. It is just numbers until you
+  wrap it back in a typed container with the originating `.space`.
+
+## See also
+
+- [Concepts: Typed images](../concepts/images.qmd) — why implicit array conversion is refused.
+- [Interop with nibabel](interop-with-nibabel.qmd) — the other boundary, in both directions.
+- [Save a derived map with provenance](save-derived-map-with-provenance.qmd) — re-attaching the frame and keeping a Receipt.

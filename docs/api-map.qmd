@@ -1,0 +1,35 @@
+---
+title: "Concept ↔ API map"
+subtitle: "Every concept, the API symbols that realize it, and the recipe that uses it."
+sidebar: false
+---
+
+The [Reference](reference/index.qmd) is generated from docstrings and
+grouped by concept. This page is the durable inverse: start from a
+concept, find the symbols and the runnable recipe. It is hand-authored
+(generated reference pages are regenerated on every build, so the
+cross-links that must survive live here).
+
+| Concept | Key API symbols | Recipe | Spec |
+|---------|-----------------|--------|------|
+| [Typed images](concepts/images.qmd) | `read_image`, `NeuroVol`, `NeuroVec`, `NeuroHyperVec`, `DenseNeuroVol`, `DenseNeuroVec` | [time series at a coordinate](cookbook/extract-timeseries-at-coordinate.qmd) | — |
+| [NeuroSpace](concepts/space.qmd) | `NeuroSpace`, `neurospace`, `NeuroSpace.compatible_with`, `NeuroSpace.from_affine` | [concat with contracts](cookbook/cross-subject-concat-with-contracts.qmd) | [space invariants](spec/space-invariants.html) |
+| [Receipt](concepts/receipt.qmd) | `Receipt`, `results.hash_neurospace`, `results.hash_ndarray` | [save a derived map](cookbook/save-derived-map-with-provenance.qmd) | [Receipt NIfTI extension](spec/receipt-nifti-extension.html) |
+| [Provenance](concepts/provenance.qmd) | `verify.assert_same_space`, `verify.assert_same_mask`, `verify.diff_receipts` | [audit a derived map](cookbook/audit-a-derived-map.qmd) | [Receipt NIfTI extension](spec/receipt-nifti-extension.html) |
+| [VoxelSeriesStore](concepts/voxel-series-store.qmd) | `storage.VoxelSeriesStore`, `storage.NeuroVecStoreAdapter`, `DenseNeuroVec`, `SparseNeuroVec`, `MappedNeuroVec`, `FileBackedNeuroVec` | [hand off to multiprocessing](cookbook/handoff-to-multiprocessing.qmd) | [VoxelSeriesStore protocol](spec/voxel-series-store-protocol.html) |
+| [ROI result](concepts/roi-result.qmd) | `spherical_roi`, `cuboid_roi`, `series_roi`, `ROIExtractionResult`, `SearchlightResult`, `searchlight_apply` | [time series at a coordinate](cookbook/extract-timeseries-at-coordinate.qmd) | — |
+| [Contract failures](concepts/contract-failures.qmd) | `NeuroSpace.compatible_with`, `verify.assert_same_space`, `concat`, `series_at_world` | every recipe's *Trapdoors* section | [contract-failure vocabulary](spec/contract-failure-vocabulary.html) |
+| [Atlas](concepts/atlas.qmd) | `atlas.VolumetricAtlas`, `atlas.AtlasLabel`, `parcel_means`, `ClusteredNeuroVec` | [parcel time series from an atlas](cookbook/parcel-timeseries-from-atlas.qmd) | — |
+
+## The other direction
+
+Reading a [Reference](reference/index.qmd) page and want the *why*?
+Every section there carries a one-line link back to its concept,
+recipe, and spec — see the section descriptions on the
+[reference index](reference/index.qmd).
+
+## See also
+
+- [Concepts index](concepts/index.qmd) — the vocabulary, one page per idea.
+- [Cookbook](cookbook/index.qmd) — task-driven recipes.
+- [Evidence](evidence/index.qmd) — the runnable scoreboard.

@@ -5,8 +5,6 @@ LogicalNeuroVol(data, space, label='', indices=None)
 ```
 
 Logical/binary 3D neuroimaging volume.
-
-Boolean 3D volume with the same spatial contract as dense neuroim volumes.
 Extends DenseNeuroVol with boolean data.
 
 ## Parameters {.doc-section .doc-section-parameters}
@@ -17,10 +15,6 @@ Extends DenseNeuroVol with boolean data.
 | space   | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | Spatial metadata                                    | _required_ |
 | label   | [str](`str`)                                   | Volume label                                        | `''`       |
 | indices | [array](`array`) - [like](`like`)              | If provided, only these indices will be set to True | `None`     |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::LogicalNeuroVol
 
 ## Attributes
 

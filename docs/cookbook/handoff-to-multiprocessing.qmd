@@ -1,0 +1,72 @@
+---
+title: "Hand off to multiprocessing"
+subtitle: "Pickle a typed map through a worker boundary."
+jupyter: python3
+sidebar: cookbook
+---
+
+## Goal
+
+Send a derived map to a worker pool (or a joblib cache) and have the
+receiving side still know *what produced it* — without shipping a
+separate manifest alongside the pickle.
+
+## Code
+
+```{python}
+from pathlib import Path
+import sys
+import pickle
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "cookbook" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+
+tsnr = bold.temporal_snr(mask=mask)
+
+payload = pickle.dumps(tsnr, protocol=pickle.HIGHEST_PROTOCOL)
+received = pickle.loads(payload)             # stands in for the worker side
+
+(received.provenance is not None,
+ received.provenance.method_name,
+ received.provenance.input_space_hash == tsnr.provenance.input_space_hash,
+ received.provenance.mask_hash == tsnr.provenance.mask_hash)
+```
+
+The Receipt is part of the object, so it travels with the pickle. The
+worker does not need a side-channel describing what it received.
+
+## What's guaranteed
+
+- `DenseNeuroVol` / result objects are picklable and the round-trip
+  produces an equal `Receipt` (same hashes, same `method_name`).
+- This holds across a *fresh process*, not just in-process — the
+  scenario below proves it via a subprocess.
+
+## What survives the file
+
+Pickle is not the file boundary, but the guarantee is the same shape:
+the provenance is intrinsic to the object. The on-disk equivalent is
+[Save a derived map](save-derived-map-with-provenance.qmd).
+
+## Trapdoors
+
+- Reducing to a bare `ndarray` *before* the handoff (`tsnr.data`
+  instead of `tsnr`) ships numbers with no provenance — the receiving
+  side cannot recover what produced them. Keep the typed carrier
+  across the boundary.
+- A worker that re-wraps a bare array in a fresh `DenseNeuroVol`
+  invents a *new* identity; it does not recover the original Receipt.
+
+Backed by [scenario S08](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/08_pickle_multiprocessing_handoff/REPORT.md)
+(fresh-process pickle round-trip).
+
+## See also
+
+- [Concept: Provenance](../concepts/provenance.qmd) — round-trip safety through pickle.
+- [Save a derived map with provenance](save-derived-map-with-provenance.qmd) — the file-boundary analogue.
+- Scenario [S08](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/08_pickle_multiprocessing_handoff/REPORT.md)

@@ -1,0 +1,33 @@
+---
+title: "Cookbook"
+subtitle: "Task-driven recipes. Each one runs against the shipped fixtures."
+sidebar: cookbook
+---
+
+Recipes are named by *analysis goal*, not by API. Every recipe has the
+same five-section spine:
+
+1. **Goal** — one sentence, the analysis intent.
+2. **Code** — ≤ 15 lines, runnable against `golden_tests/fixtures/tiny_*.nii.gz`.
+3. **What's guaranteed** — the contracts that fired during the recipe.
+4. **What survives the file** — what `.provenance` looks like after a write/read.
+5. **Trapdoors** — the nearby misuses the contract layer catches, with a scenario link.
+
+There are no `nibabel` comparisons in the cookbook. Comparison is a
+measurement, and measurements live in [Evidence](../evidence/index.qmd).
+
+| Recipe | Goal |
+|--------|------|
+| [Time series at a coordinate](extract-timeseries-at-coordinate.qmd) | Pull one voxel's series at a world-mm point. |
+| [Parcel time series from an atlas](parcel-timeseries-from-atlas.qmd) | Mean BOLD per parcel as a typed clustered vector. |
+| [Save a derived map with provenance](save-derived-map-with-provenance.qmd) | Write a tSNR map whose Receipt rides the file. |
+| [Audit a derived map](audit-a-derived-map.qmd) | Recover a chained pipeline from the `.nii.gz` alone. |
+| [Cross-subject concat with contracts](cross-subject-concat-with-contracts.qmd) | Stack subjects with frame validation at the API surface. |
+| [Hand off to multiprocessing](handoff-to-multiprocessing.qmd) | Pickle a typed map through a worker boundary. |
+| [Interop with nibabel](interop-with-nibabel.qmd) | Cross the boundary in both directions, explicitly. |
+
+Run all recipe code paths at once:
+
+```bash
+PYTHONPATH=src:tests:. python -m pytest examples/scenarios -q
+```

@@ -10,13 +10,22 @@ BUILDDIR      = build
 QUARTO_PYTHON ?= $(shell command -v python)
 export QUARTO_PYTHON
 
-.PHONY: help quarto quarto-preview html
+# quartodoc config lives in _quartodoc.yml (single source of truth, merged
+# into the project via `metadata-files:` at quarto render time). The
+# quartodoc CLI does NOT honor `metadata-files:`, so it must be pointed at
+# the file explicitly or it fails with "No `quartodoc:` section found".
+QUARTODOC_CONFIG = _quartodoc.yml
 
-quarto:
-	quartodoc build && quarto render
+.PHONY: help quarto quarto-preview html lint
+
+lint:
+	cd .. && python tools/docs_lint.py
+
+quarto: lint
+	quartodoc build --config $(QUARTODOC_CONFIG) && quarto render
 
 quarto-preview:
-	quartodoc build && quarto preview --no-browser
+	quartodoc build --config $(QUARTODOC_CONFIG) && quarto preview --no-browser
 
 html:
 	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)

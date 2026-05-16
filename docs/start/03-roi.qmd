@@ -1,0 +1,86 @@
+---
+title: "03 — ROI extraction"
+subtitle: "Extracting voxels through an ROI returns a *result*, not an array."
+jupyter: python3
+sidebar: start
+---
+
+ROI extraction is where the first contract fires inside a public operation, and where the return value starts carrying provenance. This page introduces `ROIExtractionResult` and the spatial-mismatch refusal.
+
+## The call
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import numpy as np
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "start" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+
+roi = ni.spherical_roi(mask, centroid=(4, 4, 2), radius=2)
+extraction = bold.series_roi(roi)
+
+type(extraction).__name__, extraction.values.shape
+```
+
+`spherical_roi` returns an `ROICoords` — voxel indices plus the `NeuroSpace` they belong to. `bold.series_roi(roi)` checks that `roi.space.compatible_with(bold.space)` *before* it touches a single voxel.
+
+## The result object
+
+```{python}
+extraction.values.shape           # (n_timepoints, n_voxels)
+extraction.coords.shape           # (n_voxels, 3)
+extraction.space.dim              # the frame these coords live in
+extraction.provenance.method_name # "series_roi"
+extraction.provenance.input_space_hash[:12]
+extraction.provenance.mask_hash[:12]
+```
+
+Four fields, all typed:
+
+- **`values`** — the time-by-voxel matrix, shape `(n_timepoints, n_voxels)`. The numeric payload. `.mean(axis=1)` collapses across voxels; `.mean(axis=0)` collapses across time.
+- **`coords`** — the voxel coordinates that produced those values.
+- **`space`** — the spatial frame those coordinates live in (same `NeuroSpace` as the input).
+- **`provenance`** — a `Receipt`. Content-addressable; same inputs produce identical hashes.
+
+Analysis code that wants the array calls `extraction.values`. Analysis code that wants to write the result back into a volume already has `coords` and `space` on the same object — no second handle on the mask, no second affine to keep in sync.
+
+## What the Receipt has
+
+```{python}
+import dataclasses
+dataclasses.asdict(extraction.provenance)
+```
+
+Every field is a value, not a reference. Two extractions on the same BOLD with the same mask produce identical `input_space_hash` and `mask_hash`. The pair is the canonical "same input" check downstream: if two results disagree on either hash, they were not produced from the same source.
+
+This will become important on the [next page](04-derived-maps.qmd), where a `searchlight` chains a receipt onto the BOLD's frame, and on [page 05](05-roundtrip.qmd), where that receipt survives the file boundary.
+
+## Refuses to
+
+- **`series_roi` with a mismatched `roi.space`.** The contract check fires before any indexing happens. Raises `ValueError`; the message contains the greppable substring `spatial contract mismatch` (`assert_same_space: spatial contract mismatch — NeuroSpace mismatch in affine: …`). Backed by [scenario S02](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/02_roi_mean_timeseries/REPORT.md) (PAIN-5, closed).
+- **`series_at_world` outside the grid.** A world-mm coordinate that inverts to a negative voxel index raises rather than silently wrapping to the far corner of the array. Backed by [scenario S01](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/01_mni_spotlight/REPORT.md) (PAIN-2, closed).
+- **Hand back a bare `ndarray`.** `series_roi` returns a `Result`. The numeric payload is `.values`; the spatial context never strips off.
+
+## Why the result shape, not a tuple
+
+A 4-tuple `(values, coords, space, receipt)` would carry the same information. A `Result` is preferred because:
+
+1. **One handle for IO and provenance.** Writing the extraction's mean back into a volume only needs `extraction.coords` and `extraction.space`; the caller never wires together two unrelated returns.
+2. **A `Result` survives serialization with its identity intact.** A pickle round-trip of an `ROIExtractionResult` produces an equal `Receipt`; a pickle of `(values, coords, space, receipt)` is a tuple by another name.
+3. **Concept stability.** `ROIExtractionResult` and `SearchlightResult` share the `.values` / `.space` / `.provenance` shape. The whole rest of the API uses that shape as the unit of derived data.
+
+## Next
+
+[04 — Derived maps](04-derived-maps.qmd) is the same idea at the level of a *volume* instead of an extraction: `searchlight_apply` and `temporal_snr` return a `DenseNeuroVol` whose `.provenance` plays the same role.
+
+## See also
+
+- [Concept: ROI result](../concepts/roi-result.qmd) — short-form vocabulary entry.
+- [Concept: Contract failures](../concepts/contract-failures.qmd) — the full canonical refusal vocabulary.
+- [Spec: Receipt v1](../spec/receipt-nifti-extension.html) — the eight fields, hashed.

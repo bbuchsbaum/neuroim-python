@@ -1,0 +1,102 @@
+---
+title: "05 — Round-trip"
+subtitle: "Writing then reading is provenance-safe by spec."
+jupyter: python3
+sidebar: start
+---
+
+The previous pages built up a typed result with a Receipt. This page is where the Receipt crosses the file boundary and survives. The on-disk format is a versioned public contract — not an implementation detail — which is what makes the round-trip a guarantee instead of a hope.
+
+{{< include ../_includes/lifecycle.qmd >}}
+
+## Write
+
+```{python}
+from pathlib import Path
+import sys
+import tempfile
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import nibabel as nib
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "start" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+
+tsnr = bold.temporal_snr(mask=mask)
+
+tmp = Path(tempfile.mkdtemp()) / "tsnr.nii.gz"
+nib.save(tsnr.to_nibabel(), str(tmp))
+tmp.exists(), tmp.stat().st_size > 0
+```
+
+`to_nibabel()` serializes the volume to a `nibabel.Nifti1Image` and embeds the Receipt as a NIfTI header extension with `ecode 6` (the standard `comment` ecode) and content prefix `neuroim/receipt/v1:`. The prefix is the version marker; foreign comment extensions from other tools are left alone on read.
+
+::: {.callout-note}
+`to_nibabel()` + `nib.save()` is the receipt-preserving write path today; `write_vol` gaining the same embedding is tracked as `neuroim-python-ur0` and is the single change that will retire this note. See [scenario S19 PAIN-4](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/19_group_mean_template_tsnr/REPORT.md).
+:::
+
+## Read
+
+```{python}
+roundtrip = ni.read_image(str(tmp))
+type(roundtrip).__name__
+roundtrip.provenance.method_name
+roundtrip.provenance.input_space_hash[:12], tsnr.provenance.input_space_hash[:12]
+roundtrip.provenance.mask_hash[:12], tsnr.provenance.mask_hash[:12]
+```
+
+The Receipt comes back. Every field that went in comes out — same `method_name`, same hashes, same `n_voxels`. A collaborator who only has `tsnr.nii.gz` can answer *what produced this, from what input, with what mask, what method?*
+
+The hashes mean more than equality. If the source BOLD and mask are still on disk, you can recompute their `input_space_hash` and `mask_hash` and confirm they match the volume's Receipt. The mission claim — *silent space/orientation/mask mismatches are caught at the contract layer* — survives the file boundary precisely because the Receipt is on the file, not in a sidecar.
+
+## Read it without neuroim
+
+The spec is ten lines of `nibabel`:
+
+```python
+import json
+import nibabel as nib
+
+def read_neuroim_receipt(path):
+    img = nib.load(str(path))
+    for ext in getattr(img.header, "extensions", []) or []:
+        if int(ext.get_code()) != 6:
+            continue
+        text = bytes(ext.get_content()).rstrip(b"\x00").decode("utf-8", "replace")
+        if text.startswith("neuroim/receipt/v1:"):
+            return json.loads(text[len("neuroim/receipt/v1:"):])
+    return None
+```
+
+That snippet does not import `neuroim`. The Receipt is a *public* artifact. A pipeline written in a different toolchain can produce Receipt extensions that `neuroim.read_image` will rehydrate, and a pipeline written in neuroim can be inspected by any tool that reads NIfTI extensions. The full schema and a symmetric reference writer live in [the Receipt spec](../spec/receipt-nifti-extension.html).
+
+## Refuses to
+
+- **Drop the Receipt on `to_nibabel`.** The receipt extension is always embedded when `.provenance` is set. The regression test at [`tests/test_receipt_spec_external_reader.py`](https://github.com/bbuchsbaum/neuroim-python/blob/main/tests/test_receipt_spec_external_reader.py) re-reads the file with the ten-line snippet above.
+- **Confuse a foreign `comment` extension for a Receipt.** Only extensions whose payload starts with the literal `neuroim/receipt/v1:` are treated as Receipts on read.
+- **Silently accept a future v2 file as v1.** Readers that know only v1 ignore unknown prefixes without raising; they do *not* try to coerce.
+
+## What this finishes
+
+You have now read every contract layer the rest of the docs build on:
+
+1. `read_image` returns a typed object.
+2. `NeuroSpace` is the spatial frame; `compatible_with` is the alignment check.
+3. ROI extraction returns a `Result` with `.values`, `.coords`, `.space`, `.provenance`.
+4. Derived maps are volumes that *also* carry `.provenance`.
+5. The Receipt survives the file boundary, by a public spec.
+
+Everything else in the docs — the cookbook recipes, the searchlight infrastructure, the atlas layer, the alternative voxel-series backends — composes these five pieces. Pick a destination:
+
+- **[Concepts](../concepts/space.qmd)** for short-form vocabulary entries.
+- **[Reference](../reference/index.qmd)** for the generated API.
+- **[Receipt spec](../spec/receipt-nifti-extension.html)** for the on-disk format.
+
+## See also
+
+- [Concept: Provenance](../concepts/provenance.qmd) — what's rehydrated, what isn't.
+- [Spec: Receipt v1](../spec/receipt-nifti-extension.html) — the on-disk contract.
+- Scenarios for the IO boundary: [S05](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/05_receipt_io_boundary/REPORT.md), [S13](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/13_provenance_audit/REPORT.md), [S08](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/08_pickle_multiprocessing_handoff/REPORT.md).

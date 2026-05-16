@@ -1,0 +1,70 @@
+---
+title: "Interop with nibabel"
+subtitle: "Cross the boundary in both directions, explicitly."
+jupyter: python3
+sidebar: cookbook
+---
+
+## Goal
+
+You already hold a `nibabel` image (some upstream tool produced it),
+or you need to hand a typed `neuroim` object to a tool that speaks
+`nibabel`. Cross the boundary explicitly, with the spatial frame
+preserved both ways.
+
+## Code
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import nibabel as nib
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "cookbook" else Path.cwd()
+
+# Inbound: a nibabel image you already hold -> typed neuroim object.
+nib_img = nib.load(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+vec = ni.from_nibabel(nib_img)
+
+# Outbound: a typed neuroim object -> nibabel for a downstream tool.
+back = vec.to_nibabel()
+
+(type(vec).__name__, vec.shape, back.shape, back.affine.shape)
+```
+
+`from_nibabel` dispatches on dimensionality (4-D → `NeuroVec`, 3-D →
+`NeuroVol`). `to_nibabel()` is defined on every typed container.
+
+## What's guaranteed
+
+- The affine survives both directions: `vec.space.affine` and
+  `back.affine` describe the same world frame.
+- `read_image(...)` is the documented entry point; `from_nibabel` /
+  `to_nibabel` are the explicit interchange for callers who *already*
+  hold a nibabel object. Interop is visible where it matters — it is
+  not the documented main entry.
+
+## What survives the file
+
+If the typed object carries `.provenance`, `to_nibabel()` embeds the
+Receipt as a NIfTI `comment` extension — so even an object that
+*originated* from a plain nibabel image gains a recoverable Receipt
+once a neuroim operation has produced a derived map from it. See
+[Save a derived map](save-derived-map-with-provenance.qmd).
+
+## Trapdoors
+
+- `from_nibabel` on a < 3-D image raises `ValueError` — there is no
+  spatial frame to attach.
+- Round-tripping a *bare* nibabel image through `from_nibabel` →
+  `to_nibabel` does **not** invent provenance. A Receipt exists only
+  once a neuroim operation produced the derived value; interop alone
+  does not synthesize one.
+
+## See also
+
+- [Start 01 — Read an image](../start/01-image.qmd) — why `read_image` is the hero, not `from_nibabel`.
+- [Spec: Receipt NIfTI extension](../spec/receipt-nifti-extension.html) — the public on-disk contract a non-neuroim tool can read.

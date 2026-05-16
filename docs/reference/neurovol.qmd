@@ -23,7 +23,3 @@ based on the input data.
 | Name   | Type                                     | Description                                       |
 |--------|------------------------------------------|---------------------------------------------------|
 |        | [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | DenseNeuroVol, SparseNeuroVol, or LogicalNeuroVol |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::NeuroVol

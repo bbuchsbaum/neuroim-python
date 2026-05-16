@@ -1,0 +1,56 @@
+---
+title: "Typed images"
+subtitle: "`NeuroVol`, `NeuroVec`, `NeuroHyperVec` — the container family the API hands you."
+sidebar: concepts
+---
+
+## What it is
+
+A *typed image* is the object you actually hold. It pairs the data with a [`NeuroSpace`](space.qmd) and a type whose name states what is safe to do with it. There are three abstract bases, split by rank:
+
+| Base | Rank | One value per… | Trailing axis |
+|---|---|---|---|
+| `NeuroVol` | 3-D | voxel | — |
+| `NeuroVec` | 4-D | voxel, over a series | time |
+| `NeuroHyperVec` | 5-D+ | voxel, over time and features | feature |
+
+Each concrete class is a *storage strategy* for one of those ranks, not a different kind of image:
+
+- `NeuroVol` → `DenseNeuroVol`, `SparseNeuroVol`, `LogicalNeuroVol`, `ClusteredNeuroVol`
+- `NeuroVec` → `DenseNeuroVec`, `SparseNeuroVec`, `MappedNeuroVec`, `FileBackedNeuroVec`, `BigNeuroVec`
+- `NeuroHyperVec` → `DenseNeuroHyperVec`, `SparseNeuroHyperVec`
+
+Every class listed above genuinely *is a* member of its base — `issubclass(DenseNeuroVec, NeuroVec)` is `True`, and the same holds for each variant shown, including `ClusteredNeuroVol → NeuroVol`. The substitutability invariants below apply to exactly this list.
+
+`ClusteredNeuroVec` is *not* in that list. It is **not** a `NeuroVec` subtype (`issubclass(ClusteredNeuroVec, NeuroVec)` is `False`; its MRO is just `ClusteredNeuroVec → object`), nor is it a structural [`VoxelSeriesStore`](voxel-series-store.qmd). It is a derived parcel-series container — one shared time-series per cluster — that is not a rank-4 image or storage variant and is not currently part of the `NeuroVec` / `VoxelSeriesStore` substitutability contract. Its role is described with the [ROI result](roi-result.qmd) and [Atlas](atlas.qmd) pages, not here.
+
+`read_image` defaults to `type="auto"`: a 3-D file comes back as a `DenseNeuroVol`, a 4-D file as a `DenseNeuroVec`, so you branch on the type, not on `array.ndim`. The `type=` argument is reader dispatch, not a rank gate — `type="vol"` uses the volume reader, which extracts one 3-D volume (index 0) from 4-D input; `type="vec"` uses the vector reader, which promotes 3-D input to singleton-time 4-D, shape `(…, 1)`.
+
+## Invariants
+
+- **Rank is the type.** A `NeuroVol`'s `.shape` has three entries; a `NeuroVec`'s has four, and the trailing entry is the time axis; a `NeuroHyperVec` adds feature axes. A `(8, 8, 4, 10)` file is a `DenseNeuroVec`; its mask, `(8, 8, 4)`, is a `DenseNeuroVol`.
+- **Every instance carries a `.space`.** The spatial frame is a [`NeuroSpace`](space.qmd) and it is the same object family across every storage variant. Two images interact through their spaces, never through raw affines.
+- **Storage is orthogonal to type.** Every `NeuroVec` variant answers the same 4-D operations whether it is dense in RAM, sparse, memory-mapped, or one volume per file. Analysis code is written against `NeuroVec`, not `DenseNeuroVec` — the [`VoxelSeriesStore`](voxel-series-store.qmd) protocol (importable as `from neuroim.storage import VoxelSeriesStore`) is what makes that substitution safe.
+- **Subtypes refine, they don't reinterpret.** `LogicalNeuroVol` *is a* `DenseNeuroVol` (MRO: `LogicalNeuroVol → DenseNeuroVol → NeuroVol`); it narrows the value domain to booleans, it does not change the spatial contract.
+- **A typed image is not a NumPy array.** It does not subclass `ndarray` and does not implement `__array__`. The array is reached through an explicit accessor, so the spatial frame can never be dropped by an implicit cast.
+
+## What it refuses
+
+- **An unknown reader mode.** `read_image(path, type=…)` accepts only `"auto"`, `"vol"`, or `"vec"`; anything else raises `ValueError: type must be one of 'auto', 'vol', or 'vec'`. `type=` selects a reader (and may extract or promote, as above) — it does not silently fall back to a guess.
+- **Handing back an anonymous array by default.** Readers and typed result-producing workflows do not return a bare `numpy.ndarray`; spatial context does not leave them silently. The explicit extraction APIs — indexing (`vol[...]`), `as_array()`, the `series_at*` family — intentionally *do* hand you the raw array, because there you asked for it.
+
+The exact exception classes and canonical message strings for these refusals are the closed grammar in [Spec: contract-failure vocabulary](../spec/contract-failure-vocabulary.html).
+
+## What it doesn't do
+
+- **No implicit array casting.** Container arithmetic exists and returns typed containers (`vol + 1` and `vol + vol` both return a `DenseNeuroVol`); operations between two typed carriers validate compatible spaces where applicable. What does *not* happen is a silent cast to `ndarray` — to drop into raw NumPy you reach the array explicitly.
+- **No repetition time.** A `NeuroVec` records *that* there is a time axis and how long it is, not the TR. Sampling interval is data, not contract — the same boundary [`NeuroSpace`](space.qmd) draws.
+- **No storage policy in the analysis surface.** The type does not tell you to special-case sparse vs. dense; that choice is a memory/IO decision behind one protocol, deliberately invisible to analysis code.
+- **No history.** A typed image describes a grid of values, not the operations that produced it. That record lives in the [`Receipt`](receipt.qmd) on `.provenance`.
+
+## See also
+
+- [Start 01 — Read an image](../start/01-image.qmd) — the same idea as a first runnable step.
+- [NeuroSpace](space.qmd) — the spatial frame every typed image carries.
+- [VoxelSeriesStore](voxel-series-store.qmd) — why every 4-D storage variant is substitutable.
+- [Receipt](receipt.qmd) — where the history a typed image deliberately omits is kept.

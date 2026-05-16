@@ -1,0 +1,71 @@
+---
+title: "Evidence"
+subtitle: "The runnable scoreboard. Every claim in these docs resolves to a scenario here."
+jupyter: python3
+sidebar: false
+---
+
+This is the one place the docs compare `neuroim` against raw
+`nibabel`+`numpy` — because here the comparison is a *measurement*,
+not framing. Each row is a scenario under
+[`examples/scenarios/`](https://github.com/bbuchsbaum/neuroim-python/tree/main/examples/scenarios):
+a single neuroimaging task implemented twice, with a `pytest` file
+asserting the verdict.
+
+The rules: every public feature has a scenario; every pain point is
+filed before it is fixed; every verdict below is regenerated from the
+scenario `REPORT.md` files at render time, so this table cannot drift
+from the source of truth.
+
+```{python}
+#| echo: false
+#| output: asis
+import sys
+from pathlib import Path
+
+cwd = Path.cwd()
+for cand in (cwd, *cwd.parents):
+    inc = cand / "_includes" / "evidence_scan.py"
+    if inc.exists():
+        sys.path.insert(0, str(inc.parent))
+        break
+from evidence_scan import find_repo, scenario_rows
+
+repo = find_repo(cwd)
+rows = scenario_rows(repo)
+gh = "https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios"
+
+print("| # | Scenario | Verdict | Report |")
+print("|---|----------|---------|--------|")
+for num, slug, title, verdict in rows:
+    print(f"| {num} | {title} | {verdict} | [REPORT]({gh}/{slug}/REPORT.md) |")
+print(f"\n*{len(rows)} scenarios. Regenerated from `examples/scenarios/*/REPORT.md` at render time.*")
+```
+
+## How to read a verdict
+
+A scenario is a **win** if the `neuroim` form improves on at least one
+of *read-time*, *safety*, or *inspectability* and ties or improves on
+the rest. Surfaced pain points are filed as `PAIN-N` in the scenario's
+`REPORT.md` even when the scenario wins overall — they are how the
+suite stays honest. A verdict that says it *falsifies* a mission claim
+is not a failure of the docs; it is the suite catching the library and
+is tracked to a closing fix.
+
+## Run them
+
+```bash
+PYTHONPATH=src:tests:. python -m pytest examples/scenarios -q
+```
+
+The shared fixture is
+`tests/fixtures/realistic_bold.py::make_realistic_bold()` — a
+deterministic 32×32×24×40 BOLD. Two tiny fixtures
+(`golden_tests/fixtures/tiny_*.nii.gz`) ship for the doc snippets and
+exercise the same code paths.
+
+## See also
+
+- [Spec: contract-failure vocabulary](../spec/contract-failure-vocabulary.html) — the refusals these scenarios assert.
+- [Concepts: Contract failures](../concepts/contract-failures.qmd) — the narrative behind the refusals.
+- [Start](../start/01-image.qmd) — the on-ramp whose every "Refuses to" block links back into this table.

@@ -1,0 +1,80 @@
+---
+title: "Cross-subject concat with contracts"
+subtitle: "Stack subjects with frame validation at the API surface."
+jupyter: python3
+sidebar: cookbook
+---
+
+## Goal
+
+Concatenate per-subject 4-D BOLD runs into one series for a group
+reduction, with the shared spatial frame validated *before* the stack
+happens — not discovered after a wrong-frame subject has polluted the
+mean.
+
+## Code
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import numpy as np
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "cookbook" else Path.cwd()
+
+# Two "subjects" in the same frame (the fixture stands in for two runs).
+subj_a = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+subj_b = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+
+merged = subj_a.concat(subj_b)               # also: ni.concat(subj_a, subj_b)
+roi = ni.ROICoords(np.argwhere(np.asarray(mask.data)), space=mask.space)
+group_mean_ts = merged.series_roi(roi).values.mean(axis=1)
+
+merged.shape, group_mean_ts.shape
+```
+
+`concat` is available as the instance method `a.concat(*rest)` and the
+module function `ni.concat(*vecs)`.
+
+## What's guaranteed
+
+- Every pair's spatial frame is checked before concatenation. A
+  subject in a different frame never reaches the stack.
+- `series_roi` then re-validates the mask frame against the merged
+  series — the contract holds end to end.
+
+## What survives the file
+
+`merged.series_roi(roi)` returns an `ROIExtractionResult` with a
+Receipt; the `input_space_hash` reflects the subjects' shared frame.
+If you build a group map and `to_nibabel()` it, that hash rides the
+file.
+
+## Trapdoors
+
+```{python}
+#| error: true
+from neuroim.neuro_space import NeuroSpace
+
+wrong_frame = ni.DenseNeuroVec(
+    np.asarray(subj_b.data),
+    NeuroSpace(tuple(subj_b.space.dim), spacing=(9, 9, 9, 1)),
+)
+subj_a.concat(wrong_frame)
+```
+
+A frame-mismatched subject raises `ValueError`:
+`spatial contract mismatch: NeuroVecs must have same spatial
+dimensions and affine; …`. The failure is at the API surface, before
+any array is stacked. Backed by
+[scenario S07](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/07_multi_subject_concat/REPORT.md).
+
+## See also
+
+- [Concept: NeuroSpace](../concepts/space.qmd) — `compatible_with`, the leaf check.
+- [Concept: Contract failures](../concepts/contract-failures.qmd) — the `CONCAT-SPACE` refusal.
+- Scenario [S07](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/07_multi_subject_concat/REPORT.md)

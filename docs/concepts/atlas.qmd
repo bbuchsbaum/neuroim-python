@@ -1,0 +1,41 @@
+---
+title: "Atlas"
+subtitle: "Typed parcellation as an analysis input."
+sidebar: concepts
+---
+
+## What it is
+
+An *atlas* in `neuroim` is a typed parcellation object: a label image plus per-parcel metadata, source confidence, and a spatial frame. Analysis code that wants per-parcel time series, per-parcel contrasts, or per-parcel reductions consumes a typed atlas — not a bare integer NIfTI. The point is the same as everywhere else in the API: the spatial frame and the source identity travel *with* the parcellation, so downstream receipts can refer back to the atlas that produced them.
+
+The shipped surface lives in `neuroim.atlas`. Like `neuroim.compat`, it is a subpackage you import explicitly:
+
+```python
+import neuroim as ni
+import neuroim.atlas as atlas
+```
+
+## Invariants
+
+- **Label image is a `DenseNeuroVol`.** The labels live on a typed volume with a `NeuroSpace`.
+- **Per-parcel metadata is keyed by integer id.** Labels, names, optional confidence values — the same id used to index the volume.
+- **Spatial frame is part of the atlas.** Two atlases with the same labels but a different affine are different atlases by the API's identity rules.
+- **Content-addressable.** An atlas object hashes to a stable digest over its labels and frame. That hash is what shows up in downstream receipts as the source identity.
+
+## What it refuses
+
+- A parcel reduction (`parcel_means`, `ClusteredNeuroVec.contrast`) refuses to consume data whose `space` does not satisfy `compatible_with(atlas.space)`. Same canonical refusal as everywhere else: [`"spatial contract mismatch"`](contract-failures.qmd).
+- Construction with a non-integer label array raises rather than coercing.
+- Construction with negative label ids raises.
+
+## What it doesn't do
+
+- **It is not a catalog.** `neuroim.atlas` is the typed object layer. The library does not ship large atlas payloads or maintain a built-in registry of named atlases. Loading a specific named atlas is the caller's choice; the typed object is what the rest of the API consumes.
+- **It is not a visualization layer.** Parcel rendering is in `neuroim.plotting`; `atlas` is the data contract.
+- **It does not replace a custom mask.** An atlas with a single non-zero label is *not* the canonical way to express a mask. Use `LogicalNeuroVol` for masks; use the atlas type for parcellations.
+
+## See also
+
+- Reference: [`docs/atlas.md`](../atlas.md) — the practical surface.
+- Scenarios: [S11](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/11_atlas_parcel_timeseries/REPORT.md) (atlas parcel time series), [S15](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/15_block_parcel_contrast/REPORT.md) (parcel contrasts).
+- [Contract failures](contract-failures.qmd) — the refusal vocabulary atlas operations honor.

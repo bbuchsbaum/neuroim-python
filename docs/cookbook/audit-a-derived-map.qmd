@@ -1,0 +1,82 @@
+---
+title: "Audit a derived map"
+subtitle: "Recover a chained pipeline from the `.nii.gz` alone."
+jupyter: python3
+sidebar: cookbook
+---
+
+## Goal
+
+You receive a `.nii.gz` with no producer, no sidecar, no Slack thread.
+Recover *what produced it, from what input, with what mask, through
+what chain of operations* from the file's bytes alone.
+
+## Code
+
+```{python}
+from pathlib import Path
+import sys
+import tempfile
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import nibabel as nib
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "cookbook" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+
+# Producer: a two-stage pipeline — resample, then temporal SNR.
+template4 = mask.space.add_dim(size=bold.shape[-1])
+resampled = ni.resample_vec(bold, template4, interpolation=1)
+tsnr = resampled.temporal_snr(mask=mask)
+
+out = Path(tempfile.mkdtemp()) / "tsnr_template.nii.gz"
+nib.save(tsnr.to_nibabel(), str(out))
+
+# Auditor: a fresh process with only the path.
+audited = ni.read_image(str(out))
+audited.provenance.method_name
+```
+
+The `method_name` is **chained** — it names both pipeline stages, in
+order, with the resample's parameters folded in:
+`resample_vec(order=1,source=…,target=…)+temporal_snr`.
+
+## What's guaranteed
+
+- `resample_vec` records source/target space hashes and the
+  interpolation order in its Receipt.
+- `temporal_snr` *merges* the upstream Receipt rather than discarding
+  it — the chain prefix is preserved across the reduction.
+- The chained Receipt embeds on `to_nibabel()` and rehydrates on
+  `read_image()`.
+
+## What survives the file
+
+```{python}
+p = audited.provenance
+(p.method_name, p.input_space_hash[:10], p.mask_hash[:10])
+```
+
+The terminal `input_space_hash` is the template frame; the
+`mask_hash` is the mask used at the reduction; the `method_name`
+carries the lineage. An auditor can confirm the source and mask by
+recomputing their hashes if those files are still around.
+
+## Trapdoors
+
+- A pipeline step that returns a bare `ndarray` breaks the chain — the
+  next step has no upstream Receipt to merge. Keep derived values in
+  their typed carriers until the final write. Backed by
+  [scenario S14](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/14_temporal_slice_provenance/REPORT.md)
+  (time-axis slicing as silent provenance loss).
+- `ni.write_vol` does not yet embed; use `to_nibabel().save(...)`
+  ([S19 PAIN-4](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/19_group_mean_template_tsnr/REPORT.md)).
+
+## See also
+
+- [Concept: Provenance](../concepts/provenance.qmd) — chaining semantics.
+- [Spec: Receipt NIfTI extension](../spec/receipt-nifti-extension.html)
+- Scenarios [S13](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/13_provenance_audit/REPORT.md), [S09](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/09_native_to_template_provenance/REPORT.md)

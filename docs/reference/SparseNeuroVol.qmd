@@ -5,8 +5,6 @@ SparseNeuroVol(data, space, indices=None, label='', mask=None)
 ```
 
 Sparse 3D neuroimaging volume.
-
-Sparse 3D volume for masked or mostly empty spatial data.
 Uses scipy.sparse for efficient storage.
 
 ## Parameters {.doc-section .doc-section-parameters}
@@ -17,10 +15,6 @@ Uses scipy.sparse for efficient storage.
 | space   | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) | Spatial metadata                  | _required_ |
 | indices | [array](`array`) - [like](`like`)              | Linear indices of non-zero values | `None`     |
 | label   | [str](`str`)                                   | Volume label                      | `''`       |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::SparseNeuroVol
 
 ## Attributes
 
@@ -72,10 +66,6 @@ SparseNeuroVol.as_numeric()
 ```
 
 Get non-zero values only.
-
-#### R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::as.numeric
 
 ### as_sparse { #neuroim.SparseNeuroVol.as_sparse }
 

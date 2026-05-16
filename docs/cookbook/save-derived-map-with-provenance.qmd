@@ -1,0 +1,84 @@
+---
+title: "Save a derived map with provenance"
+subtitle: "Write a tSNR map whose Receipt rides the file."
+jupyter: python3
+sidebar: cookbook
+---
+
+## Goal
+
+Compute a masked temporal-SNR map and write it so the Receipt is
+embedded in the `.nii.gz` itself — no sidecar JSON, no manifest.
+
+## Code
+
+```{python}
+from pathlib import Path
+import sys
+import tempfile
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import nibabel as nib
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "cookbook" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+
+tsnr = bold.temporal_snr(mask=mask)
+
+out = Path(tempfile.mkdtemp()) / "tsnr.nii.gz"
+nib.save(tsnr.to_nibabel(), str(out))        # Receipt embeds as NIfTI ecode-6 'comment'
+
+out.stat().st_size > 0, tsnr.provenance.method_name
+```
+
+::: {.callout-note}
+`to_nibabel().save(...)` is the documented write path that embeds the
+Receipt. `ni.write_vol(tsnr, path)` writes the array but does not yet
+embed — tracked as [S19 PAIN-4](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/19_group_mean_template_tsnr/REPORT.md).
+:::
+
+## What's guaranteed
+
+- The mask/BOLD frame is validated inside `temporal_snr` before the
+  reduction runs.
+- `to_nibabel()` writes exactly one `neuroim/receipt/v1:` extension,
+  replacing any prior one; foreign `comment` extensions are untouched.
+
+## What survives the file
+
+The eight Receipt fields, byte-identical, in a NIfTI `comment`
+extension (`ecode 6`), recoverable by [ten lines of `nibabel`
+alone](../spec/receipt-nifti-extension.html):
+
+```{python}
+import json
+
+img = nib.load(str(out))
+ext = next(e for e in img.header.extensions if int(e.get_code()) == 6)
+text = bytes(ext.get_content()).rstrip(b"\x00").decode("utf-8")
+receipt = json.loads(text[len("neuroim/receipt/v1:"):])
+sorted(receipt)
+```
+
+## Trapdoors
+
+```{python}
+#| error: true
+from neuroim.neuro_space import NeuroSpace
+
+wrong = NeuroSpace(tuple(mask.space.dim), spacing=(9, 9, 9))
+bold.temporal_snr(mask=ni.DenseNeuroVol(mask.data, wrong))
+```
+
+A wrong-frame mask raises `ValueError` (`spatial contract mismatch`)
+before any numeric work — the failed call leaves the BOLD untouched.
+Backed by [scenario S04](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/04_temporal_snr_map/REPORT.md).
+
+## See also
+
+- [Start 05 — Round-trip](../start/05-roundtrip.qmd)
+- [Spec: Receipt NIfTI extension](../spec/receipt-nifti-extension.html)
+- [Concept: Provenance](../concepts/provenance.qmd)

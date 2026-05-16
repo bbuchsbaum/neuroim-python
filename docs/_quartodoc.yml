@@ -8,38 +8,53 @@ quartodoc:
     include_inherited: false
   sidebar: reference/_sidebar.yml
   sections:
-    - title: "Core data structures"
-      desc: "Spatial metadata, volumes, vectors, and hypervectors."
+    - title: "Spaces & frames"
+      desc: "The spatial contract every image carries. Concept: [NeuroSpace](../concepts/space.qmd) · Spec: [space invariants](../spec/space-invariants.html)."
       contents:
         - NeuroSpace
+        - neurospace
+    - title: "Volumes"
+      desc: "3-D containers. Concept: [NeuroSpace](../concepts/space.qmd) · Recipe: [save a derived map](../cookbook/save-derived-map-with-provenance.qmd)."
+      contents:
         - DenseNeuroVol
         - SparseNeuroVol
         - LogicalNeuroVol
+        - neurovol
+    - title: "Vectors"
+      desc: "4-D voxel-series containers. Concept: [VoxelSeriesStore](../concepts/voxel-series-store.qmd) · Spec: [protocol](../spec/voxel-series-store-protocol.html)."
+      contents:
         - DenseNeuroVec
         - SparseNeuroVec
+        - neurovec
+    - title: "Hypervectors"
+      desc: "5-D+ feature stacks. Concept: [VoxelSeriesStore](../concepts/voxel-series-store.qmd)."
+      contents:
         - DenseNeuroHyperVec
         - SparseNeuroHyperVec
-    - title: "Constructors and I/O"
-      desc: "Create neuroim objects and read or write common image formats."
+    - title: "ROI & extraction"
+      desc: "Region selection and typed extraction. Concept: [ROI result](../concepts/roi-result.qmd) · Recipe: [time series at a coordinate](../cookbook/extract-timeseries-at-coordinate.qmd)."
       contents:
-        - neurospace
-        - neurovol
-        - neurovec
-        - read_vol
-        - write_vol
-        - read_vec
-        - write_vec
-    - title: "Spatial operations"
-      desc: "Filtering, resampling, orientation, ROIs, and connected components."
+        - spherical_roi
+        - cuboid_roi
+    - title: "Searchlight & derived maps"
+      desc: "Neighbourhood analysis and reductions. Concept: [Provenance](../concepts/provenance.qmd) · Recipe: [audit a derived map](../cookbook/audit-a-derived-map.qmd)."
+      contents:
+        - searchlight.searchlight_iterator
+        - conn_comp
+    - title: "Spatial filters"
+      desc: "Smoothing and resampling. Concept: [Contract failures](../concepts/contract-failures.qmd)."
       contents:
         - gaussian_blur
         - bilateral_filter
         - resample
         - reorient
-        - spherical_roi
-        - cuboid_roi
-        - searchlight.searchlight_iterator
-        - conn_comp
+    - title: "I/O & interop"
+      desc: "Read/write and the explicit nibabel boundary. Recipe: [interop with nibabel](../cookbook/interop-with-nibabel.qmd) · Spec: [Receipt extension](../spec/receipt-nifti-extension.html)."
+      contents:
+        - read_vol
+        - write_vol
+        - read_vec
+        - write_vec
     - title: "Visualization"
       desc: "Plotting helpers for volumes and overlays."
       contents:

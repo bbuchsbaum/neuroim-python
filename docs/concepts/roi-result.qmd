@@ -1,0 +1,37 @@
+---
+title: "ROI result"
+subtitle: "The `ROIExtractionResult` / `SearchlightResult` family."
+sidebar: concepts
+---
+
+## What it is
+
+A *result object* is what an analysis operation returns when the natural output is multi-dimensional and benefits from carrying spatial context plus provenance with the numbers. Two members of the family ship in `neuroim`:
+
+- **`ROIExtractionResult`** — the return of `series_roi(roi)`. Carries `.values` (time-by-voxel matrix), `.coords` (the voxel indices), `.space` (the frame those indices live in), `.provenance` (a [Receipt](receipt.qmd)).
+- **`SearchlightResult`** — the return of `searchlight_apply(...)`. Carries `.values` (one value per center, or one row per center for vector outputs), `.centers`, `.space`, `.radius`, `.method_name`, `.provenance`, and `.map_to_volume()`.
+
+Both are frozen dataclasses. Both serialize through pickle with identity intact. Both produce a typed `DenseNeuroVol` when projected back to volume form.
+
+## Invariants
+
+- **`.values` is a typed array.** Shape is documented per result — `(n_timepoints, n_voxels)` for `ROIExtractionResult`, `(n_centers,)` or `(n_centers, k)` for `SearchlightResult`.
+- **`.space` matches `.coords` / `.centers`.** A `Result` whose `.coords` indexed a different grid than `.space.dim` would be ill-formed by construction.
+- **`.provenance` is a `Receipt`.** Same content-addressable contract as any other receipt in the system.
+- **Frozen.** Fields are set at construction and never mutate.
+
+## What it refuses
+
+A `Result` does not raise on its own — it is data. The refusals are in the operations that produced it: `series_roi` refused a mismatched mask before constructing the result; `searchlight_apply` refused a shifted mask before computing.
+
+## What it doesn't do
+
+- **It is not a `tuple`.** `(values, coords, space, receipt)` would carry the same fields but would not survive a pickle round-trip as the *same* result; a `Result` does.
+- **It is not a `dict`.** Field access is attribute access, not key lookup. There is no field named `"values"` in a string sense — there is a typed attribute `.values`.
+- **`.values.mean(axis=1)` is not the result.** A reduction over `.values` is a NumPy array, not a typed `Result`. When you need a typed map back, project through `map_to_volume()` or construct a new `DenseNeuroVol` with the same `.space`.
+
+## See also
+
+- [Start 03 — ROI extraction](../start/03-roi.qmd) — the on-ramp's first encounter.
+- [Start 04 — Derived maps](../start/04-derived-maps.qmd) — `SearchlightResult.map_to_volume()` in action.
+- [Receipt](receipt.qmd) — the provenance carrier these results all reference.

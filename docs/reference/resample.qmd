@@ -37,10 +37,6 @@ Remap the grid-to-world coordinates mapping of an image.
 |--------|--------------------------------------------------------------------------------------------|---------------------------|
 |        | [NeuroSpace](`neuroim.neuro_space.NeuroSpace`) or [NeuroVol](`neuroim.neuro_vol.NeuroVol`) | A reoriented version of x |
 
-#### R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::reorient
-
 #### Examples {.doc-section .doc-section-examples}
 
 ```python
@@ -83,10 +79,6 @@ This function resamples a source image to match the spatial properties
 |        | [ImportError](`ImportError`) | If nibabel is not installed        |
 |        | [ValueError](`ValueError`)   | If interpolation is not 0, 1, or 3 |
 
-#### R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::resample
-
 #### Examples {.doc-section .doc-section-examples}
 
 ```python
@@ -127,7 +119,3 @@ Resample a 4D NeuroVec to match the space of another image.
 | Name   | Type                                               | Description                 |
 |--------|----------------------------------------------------|-----------------------------|
 |        | [DenseNeuroVec](`neuroim.neuro_vec.DenseNeuroVec`) | The resampled source vector |
-
-#### R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::resample (for NeuroVec)

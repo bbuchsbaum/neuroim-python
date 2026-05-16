@@ -6,8 +6,6 @@ SparseNeuroVec(data, space, mask, label='')
 
 Sparse 4D neuroimaging vector.
 
-Sparse 4D vector representation for masked voxel-series data.
-
 ## Parameters {.doc-section .doc-section-parameters}
 
 | Name   | Type                                                   | Description                             | Default    |
@@ -17,19 +15,15 @@ Sparse 4D vector representation for masked voxel-series data.
 | mask   | [LogicalNeuroVol](`neuroim.neuro_vol.LogicalNeuroVol`) | Mask defining which voxels are included | _required_ |
 | label  | [str](`str`)                                           | Vector label                            | `''`       |
 
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::SparseNeuroVec
-
 ## Methods
 
 | Name | Description |
 | --- | --- |
-| [as_dense](#neuroim.SparseNeuroVec.as_dense) | Convert to dense representation. |
-| [as_sparse](#neuroim.SparseNeuroVec.as_sparse) | Already sparse, return self or apply new mask. |
+| [as_dense](#neuroim.SparseNeuroVec.as_dense) | Deprecated alias for :meth:`to_dense`. |
+| [as_sparse](#neuroim.SparseNeuroVec.as_sparse) | Deprecated alias for :meth:`to_sparse`. |
 | [concat](#neuroim.SparseNeuroVec.concat) | Concatenate multiple SparseNeuroVecs along time dimension. |
-| [series](#neuroim.SparseNeuroVec.series) | Extract time series for voxel(s). |
-| [sub_vector](#neuroim.SparseNeuroVec.sub_vector) | Extract subset of volumes. |
+| [series](#neuroim.SparseNeuroVec.series) | Deprecated dispatcher for voxel time-series extraction. |
+| [sub_vector](#neuroim.SparseNeuroVec.sub_vector) | Deprecated alias for :meth:`subvolumes`. |
 
 ### as_dense { #neuroim.SparseNeuroVec.as_dense }
 
@@ -37,7 +31,7 @@ neuroim2::SparseNeuroVec
 SparseNeuroVec.as_dense()
 ```
 
-Convert to dense representation.
+Deprecated alias for :meth:`to_dense`.
 
 ### as_sparse { #neuroim.SparseNeuroVec.as_sparse }
 
@@ -45,7 +39,7 @@ Convert to dense representation.
 SparseNeuroVec.as_sparse(mask=None)
 ```
 
-Already sparse, return self or apply new mask.
+Deprecated alias for :meth:`to_sparse`.
 
 ### concat { #neuroim.SparseNeuroVec.concat }
 
@@ -61,7 +55,7 @@ Concatenate multiple SparseNeuroVecs along time dimension.
 SparseNeuroVec.series(x, y=None, z=None)
 ```
 
-Extract time series for voxel(s).
+Deprecated dispatcher for voxel time-series extraction.
 
 ### sub_vector { #neuroim.SparseNeuroVec.sub_vector }
 
@@ -69,4 +63,4 @@ Extract time series for voxel(s).
 SparseNeuroVec.sub_vector(indices)
 ```
 
-Extract subset of volumes.
+Deprecated alias for :meth:`subvolumes`.

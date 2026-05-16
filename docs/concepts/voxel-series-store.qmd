@@ -1,0 +1,80 @@
+---
+title: "VoxelSeriesStore"
+subtitle: "The storage protocol behind dense, sparse, mapped, and file-backed 4-D containers."
+sidebar: concepts
+---
+
+## What it is
+
+`VoxelSeriesStore` is a small structural protocol — five members:
+`shape`, `dtype`, `series(...)`, `volume(i)`, `as_matrix()` — defined
+in `neuroim.storage`. It is the *storage* contract: a uniform way to
+pull a voxel's series, a timepoint's volume, or the whole time-major
+matrix, regardless of how the bytes are physically held.
+
+It is `@runtime_checkable`, so `isinstance(obj, VoxelSeriesStore)` is
+a valid structural test.
+
+## Conformance is via the adapter
+
+The shipped containers — `DenseNeuroVec`, `SparseNeuroVec`,
+`BigNeuroVec`, `MappedNeuroVec`, `FileBackedNeuroVec` — do **not**
+themselves pass `isinstance(vec, VoxelSeriesStore)`. The conformer is
+`NeuroVecStoreAdapter`, one frozen wrapper that spans every backend
+because the per-backend behaviour lives in the wrapped vec's own
+`series` / `__getitem__`. `DenseStore`, `SparseStore`, `BigStore`,
+`FileBackedStore`, `MappedStore` are all aliases of that one adapter.
+
+```python
+from neuroim.storage import VoxelSeriesStore, NeuroVecStoreAdapter
+
+isinstance(bold, VoxelSeriesStore)                        # False
+isinstance(NeuroVecStoreAdapter(bold), VoxelSeriesStore)  # True
+```
+
+## Two layers, kept distinct
+
+- **Storage layer (this protocol).** Five members. "One protocol,
+  every backend" is true *here*, through the single adapter.
+- **Analysis layer (separate).** `series_roi`, `temporal_snr`,
+  `searchlight_apply` behaving identically across dense/sparse/mapped/
+  file-backed inputs is a related guarantee carried by the `NeuroVec`
+  subclasses and their shared contract layer — **not** by this
+  protocol's five members. The protocol provides the storage surface
+  the analysis layer is built on; it does not itself provide the
+  analysis surface.
+
+## Invariants
+
+- **`shape` is a 4-tuple** `(nx, ny, nz, nt)`.
+- **`as_matrix()` is time-major** — shape `(nt, n_voxels)`,
+  Fortran-flattened voxel order. A conforming backend must preserve
+  this orientation.
+- **Off-grid access raises.** `series` on an off-grid voxel/index
+  raises `IndexError` per [`IDX-OOB`](contract-failures.qmd). A
+  backend that returns wrong-but-plausible bytes instead is
+  non-conforming even if structurally a `VoxelSeriesStore`.
+- **Multi-source backends enforce frame consistency.**
+  `FileBackedNeuroVec` validates that every per-timepoint file's
+  affine agrees; drift raises `Volume {idx} has inconsistent
+  affine/space: …` before a reduction averages two frames. Backed by
+  [scenario S12](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/12_file_backed_affine_drift/REPORT.md) (PAIN-12, closed).
+
+## What it doesn't do
+
+- **No magic format dispatch.** Backends are constructed explicitly
+  (`FileBackedNeuroVec(paths)`, `MappedNeuroVec(path, space)`).
+  `read_image` returns dense storage by default; richer backends are
+  explicit caller decisions.
+- **No inheritance hierarchy.** Conformance is structural, not via a
+  shared base class.
+- **No concurrency promise.** Concurrent writes into a
+  `MappedNeuroVec` are undefined. The protocol covers the read-side
+  storage surface, not write-side concurrency.
+
+## See also
+
+- [Spec: VoxelSeriesStore protocol](../spec/voxel-series-store-protocol.html) — the third-party-implementable contract.
+- [Reference: DenseNeuroVec](../reference/DenseNeuroVec.qmd), [SparseNeuroVec](../reference/SparseNeuroVec.qmd) — generated entries for the shipped backends.
+- [Contract failures](contract-failures.qmd) — the `IDX-OOB` / `FB-DRIFT` refusals.
+- Scenarios: [S08](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/08_pickle_multiprocessing_handoff/REPORT.md), [S12](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/12_file_backed_affine_drift/REPORT.md).

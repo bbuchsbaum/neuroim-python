@@ -31,7 +31,3 @@ The iterator visits every non-zero voxel in the mask as a potential center voxel
 | Name   | Type                             | Description                                                                                    |
 |--------|----------------------------------|------------------------------------------------------------------------------------------------|
 |        | LazyList or list of ROIVolWindow | A deferred_list object containing ROIVolWindow objects, each representing a searchlight region |
-
-## R Equivalent {.doc-section .doc-section-r-equivalent}
-
-neuroim2::searchlight

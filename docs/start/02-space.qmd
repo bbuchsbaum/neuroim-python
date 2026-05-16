@@ -1,0 +1,74 @@
+---
+title: "02 — Spatial frames"
+subtitle: "`NeuroSpace` is a value object. `compatible_with` is *the* alignment check."
+jupyter: python3
+sidebar: start
+---
+
+A neuroimaging array without its spatial frame is half a value. Half the bugs in fMRI analysis come from carrying the array without the frame and noticing too late. `NeuroSpace` is the part the rest of the API uses to decide whether two arrays mean the same thing.
+
+## What it is
+
+```{python}
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
+
+import neuroim as ni
+
+repo = Path.cwd().parents[1] if Path.cwd().name == "start" else Path.cwd()
+bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
+mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
+
+bold.space.dim, bold.space.spacing.tolist(), bold.space.origin.tolist()
+```
+
+`NeuroSpace` is **frozen**. Its `dim`, `spacing`, `origin`, and 4×4 `trans` (affine) are set at construction and never mutate. Two `NeuroSpace`s with the same dim, spacing, origin, and affine compare equal and produce the same `hash_neurospace` digest.
+
+That immutability is what makes content-addressable provenance work: a hashed space pinned in a `Receipt` continues to identify the same frame for the life of the process and the file.
+
+## What it guarantees
+
+```{python}
+bold.space.compatible_with(mask.space)
+```
+
+`compatible_with` is the alignment check. It returns `True` when two spaces describe the same grid (first three dims) with the same affine within `atol=1e-6`. It does **not** return `False` on a mismatch — it raises `ValueError` naming the offending field:
+
+```{python}
+#| error: true
+from neuroim.neuro_space import NeuroSpace
+
+shifted = NeuroSpace(tuple(mask.space.dim), spacing=(9, 9, 9))
+mask.space.compatible_with(shifted)   # raises ValueError: "NeuroSpace mismatch in affine: ..."
+```
+
+A true/raise predicate (rather than true/false) is deliberate: the failure carries the mismatched field and both values, so a mask/space mistake is diagnosable from the traceback alone instead of from a silent `False` the caller forgot to check. You rarely call `compatible_with` yourself — but every public operation that takes a `mask=` argument routes through `verify.assert_same_space`, which calls it, before it touches the array.
+
+## Where the affine comes from
+
+`bold.space.trans` is the 4×4 voxel-to-world affine. It is the same matrix `nib.load(...).affine` returns for the same file. The grid-to-world transform is *one* of the four fields hashed into `Receipt.input_space_hash`, and the only one hashed alone into `Receipt.source_affine_hash`. Two spaces with the same dim/spacing/origin but a different affine produce different hashes; the contract layer treats them as distinct frames.
+
+## What it doesn't do
+
+- **No units of time.** `NeuroSpace` carries the time axis as a dimension but does not record the repetition time. TR is data, not contract.
+- **No coordinate conversion overload.** Use `apply_affine(space.trans, [x, y, z])` for grid→world and the inverse for world→grid. There is no implicit conversion when comparing spaces.
+- **No mutation.** `dim`, `spacing`, `origin`, `trans` are read-only arrays. Code that needs a modified frame constructs a new `NeuroSpace`; the original keeps its identity for the receipts that reference it.
+
+## Refuses to
+
+- **`compatible_with` on differently-shaped grids or affines.** Raises `ValueError`: `"NeuroSpace mismatch in spatial dim: left=…, right=…"` or `"NeuroSpace mismatch in affine: left=…, right=…"`. Public operations wrap this as `"assert_same_space: spatial contract mismatch — …"`.
+- **Construction with non-positive dims or spacing.** `NeuroSpace((-1, 4, 4))` raises `ValueError: "All dimensions must be positive"`; bad spacing raises `"Spacing values must be positive"`.
+- **Mutation.** Assigning to `dim`, `spacing`, `origin`, or `trans` raises `AttributeError: "NeuroSpace is immutable"`.
+- **Wrongly-shaped `trans=`.** A 3-D space with a non-4×4 affine raises `"trans must be 4x4 matrix for 3D space, got …"`; a non-invertible affine raises `"Transformation matrix must be invertible"`.
+
+## Next
+
+[03 — ROI extraction](03-roi.qmd) is the first page where a `compatible_with` check fires inside a public operation, and the first page where the return is a `Result` carrying a `Receipt`.
+
+## See also
+
+- [Concept: NeuroSpace](../concepts/space.qmd) — the short-form vocabulary entry.
+- [Spec: Receipt v1](../spec/receipt-nifti-extension.html) — how `space.dim/spacing/origin/trans` are hashed into a Receipt.
+- Scenarios that exercise spatial frames: [S02](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/02_roi_mean_timeseries/REPORT.md), [S07](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/07_multi_subject_concat/REPORT.md), [S10](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/10_searchlight_space_mismatch/REPORT.md), [S12](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/12_file_backed_affine_drift/REPORT.md).
