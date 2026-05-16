@@ -448,10 +448,9 @@ class TestSparseNeuroVec:
 class TestMemoryMappedVec:
     """Test memory-mapped NeuroVec variants."""
     
-    def test_big_neurovec(self):
+    def test_big_neurovec(self, tmp_path):
         """Test BigNeuroVec construction and operations."""
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.dat') as tmp:
-            tmp_name = tmp.name
+        tmp_name = tmp_path / "big_neurovec.dat"
         
         try:
             # Create BigNeuroVec

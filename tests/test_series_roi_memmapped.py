@@ -35,57 +35,45 @@ class TestSeriesROIMemMapped:
         roi_data = np.array([1.0, 2.0, 3.0])
         self.roi_vol = ROIVol(roi_data, NeuroSpace(dim=[10, 10, 10]), roi_coords)
     
-    def test_series_roi_big_neurovec(self):
+    def test_series_roi_big_neurovec(self, tmp_path):
         """Test series_roi with BigNeuroVec."""
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.dat') as tmp:
-            tmp_name = tmp.name
-        
-        try:
-            # Create BigNeuroVec
-            vec = BigNeuroVec(self.data, self.space_4d, filename=tmp_name)
-            
-            # Test with ROICoords
-            series = vec.series_roi(self.roi_coords).values
-            assert series.shape == (5, 3)
-            np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
-            np.testing.assert_array_equal(series[:, 1], [2, 4, 6, 8, 10])
-            np.testing.assert_array_equal(series[:, 2], [1, 4, 9, 16, 25])
-            
-            # Test with ROIVol
-            series = vec.series_roi(self.roi_vol).values
-            assert series.shape == (5, 3)
-            np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
-            
-        finally:
-            if os.path.exists(tmp_name):
-                os.unlink(tmp_name)
+        tmp_name = tmp_path / "series_roi.dat"
+        vec = BigNeuroVec(self.data, self.space_4d, filename=tmp_name)
+
+        series = vec.series_roi(self.roi_coords).values
+        assert series.shape == (5, 3)
+        np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
+        np.testing.assert_array_equal(series[:, 1], [2, 4, 6, 8, 10])
+        np.testing.assert_array_equal(series[:, 2], [1, 4, 9, 16, 25])
+
+        series = vec.series_roi(self.roi_vol).values
+        assert series.shape == (5, 3)
+        np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
     
-    def test_series_roi_file_backed_neurovec(self):
+    def test_series_roi_file_backed_neurovec(self, tmp_path):
         """Test series_roi with FileBackedNeuroVec."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Create and save volumes to NIfTI files
-            filenames = []
-            for t in range(5):
-                vol_data = self.data[..., t]
-                vol_space = NeuroSpace(dim=[10, 10, 10])
-                vol = DenseNeuroVol(vol_data, vol_space)
-                filename = os.path.join(tmpdir, f"vol_{t:03d}.nii")
-                write_vol(vol, filename)
-                filenames.append(filename)
+        filenames = []
+        for t in range(5):
+            vol_data = self.data[..., t]
+            vol_space = NeuroSpace(dim=[10, 10, 10])
+            vol = DenseNeuroVol(vol_data, vol_space)
+            filename = tmp_path / f"vol_{t:03d}.nii"
+            write_vol(vol, filename)
+            filenames.append(filename)
 
-            vec = FileBackedNeuroVec(filenames)
+        vec = FileBackedNeuroVec(filenames)
 
-            # Test with ROICoords
-            series = vec.series_roi(self.roi_coords).values
-            assert series.shape == (5, 3)
-            np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
-            np.testing.assert_array_equal(series[:, 1], [2, 4, 6, 8, 10])
-            np.testing.assert_array_equal(series[:, 2], [1, 4, 9, 16, 25])
-            
-            # Test with ROIVol
-            series = vec.series_roi(self.roi_vol).values
-            assert series.shape == (5, 3)
-            np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
+        # Test with ROICoords
+        series = vec.series_roi(self.roi_coords).values
+        assert series.shape == (5, 3)
+        np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
+        np.testing.assert_array_equal(series[:, 1], [2, 4, 6, 8, 10])
+        np.testing.assert_array_equal(series[:, 2], [1, 4, 9, 16, 25])
+
+        # Test with ROIVol
+        series = vec.series_roi(self.roi_vol).values
+        assert series.shape == (5, 3)
+        np.testing.assert_array_equal(series[:, 0], [1, 2, 3, 4, 5])
     
     def test_series_roi_mapped_neurovec(self):
         """Test series_roi with MappedNeuroVec."""

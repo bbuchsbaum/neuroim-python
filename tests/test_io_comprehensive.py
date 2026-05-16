@@ -21,34 +21,24 @@ from neuroim.io import read_vol, read_vec, read_vol_list
 class TestReadWriteVol:
     """Test read_vol and write_vol functions."""
     
-    def test_read_write_vol_roundtrip(self):
+    def test_read_write_vol_roundtrip(self, tmp_path):
         """Test reading and writing volume data."""
-        with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            # Create test volume
-            data = np.random.randn(10, 12, 8).astype(np.float32)
-            space = NeuroSpace(
-                dim=data.shape,
-                spacing=(2.0, 2.0, 3.0),
-                origin=(10.0, 20.0, 30.0)
-            )
-            vol = DenseNeuroVol(data, space)
-            
-            # Write volume
-            write_vol(vol, tmp_path)
-            
-            # Read back
-            loaded_vol = read_vol(tmp_path)
-            
-            # Check data
-            np.testing.assert_array_almost_equal(loaded_vol.data, data, decimal=5)
-            assert loaded_vol.shape == data.shape
-            np.testing.assert_array_almost_equal(loaded_vol.spacing, (2.0, 2.0, 3.0))
-            
-        finally:
-            os.unlink(tmp_path)
+        path = tmp_path / "roundtrip.nii"
+
+        data = np.random.randn(10, 12, 8).astype(np.float32)
+        space = NeuroSpace(
+            dim=data.shape,
+            spacing=(2.0, 2.0, 3.0),
+            origin=(10.0, 20.0, 30.0)
+        )
+        vol = DenseNeuroVol(data, space)
+
+        write_vol(vol, path)
+        loaded_vol = read_vol(path)
+
+        np.testing.assert_array_almost_equal(loaded_vol.data, data, decimal=5)
+        assert loaded_vol.shape == data.shape
+        np.testing.assert_array_almost_equal(loaded_vol.spacing, (2.0, 2.0, 3.0))
     
     def test_read_vol_from_4d_file(self):
         """Test reading a specific volume from 4D file."""
@@ -92,7 +82,7 @@ class TestReadWriteVol:
         finally:
             os.unlink(tmp_path)
     
-    def test_write_vol_with_data_types(self):
+    def test_write_vol_with_data_types(self, tmp_path):
         """Test writing volumes with different data types."""
         vol_data = np.random.randn(5, 5, 5) * 100
         space = NeuroSpace(dim=(5, 5, 5))
@@ -101,21 +91,12 @@ class TestReadWriteVol:
         data_types = ["FLOAT32", "FLOAT64", "INT16", "INT32", "UINT8", "UINT16"]
         
         for dtype in data_types:
-            with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:
-                tmp_path = tmp.name
-            
-            try:
-                write_vol(vol, tmp_path, data_type=dtype)
-                
-                # Read back and check dtype
-                img = nib.load(tmp_path)
-                loaded_data = img.get_fdata()
-                
-                # Check shape is preserved
-                assert loaded_data.shape == vol_data.shape
-                
-            finally:
-                os.unlink(tmp_path)
+            path = tmp_path / f"vol_{dtype}.nii"
+            write_vol(vol, path, data_type=dtype)
+
+            img = nib.load(path)
+            loaded_data = img.get_fdata()
+            assert loaded_data.shape == vol_data.shape
 
     def test_write_vol_accepts_float_alias(self):
         """Test legacy aliases are accepted for NIfTI data_type."""
@@ -203,30 +184,20 @@ class TestReadWriteVol:
         finally:
             os.unlink(tmp_path)
 
-    def test_write_sparse_vol(self):
+    def test_write_sparse_vol(self, tmp_path):
         """Test writing sparse volume (converts to dense)."""
-        with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            # Create sparse volume
-            indices = np.array([0, 10, 20, 30, 40])
-            data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-            space = NeuroSpace(dim=(5, 5, 5))
-            sparse_vol = SparseNeuroVol(data, space, indices)
-            
-            # Write (should convert to dense)
-            write_vol(sparse_vol, tmp_path)
-            
-            # Read back
-            loaded_vol = read_vol(tmp_path)
-            
-            # Check that sparse values are preserved
-            dense_data = sparse_vol.as_dense().data
-            np.testing.assert_array_almost_equal(loaded_vol.data, dense_data)
-            
-        finally:
-            os.unlink(tmp_path)
+        path = tmp_path / "sparse_vol.nii"
+
+        indices = np.array([0, 10, 20, 30, 40])
+        data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        space = NeuroSpace(dim=(5, 5, 5))
+        sparse_vol = SparseNeuroVol(data, space, indices)
+
+        write_vol(sparse_vol, path)
+        loaded_vol = read_vol(path)
+
+        dense_data = sparse_vol.as_dense().data
+        np.testing.assert_array_almost_equal(loaded_vol.data, dense_data)
     
     def test_write_vol_unsupported_format(self):
         """Test error for unsupported format."""
@@ -240,38 +211,24 @@ class TestReadWriteVol:
 class TestReadWriteVec:
     """Test read_vec and write_vec functions."""
     
-    def test_read_write_vec_roundtrip(self):
+    def test_read_write_vec_roundtrip(self, tmp_path):
         """Test reading and writing 4D vector data."""
-        with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            # Create test data as nibabel expects
-            data = np.random.randn(10, 10, 10, 20).astype(np.float32)
-            affine = np.diag([2.0, 2.0, 3.0, 1.0])
-            img = nib.Nifti1Image(data, affine)
-            nib.save(img, tmp_path)
-            
-            # Read as vector
-            loaded_vec = read_vec(tmp_path)
-            
-            # Check data
-            np.testing.assert_array_almost_equal(loaded_vec.data, data, decimal=5)
-            assert loaded_vec.shape == data.shape
-            
-            # Now test write/read roundtrip
-            with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp2:
-                tmp_path2 = tmp2.name
-                
-            try:
-                write_vec(loaded_vec, tmp_path2)
-                loaded_vec2 = read_vec(tmp_path2)
-                np.testing.assert_array_almost_equal(loaded_vec2.data, data, decimal=5)
-            finally:
-                os.unlink(tmp_path2)
-            
-        finally:
-            os.unlink(tmp_path)
+        path = tmp_path / "vec_input.nii"
+        path2 = tmp_path / "vec_roundtrip.nii"
+
+        data = np.random.randn(10, 10, 10, 20).astype(np.float32)
+        affine = np.diag([2.0, 2.0, 3.0, 1.0])
+        img = nib.Nifti1Image(data, affine)
+        nib.save(img, path)
+
+        loaded_vec = read_vec(path)
+
+        np.testing.assert_array_almost_equal(loaded_vec.data, data, decimal=5)
+        assert loaded_vec.shape == data.shape
+
+        write_vec(loaded_vec, path2)
+        loaded_vec2 = read_vec(path2)
+        np.testing.assert_array_almost_equal(loaded_vec2.data, data, decimal=5)
     
     def test_read_vec_from_3d_file(self):
         """Test reading 3D file as 4D vector with single volume."""
@@ -364,57 +321,38 @@ class TestReadWriteVec:
         finally:
             os.unlink(tmp_path)
     
-    def test_read_vec_wrong_dimensions(self):
+    def test_read_vec_wrong_dimensions(self, tmp_path):
         """Test error handling for wrong dimensions."""
-        with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            # Create 5D data (invalid)
-            data_5d = np.random.randn(5, 5, 5, 5, 5).astype(np.float32)
-            # Reshape to 4D for nibabel
-            data_4d = data_5d.reshape(5, 5, 5, -1)
-            img = nib.Nifti1Image(data_4d, np.eye(4))
-            # Hack the header to pretend it's 5D
-            img.header['dim'][0] = 5
-            img.header['dim'][5] = 5
-            nib.save(img, tmp_path)
-            
-            # This should work as nibabel will load it as 4D
-            vec = read_vec(tmp_path)
-            assert len(vec.shape) == 4
-                
-        finally:
-            os.unlink(tmp_path)
+        path = tmp_path / "wrong_dims.nii"
+
+        data_5d = np.random.randn(5, 5, 5, 5, 5).astype(np.float32)
+        data_4d = data_5d.reshape(5, 5, 5, -1)
+        img = nib.Nifti1Image(data_4d, np.eye(4))
+        img.header['dim'][0] = 5
+        img.header['dim'][5] = 5
+        nib.save(img, path)
+
+        vec = read_vec(path)
+        assert len(vec.shape) == 4
     
-    def test_write_sparse_vec(self):
+    def test_write_sparse_vec(self, tmp_path):
         """Test writing sparse vector (converts to dense)."""
-        with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            # Create sparse vector
-            space = NeuroSpace(dim=(5, 5, 5, 10))
-            mask_data = np.zeros((5, 5, 5), dtype=bool)
-            mask_data[2, 2, 2] = True
-            mask_data[3, 3, 3] = True
-            mask = LogicalNeuroVol(mask_data, NeuroSpace(dim=(5, 5, 5)))
-            
-            sparse_data = np.random.randn(10, 2)  # time x voxels
-            sparse_vec = SparseNeuroVec(sparse_data, space, mask)
-            
-            # Write (should convert to dense)
-            write_vec(sparse_vec, tmp_path)
-            
-            # Read back
-            loaded_vec = read_vec(tmp_path)
-            
-            # Check that sparse values are preserved
-            dense_data = sparse_vec.as_dense().data
-            np.testing.assert_array_almost_equal(loaded_vec.data, dense_data, decimal=5)
-            
-        finally:
-            os.unlink(tmp_path)
+        path = tmp_path / "sparse_vec.nii"
+
+        space = NeuroSpace(dim=(5, 5, 5, 10))
+        mask_data = np.zeros((5, 5, 5), dtype=bool)
+        mask_data[2, 2, 2] = True
+        mask_data[3, 3, 3] = True
+        mask = LogicalNeuroVol(mask_data, NeuroSpace(dim=(5, 5, 5)))
+
+        sparse_data = np.random.randn(10, 2)  # time x voxels
+        sparse_vec = SparseNeuroVec(sparse_data, space, mask)
+
+        write_vec(sparse_vec, path)
+        loaded_vec = read_vec(path)
+
+        dense_data = sparse_vec.as_dense().data
+        np.testing.assert_array_almost_equal(loaded_vec.data, dense_data, decimal=5)
     
     def test_write_vec_with_data_types(self):
         """Test writing vectors with different data types."""
@@ -559,36 +497,26 @@ class TestReadWriteVec:
 class TestReadVolList:
     """Test read_vol_list function."""
     
-    def test_read_vol_list_basic(self):
+    def test_read_vol_list_basic(self, tmp_path):
         """Test reading multiple volumes from list of files."""
-        # Create temporary files
         tmp_files = []
         data_list = []
-        
-        try:
-            for i in range(3):
-                with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:
-                    tmp_path = tmp.name
-                    tmp_files.append(tmp_path)
-                
-                # Create unique data for each file
-                data = np.ones((5, 5, 5)) * (i + 1)
-                img = nib.Nifti1Image(data.astype(np.float32), np.eye(4))
-                nib.save(img, tmp_path)
-                data_list.append(data)
-            
-            # Read all volumes
-            vols = read_vol_list(tmp_files)
-            
-            assert len(vols) == 3
-            for i, vol in enumerate(vols):
-                assert isinstance(vol, DenseNeuroVol)
-                np.testing.assert_array_equal(vol.data, data_list[i])
-                
-        finally:
-            for f in tmp_files:
-                if os.path.exists(f):
-                    os.unlink(f)
+
+        for i in range(3):
+            path = tmp_path / f"vol_{i}.nii"
+            tmp_files.append(path)
+
+            data = np.ones((5, 5, 5)) * (i + 1)
+            img = nib.Nifti1Image(data.astype(np.float32), np.eye(4))
+            nib.save(img, path)
+            data_list.append(data)
+
+        vols = read_vol_list(tmp_files)
+
+        assert len(vols) == 3
+        for i, vol in enumerate(vols):
+            assert isinstance(vol, DenseNeuroVol)
+            np.testing.assert_array_equal(vol.data, data_list[i])
     
     def test_read_vol_list_from_4d(self):
         """Test reading specific volume from 4D files."""

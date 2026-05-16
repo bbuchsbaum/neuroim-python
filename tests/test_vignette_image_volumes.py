@@ -12,19 +12,17 @@ try:
 except ImportError as e:
     print(f"✗ Import error: {e}")
 
-def test_read_write_vol():
+def test_read_write_vol(tmp_path):
     """Test reading and writing volumes."""
     # Create a test volume
     data = np.random.randn(10, 10, 10)
     space = NeuroSpace(dim=[10, 10, 10], spacing=[1, 1, 1])
     vol = DenseNeuroVol(data, space)
     
-    # Write and read back
-    with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:
-        write_vol(vol, tmp.name)
-        vol2 = read_vol(tmp.name)
-        os.unlink(tmp.name)
-        
+    path = tmp_path / "vignette_vol.nii"
+    write_vol(vol, path)
+    vol2 = read_vol(path)
+
     assert vol2.shape == vol.shape
     assert np.allclose(vol2.data, vol.data)
     print("✓ Read/write vol works")

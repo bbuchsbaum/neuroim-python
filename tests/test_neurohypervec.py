@@ -168,23 +168,18 @@ class TestNeuroHyperVec:
         alpha_power = spectral[:, :, :, :, 2]
         assert isinstance(alpha_power, pn.NeuroVec)
     
-    def test_io_operations(self):
+    def test_io_operations(self, tmp_path):
         """Test saving and loading NeuroHyperVec."""
-        import tempfile
-        
         space = NeuroSpace(dim=(10, 10, 10, 20, 4))
         data = np.random.randn(10, 10, 10, 20, 4)
         hvec = pn.DenseNeuroHyperVec(data, space)
-        
-        with tempfile.NamedTemporaryFile(suffix='.h5') as tmp:
-            # Save to HDF5 (most suitable for 5D+ data)
-            pn.write_neurohypervec(hvec, tmp.name)
-            
-            # Load back
-            loaded = pn.read_neurohypervec(tmp.name)
-            
-            assert loaded.shape == hvec.shape
-            np.testing.assert_array_equal(loaded.data, hvec.data)
+
+        path = tmp_path / "hypervec.h5"
+        pn.write_neurohypervec(hvec, path)
+        loaded = pn.read_neurohypervec(path)
+
+        assert loaded.shape == hvec.shape
+        np.testing.assert_array_equal(loaded.data, hvec.data)
     
 class TestNeuroHyperVecEdgeCases:
     """Test edge cases and error handling for NeuroHyperVec."""

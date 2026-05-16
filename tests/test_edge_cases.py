@@ -290,18 +290,15 @@ class TestNeuroVecEdgeCases:
 class TestIOEdgeCases:
     """Test edge cases in file I/O operations."""
     
-    def test_write_read_roundtrip(self):
+    def test_write_read_roundtrip(self, tmp_path):
         """Test basic write/read roundtrip."""
         space = NeuroSpace(dim=(5, 5, 5))
         vol = DenseNeuroVol(np.ones((5, 5, 5)), space)
-        
-        with tempfile.NamedTemporaryFile(suffix='.nii.gz') as tmp:
-            # Write and read back
-            pn.write_vol(vol, tmp.name)
-            
-            # Should read back successfully
-            vol2 = pn.io.read_vol(tmp.name)
-            np.testing.assert_array_equal(vol.data, vol2.data)
+
+        path = tmp_path / "roundtrip.nii.gz"
+        pn.write_vol(vol, path)
+        vol2 = pn.io.read_vol(path)
+        np.testing.assert_array_equal(vol.data, vol2.data)
     
     def test_write_read_special_values(self):
         """Test I/O with special floating point values."""
@@ -343,31 +340,26 @@ class TestIOEdgeCases:
             vol2 = pn.io.read_vol(filepath)
             np.testing.assert_array_equal(vol.data, vol2.data)
     
-    def test_readonly_file_handling(self):
+    def test_readonly_file_handling(self, tmp_path):
         """Test handling of read-only files."""
         import os
         import stat
         
         space = NeuroSpace(dim=(5, 5, 5))
         vol = DenseNeuroVol(np.ones((5, 5, 5)), space)
-        
-        with tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False) as tmp:
-            pn.write_vol(vol, tmp.name)
-            
-            # Make file read-only
-            os.chmod(tmp.name, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-            
-            # Should still be able to read
-            vol2 = pn.io.read_vol(tmp.name)
+
+        path = tmp_path / "readonly.nii.gz"
+        pn.write_vol(vol, path)
+
+        os.chmod(path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+        try:
+            vol2 = pn.io.read_vol(path)
             assert vol2 is not None
-            
-            # But not write
+
             with pytest.raises((IOError, PermissionError)):
-                pn.write_vol(vol, tmp.name)
-            
-            # Cleanup
-            os.chmod(tmp.name, stat.S_IWUSR | stat.S_IRUSR)
-            os.unlink(tmp.name)
+                pn.write_vol(vol, path)
+        finally:
+            os.chmod(path, stat.S_IWUSR | stat.S_IRUSR)
 
 
 class TestArithmeticEdgeCases:

@@ -509,23 +509,19 @@ class TestNeuroVolValues:
 class TestNeuroVolIO:
     """Test I/O operations (requires nibabel)."""
     
-    def test_write_read_roundtrip(self):
+    def test_write_read_roundtrip(self, tmp_path):
         """Test writing and reading a volume."""
-        import tempfile
-        
         # Create test volume
         spc = NeuroSpace((10, 10, 10), spacing=(2, 2, 2), origin=(0, 0, 0))
         data = np.random.randn(10, 10, 10)
         vol = DenseNeuroVol(data, spc)
-        
-        # Write and read
-        with tempfile.NamedTemporaryFile(suffix='.nii.gz') as tmp:
-            write_vol(vol, tmp.name)
-            vol2 = read_vol(tmp.name)
-            
-            # Check data preserved
-            assert_array_almost_equal(vol.data, vol2.data)
-            assert_array_almost_equal(vol.spacing, vol2.spacing)
+
+        path = tmp_path / "roundtrip.nii.gz"
+        write_vol(vol, path)
+        vol2 = read_vol(path)
+
+        assert_array_almost_equal(vol.data, vol2.data)
+        assert_array_almost_equal(vol.spacing, vol2.spacing)
     
     def test_read_4d_volume_index(self):
         """Test reading specific volume from 4D file."""

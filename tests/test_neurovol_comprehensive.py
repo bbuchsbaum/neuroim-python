@@ -248,31 +248,20 @@ class TestNeuroVolConversions:
 class TestNeuroVolIO:
     """Test reading and writing NeuroVol objects."""
     
-    def test_write_read_nifti(self):
+    def test_write_read_nifti(self, tmp_path):
         """Test writing and reading NIFTI files."""
         # Create test volume
         spc = NeuroSpace(dim=[10, 10, 10], spacing=[2, 2, 2])
         dat = np.random.randn(10, 10, 10)
         vol = DenseNeuroVol(dat, spc)
         
-        with tempfile.NamedTemporaryFile(suffix='.nii', delete=False) as tmp:
-            tmp_name = tmp.name
-        
-        try:
-            # Write volume
-            write_vol(vol, tmp_name)
-            
-            # Read it back
-            vol2 = read_vol(tmp_name)
-            
-            # Check data matches
-            np.testing.assert_array_almost_equal(vol.data, vol2.data)
-            np.testing.assert_array_equal(vol.shape, vol2.shape)
-            np.testing.assert_array_almost_equal(vol.spacing, vol2.spacing)
-            
-        finally:
-            if os.path.exists(tmp_name):
-                os.unlink(tmp_name)
+        path = tmp_path / "vol.nii"
+        write_vol(vol, path)
+        vol2 = read_vol(path)
+
+        np.testing.assert_array_almost_equal(vol.data, vol2.data)
+        np.testing.assert_array_equal(vol.shape, vol2.shape)
+        np.testing.assert_array_almost_equal(vol.spacing, vol2.spacing)
     
     def test_write_read_nifti_gz(self):
         """Test writing and reading compressed NIFTI files."""
