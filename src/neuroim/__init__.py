@@ -84,6 +84,9 @@ try:
     # read_vol_list, load_data) lives in the neuroim.io subpackage;
     # neuroim2-style read_vol/read_vec also live in neuroim.compat.
     from .io import (
+        read_image,
+        read_vol,
+        read_vec,
         read_volume,
         read_series,
         write_vol,
@@ -342,6 +345,9 @@ __all__ = [
     "cuboid_roi",
     "searchlight",
     "searchlight_apply",
+    "read_image",
+    "read_vol",
+    "read_vec",
     "read_volume",
     "read_series",
     "write_vol",
