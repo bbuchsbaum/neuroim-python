@@ -91,21 +91,21 @@
       <ns0:check>
         <ns0:type>exact_value</ns0:type>
         <ns0:name>sum_t1</ns0:name>
-        <ns0:location>sum(vec4d[,,,1])</ns0:location>
+        <ns0:location>sum_t1</ns0:location>
         <ns0:expected>378</ns0:expected>
         <ns0:tolerance>1e-10</ns0:tolerance>
       </ns0:check>
       <ns0:check>
         <ns0:type>exact_value</ns0:type>
         <ns0:name>sum_t2</ns0:name>
-        <ns0:location>sum(vec4d[,,,2])</ns0:location>
+        <ns0:location>sum_t2</ns0:location>
         <ns0:expected>3078</ns0:expected>
         <ns0:tolerance>1e-10</ns0:tolerance>
       </ns0:check>
       <ns0:check>
         <ns0:type>exact_value</ns0:type>
         <ns0:name>sum_t3</ns0:name>
-        <ns0:location>sum(vec4d[,,,3])</ns0:location>
+        <ns0:location>sum_t3</ns0:location>
         <ns0:expected>5778</ns0:expected>
         <ns0:tolerance>1e-10</ns0:tolerance>
       </ns0:check>
@@ -169,7 +169,8 @@ total_elems &lt;- length(vec4d)
 </ns0:R>
     <Python>
 import numpy as np
-from neuroim import NeuroSpace, DenseNeuroVol, neurovecseq
+from neuroim import NeuroSpace, DenseNeuroVol
+from neuroim.neuro_vec import neurovecseq  # legacy neuroim2-parity ctor; dropped from public __all__ in the 0.3 API trim, still canonical here
 
 # Create shared space
 space = NeuroSpace(dim=(3, 3, 3), 

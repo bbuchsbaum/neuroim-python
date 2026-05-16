@@ -25,6 +25,7 @@ class CheckType(Enum):
     RELATIVE = "relative"
     STATISTICAL = "statistical"
     DIMENSION = "dimension"
+    LOGICAL = "logical"
 
 
 @dataclass
@@ -270,30 +271,49 @@ class GoldenTestValidator:
         results = {}
         for check in test_data['checks']:
             location = check.location
+            # R row indexing `var[N,]` is 1-based and selects a row; plain
+            # Python eval reads `var[N,]` as `var[(N,)]` == 0-based row N,
+            # silently off by one. The `[,N]` (R column) case is handled
+            # in the fallback below; `[N,]` (R row) succeeds under direct
+            # eval and so must be normalized *before* it. Mirror the
+            # 1-based->0-based column rule for rows.
+            import re as _re
+            _rrow = _re.match(r'^(\w+)\[(\d+),\]$', location.strip())
+            if _rrow:
+                _var, _idx = _rrow.group(1), int(_rrow.group(2))
+                location = f"{_var}[{_idx - 1}]"
             try:
                 # Try to evaluate the location as a Python expression
                 # This handles function calls, attribute access, indexing, etc.
                 result = eval(location, exec_globals)
-                results[location] = result
+                results[check.location] = result
             except Exception as e:
                 # If direct evaluation fails, try some common transformations
                 try:
-                    # Handle R-style array indexing: bounds_result[,1] -> bounds_result[:,0]
-                    if '[,' in location:
-                        # R uses 1-based column indexing, Python uses 0-based
-                        py_location = location.replace('[,', '[:,')
-                        # Convert column indices from 1-based to 0-based
-                        import re
-                        py_location = re.sub(r',(\d+)\]', lambda m: f',{int(m.group(1))-1}]', py_location)
-                        # Special handling for 4D arrays with [,,,n] pattern  
-                        # sum(vec4d[,,,1]) -> sum(vec4d[:,:,:,0])
-                        if py_location.count(':,') == 2 and py_location.endswith(']'):
-                            # This is likely a 4D array access like vec4d[:,:,:,0]
-                            # Try to evaluate it directly
-                            result = eval(py_location, exec_globals)
-                        else:
-                            result = eval(py_location, exec_globals)
-                        results[location] = result
+                    # Handle R-style array indexing generally: any `[...]`
+                    # subscript with commas is R (1-based; blank field = all).
+                    # Translate each field: blank -> ':', integer -> int-1,
+                    # anything else passthrough. Correctly covers [,1] (col),
+                    # [1,] (row), and [,,,1] (4-D time) — the prior code only
+                    # fixed the first `[,` and broke on `[,,,1]`.
+                    import re
+                    if re.search(r'\[[^\]]*,[^\]]*\]', location):
+                        def _r_subscript(m):
+                            fields = m.group(1).split(',')
+                            py = []
+                            for f in fields:
+                                f = f.strip()
+                                if f == '':
+                                    py.append(':')
+                                elif re.fullmatch(r'-?\d+', f):
+                                    py.append(str(int(f) - 1))
+                                else:
+                                    py.append(f)
+                            return '[' + ', '.join(py) + ']'
+                        py_location = re.sub(r'\[([^\]]*,[^\]]*)\]',
+                                             _r_subscript, location)
+                        result = eval(py_location, exec_globals)
+                        results[check.location] = result
                     elif '[' in location and ',' not in location:
                         # Handle 1D indexing: vol[1] -> vol[0]
                         import re
@@ -356,8 +376,44 @@ class GoldenTestValidator:
             return self._check_relative(actual, check.expected, check.tolerance)
         elif check.check_type == CheckType.STATISTICAL:
             return self._check_statistical(actual, check)
+        elif check.check_type == CheckType.LOGICAL:
+            return self._check_logical(actual, check.expected)
         else:
             return False, f"Unknown check type: {check.check_type}"
+
+    @staticmethod
+    def _as_bool(value: Any) -> bool:
+        """Coerce a spec/impl value to bool. Accepts Python bools, the
+        strings 'true'/'false'/'t'/'f'/'1'/'0' (any case), and numerics
+        (nonzero -> True). Raises ValueError on anything ambiguous so a
+        malformed logical check fails loudly instead of silently passing."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value != 0
+        if isinstance(value, str):
+            v = value.strip().lower()
+            if v in ("true", "t", "1"):
+                return True
+            if v in ("false", "f", "0"):
+                return False
+        raise ValueError(f"not a logical value: {value!r}")
+
+    def _check_logical(self, actual: Any, expected: Any) -> Tuple[bool, str]:
+        """Boolean assertion check (spec <type>logical</type>).
+
+        The implementation computes a boolean predicate (e.g.
+        ``small_peak_gt_large_peak``); the spec states the expected truth
+        value. Both sides are coerced via :meth:`_as_bool`.
+        """
+        try:
+            exp = self._as_bool(expected)
+            act = self._as_bool(actual)
+        except ValueError as exc:
+            return False, f"logical check: {exc}"
+        if act == exp:
+            return True, f"logical: {act} == expected {exp}"
+        return False, f"logical: got {act}, expected {exp}"
     
     def _check_dimension(self, actual: Any, expected: Any) -> Tuple[bool, str]:
         """Check dimensions match."""
