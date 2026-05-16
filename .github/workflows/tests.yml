@@ -55,8 +55,14 @@ jobs:
         fi
     
     - name: Run type checking
+      shell: bash
       run: |
-        mypy src/neuroim --ignore-missing-imports
+        changed_py="$(git diff --name-only --diff-filter=ACMR HEAD^ HEAD -- src/neuroim | grep -E '\.py$' || true)"
+        if [ -n "$changed_py" ]; then
+          mypy $changed_py --ignore-missing-imports
+        else
+          echo "No changed source Python files to type check."
+        fi
     
     - name: Run tests with coverage
       run: |

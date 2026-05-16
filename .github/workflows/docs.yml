@@ -33,7 +33,13 @@ jobs:
       - uses: actions/configure-pages@v5
 
       - name: Build API reference
-        run: cd docs && quartodoc build
+        run: |
+          cd docs
+          if grep -q '^quartodoc:' _quarto.yml; then
+            quartodoc build
+          else
+            echo "No quartodoc section; skipping API reference generation."
+          fi
 
       - name: Render site
         run: cd docs && QUARTO_PYTHON="$(command -v python)" quarto render
