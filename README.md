@@ -2,11 +2,15 @@
 
 A modern Python library for neuroimaging data analysis, providing efficient data structures and algorithms for working with 3D, 4D, and 5D+ brain imaging data.
 
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-1220%20passing-green)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-85%25-yellowgreen)](tests/)
+[![Tests](https://github.com/bbuchsbaum/neuroim-python/actions/workflows/tests.yml/badge.svg)](https://github.com/bbuchsbaum/neuroim-python/actions/workflows/tests.yml)
 [![Scenario evidence](https://img.shields.io/badge/scenario%20evidence-make%20verify--evidence-green)](docs/scenarios.md)
+
+> ⚠️ **Alpha (0.3.0a1).** Pre-release: the public API may change before
+> 0.3.0 final, and breaking changes at this stage are not separately
+> deprecated. See [CHANGELOG.md](CHANGELOG.md) for known gaps. Pin an
+> exact version if you depend on it.
 
 **On-ramp:** [docs/quickstart.md](docs/quickstart.md) — four canonical patterns shown side-by-side against raw `nibabel`+`numpy`, each verdict pinned to a runnable scenario.
 

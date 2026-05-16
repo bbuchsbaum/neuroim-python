@@ -61,7 +61,9 @@ docs = [
 [project.urls]
 "Homepage" = "https://github.com/bbuchsbaum/neuroim-python"
 "Documentation" = "https://bbuchsbaum.github.io/neuroim-python/"
+"Repository" = "https://github.com/bbuchsbaum/neuroim-python"
 "Bug Tracker" = "https://github.com/bbuchsbaum/neuroim-python/issues"
+"Changelog" = "https://github.com/bbuchsbaum/neuroim-python/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
