@@ -4,7 +4,6 @@ import pytest
 import numpy as np
 import tempfile
 import os
-from pathlib import Path
 
 try:
     import nibabel as nib
@@ -23,7 +22,7 @@ from neuroim import (
     SparseNeuroVec,
     NeuroSpace,
 )
-from neuroim.io import read_header, read_meta_info
+from neuroim.io import read_header
 from neuroim.io import read_vol, read_vec, read_vol_list
 
 

@@ -2,17 +2,14 @@
 
 import pytest
 import numpy as np
-import tempfile
 import os
 from neuroim import (
     NeuroSpace,
     DenseNeuroVec,
     SparseNeuroVec,
-    NeuroVec,
     DenseNeuroVol,
     LogicalNeuroVol,
     BigNeuroVec,
-    FileBackedNeuroVec,
     MappedNeuroVec,
 )
 from neuroim.neuro_vec import neurovec, neurovecseq

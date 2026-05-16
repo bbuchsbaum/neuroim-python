@@ -7,18 +7,15 @@ complete compatibility between the R and Python implementations.
 import pytest
 import numpy as np
 from numpy.testing import assert_array_equal, assert_array_almost_equal
-import tempfile
-from pathlib import Path
 
 from neuroim.neuro_space import NeuroSpace
 from neuroim.neuro_vol import (
-    NeuroVol,
     DenseNeuroVol,
     SparseNeuroVol,
     LogicalNeuroVol,
     neurovol,
 )
-from neuroim.io import read_vol, write_vol, read_header
+from neuroim.io import read_vol, write_vol
 
 
 class TestNeuroVolConstruction:
@@ -246,8 +243,8 @@ class TestNeuroVolConversions:
 
         assert isinstance(logical, LogicalNeuroVol)
         assert logical.data.dtype == bool
-        assert logical[0, 0, 0] == False
-        assert logical[1, 0, 0] == True
+        assert not logical[0, 0, 0]
+        assert logical[1, 0, 0]
 
     def test_as_mask_with_indices(self):
         """Test as_mask with specific indices."""
@@ -259,9 +256,9 @@ class TestNeuroVolConversions:
 
         assert isinstance(mask, LogicalNeuroVol)
         assert mask.sum == 4  # Only 4 voxels are True
-        assert mask[0] == True
-        assert mask[10] == True
-        assert mask[5] == False
+        assert mask[0]
+        assert mask[10]
+        assert not mask[5]
 
 
 class TestNeuroVolArithmetic:
@@ -538,7 +535,7 @@ def test_phase2_compatibility_notes():
     """Document key differences for Phase 2."""
     notes = """
     Phase 2 R-Python Compatibility Notes:
-    
+
     1. Indexing remains 0-based in Python vs 1-based in R
     2. values() returns Fortran-ordered (column-major) data to match R
     3. Sparse volumes use scipy.sparse for efficiency

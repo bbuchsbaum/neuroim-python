@@ -1,9 +1,6 @@
 """Test that ImageVolumes vignette functionality works in Python."""
 
 import numpy as np
-import tempfile
-import os
-from pathlib import Path
 
 # Test what imports work
 try:
@@ -70,8 +67,8 @@ def test_logical_conversion():
 
     # Convert to logical
     vol_logical = vol.as_logical()
-    assert vol_logical[0, 0, 0] == False
-    assert vol_logical[0, 0, 1] == True
+    assert not vol_logical[0, 0, 0]
+    assert vol_logical[0, 0, 1]
     print("✓ Logical conversion works")
 
 
@@ -107,6 +104,9 @@ def test_vol_statistics():
         max_val = vol.max()
         min_idx = vol.which_min()
         max_idx = vol.which_max()
+        assert np.isfinite([mean_val, sd_val, min_val, max_val]).all()
+        assert min_idx is not None
+        assert max_idx is not None
         print("✓ Volume statistics methods exist")
     except AttributeError as e:
         print(f"✗ Missing method: {e}")
@@ -115,6 +115,7 @@ def test_vol_statistics():
         sd_val = np.std(vol.data)
         min_val = np.min(vol.data)
         max_val = np.max(vol.data)
+        assert np.isfinite([mean_val, sd_val, min_val, max_val]).all()
         print("✓ Can compute statistics with numpy")
 
 

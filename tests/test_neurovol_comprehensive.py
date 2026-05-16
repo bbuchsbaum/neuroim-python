@@ -4,8 +4,6 @@ import pytest
 import numpy as np
 import tempfile
 import os
-from pathlib import Path
-import nibabel as nib
 
 from neuroim import (
     NeuroSpace,
@@ -78,8 +76,8 @@ class TestNeuroVolConstruction:
         spc = NeuroSpace(dim=[10, 10, 10])
 
         vol = LogicalNeuroVol(dat, spc)
-        assert vol[5, 5, 5] == True
-        assert vol[0, 0, 0] == False
+        assert vol[5, 5, 5]
+        assert not vol[0, 0, 0]
         assert vol.sum == 1
 
 

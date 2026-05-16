@@ -1,9 +1,6 @@
 """Tests for series_roi with memory-mapped NeuroVec classes."""
 
-import pytest
 import numpy as np
-import tempfile
-import os
 from neuroim import (
     NeuroSpace,
     ROICoords,

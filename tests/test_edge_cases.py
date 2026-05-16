@@ -297,7 +297,6 @@ class TestIOEdgeCases:
 
     def test_write_read_special_values(self):
         """Test I/O with special floating point values."""
-        space = NeuroSpace(dim=(3, 3, 3))
         data = np.array(
             [[[0, 1, -1]], [[np.inf, -np.inf, np.nan]], [[1e-45, 1e45, 0]]]
         ).reshape(3, 3, 1)
@@ -361,7 +360,6 @@ class TestArithmeticEdgeCases:
 
     def test_division_by_zero(self):
         """Test division by zero handling."""
-        space = NeuroSpace(dim=(3, 3, 3))
         data = np.array([[[1, 0, -1]]])
         vol = DenseNeuroVol(data.reshape(1, 1, 3), NeuroSpace(dim=(1, 1, 3)))
 
@@ -382,7 +380,7 @@ class TestArithmeticEdgeCases:
 
         # Should raise error for incompatible shapes
         with pytest.raises(ValueError):
-            result = vol1 + vol2
+            vol1 + vol2
 
     def test_scalar_arithmetic_edge_cases(self):
         """Test arithmetic with edge case scalars."""
