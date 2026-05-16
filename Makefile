@@ -1,4 +1,4 @@
-.PHONY: docs docs-preview verify-evidence
+.PHONY: docs docs-preview verify-evidence verify-install
 
 QUARTO_PYTHON ?= $(shell command -v python)
 export QUARTO_PYTHON
@@ -9,5 +9,8 @@ docs:
 docs-preview:
 	cd docs && quartodoc build && quarto preview --no-browser
 
-verify-evidence:
+verify-install:
+	$(QUARTO_PYTHON) tools/verify_install.py
+
+verify-evidence: verify-install
 	PYTHONPATH=src:tests:. $(QUARTO_PYTHON) tools/verify_evidence.py
