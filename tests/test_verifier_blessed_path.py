@@ -114,6 +114,17 @@ VERIFIER_MANIFEST: dict[str, dict[str, Any]] = {
         "reason": "low-level iterator over one mask; searchlight_apply owns data/mask gating.",
     },
     "neuroim.searchlight_apply": {"status": "verified"},
+    # Spatial filter: gaussian_blur(vol, mask=...) invokes
+    # verify.assert_same_space(vol, mask) before smoothing
+    # (spatial_filters.py:80-83) so a foreign-affine mask raises early.
+    # Discovered after the _is_data_param name-precedence fix stopped the
+    # "NeuroVol" token from substring-matching inside "LogicalNeuroVol".
+    "neuroim.gaussian_blur": {"status": "verified"},
+    # Connected-components: conn_comp(x, mask=...) invokes
+    # verify.assert_same_space(x, mask) before clustering
+    # (connected_components.py:90-93) — the S18 PAIN-3 closure. Also
+    # surfaced by the _is_data_param name-precedence fix.
+    "neuroim.conn_comp": {"status": "verified"},
 }
 
 
@@ -142,6 +153,14 @@ def _is_mask_param(name: str, annotation: Any) -> bool:
 def _is_data_param(name: str, annotation: Any) -> bool:
     if name in _DATA_PARAM_NAMES:
         return True
+    # Name takes precedence over annotation tokens: a param literally
+    # named like a mask is never the data carrier. Without this, the
+    # _DATA_TYPE_TOKEN "NeuroVol" substring-matches inside the annotation
+    # repr "LogicalNeuroVol" of a `mask: LogicalNeuroVol` param, so the
+    # mask double-counts as data, empties mask_only, and the whole
+    # (data + mask) surface escapes discovery (e.g. gaussian_blur).
+    if name in _MASK_PARAM_NAMES:
+        return False
     rep = _annotation_repr(annotation)
     return any(tok in rep for tok in _DATA_TYPE_TOKENS)
 
@@ -316,6 +335,13 @@ def _invocation_for(qualified_name: str, vec, vol, mask, roi) -> Optional[Callab
         hyper_space = ni.NeuroSpace(dim=[8, 8, 4, 3, 2])
         data = np.zeros((2, 3, int(mask.sum)), dtype=np.float32)
         return lambda: ni.NeuroHyperVec.create(data, hyper_space, mask=mask)
+    if qualified_name == "neuroim.gaussian_blur":
+        # vol and mask share the fixture's spatial space, so
+        # assert_same_space is invoked and succeeds; the spy records it.
+        return lambda: ni.gaussian_blur(vol, mask=mask, fwhm_mm=2.0)
+    if qualified_name == "neuroim.conn_comp":
+        # Same-space vol + mask; assert_same_space(x, mask) is invoked.
+        return lambda: ni.conn_comp(vol, threshold=0.0, mask=mask)
     if qualified_name == "neuroim.values_roi":
         return lambda: ni.values_roi(vol, roi)
     if qualified_name == "neuroim.series_roi":
