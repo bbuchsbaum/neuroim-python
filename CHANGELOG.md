@@ -6,11 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [PEP 440](https://peps.python.org/pep-0440/)
 versioning.
 
-## [0.3.0a1] - Unreleased
+## [0.3.0rc1] - Unreleased
 
-First alpha. Pre-release cleanup removing legacy/cruft and unpythonic
-surfaces before the API is exposed to users. Breaking changes are
-expected at this stage and are not separately deprecated.
+First release candidate for the 0.3.0 public experimental release. No
+separate alpha was published; this entry is the cumulative pre-release
+record. The public API is usable, documented, and tested but **not
+frozen until 1.0** — see [STABILITY.md](STABILITY.md) for the binding
+contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
+0.3.0 release-gate items are green at this tag.
 
 ### Removed
 
@@ -87,9 +90,12 @@ Tracked and surfaced honestly rather than hidden:
 - **No first-class cross-subject group reducer (S19 PAIN-1/2).**
   Averaging N typed 3-D maps has no `group_mean` / `mean_volumes`;
   hand-roll `np.stack` + mean + a same-space check + receipt merge.
-- **Golden parity is 10/12.** `spatial_resampling` and
-  `spatial_filtering` lack Python implementations (R→Python numeric
-  parity authoring pending).
+- **Golden parity: 10 passed / 2 deferred / 0 failed (gate GREEN).**
+  `spatial_resampling` and `spatial_filtering` are R-only specs whose
+  Python ports are not yet authored; the validator reports them as
+  explicitly *deferred* (skipped), not failed, so the suite is green
+  and may gate the release. The two ports are tracked as a follow-up
+  mote and are 0.3.x/0.4 work, not an RC blocker.
 - **Performance is not characterized.** The 0.3 line is correctness- and
   contract-focused; large file-backed reads and derived-map workflows
   are not yet benchmarked or optimized.

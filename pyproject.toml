@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neuroim"
-version = "0.3.0a1"
+version = "0.3.0rc1"
 description = "Python neuroimaging library"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -61,6 +61,7 @@ docs = [
 [project.urls]
 "Homepage" = "https://github.com/bbuchsbaum/neuroim-python"
 "Documentation" = "https://bbuchsbaum.github.io/neuroim-python/"
+"Stability" = "https://github.com/bbuchsbaum/neuroim-python/blob/main/STABILITY.md"
 "Repository" = "https://github.com/bbuchsbaum/neuroim-python"
 "Bug Tracker" = "https://github.com/bbuchsbaum/neuroim-python/issues"
 "Changelog" = "https://github.com/bbuchsbaum/neuroim-python/blob/main/CHANGELOG.md"

@@ -6,7 +6,7 @@ from importlib.metadata import PackageNotFoundError as _PNF, version as _pkg_ver
 try:
     __version__ = _pkg_version("neuroim")
 except _PNF:  # not installed (e.g. running from a source tree)
-    __version__ = "0.3.0a1"
+    __version__ = "0.3.0rc1"  # keep in sync with pyproject [project].version
 
 # Phase 1-5 components — explicit re-exports of public names only.
 # Replaces earlier `from .module import *` patterns that leaked typing
