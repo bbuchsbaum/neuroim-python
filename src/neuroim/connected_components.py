@@ -6,11 +6,21 @@ components in 3D neuroimaging data, supporting various connectivity patterns.
 Connected-component utilities for labeled 3D neuroimaging data.
 """
 
+from __future__ import annotations
+
 import numpy as np
-from scipy.ndimage import label, maximum_filter, distance_transform_edt
-from typing import Dict, List, Tuple, Optional, Union
+from scipy.ndimage import label, maximum_filter
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 from dataclasses import dataclass
-import pandas as pd
+
+if TYPE_CHECKING:  # pragma: no cover - type-checkers only
+    import pandas as pd
+
+# pandas is an OPTIONAL dependency: only the cluster-table projection
+# uses it and it is not declared in pyproject. A top-level `import
+# pandas` here made `import neuroim` crash on a clean install. Import it
+# lazily at the one runtime use site instead, mirroring results.py
+# SearchlightResult.to_dataframe.
 
 from .neuro_vol import NeuroVol, LogicalNeuroVol, DenseNeuroVol
 from .neuro_space import NeuroSpace
@@ -310,6 +320,8 @@ def _compute_cluster_table(
     pd.DataFrame
         Table with columns: index, x, y, z, N, Area, value
     """
+    import pandas as pd  # optional dep; lazy so `import neuroim` never needs it
+
     rows = []
     data = np.asarray(vol.data)
 
