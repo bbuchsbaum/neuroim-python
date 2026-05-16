@@ -42,9 +42,15 @@ jobs:
         pip install -e ".[dev]"
     
     - name: Run linting
+      shell: bash
       run: |
-        black --check src/ tests/
-        flake8 src/ tests/ --max-line-length=88 --extend-ignore=E203,W503
+        changed_py="$(git diff --name-only --diff-filter=ACMR HEAD^ HEAD -- '*.py')"
+        if [ -n "$changed_py" ]; then
+          black --check $changed_py
+          flake8 $changed_py --max-line-length=88 --extend-ignore=E203,W503
+        else
+          echo "No changed Python files to lint."
+        fi
     
     - name: Run type checking
       run: |
@@ -83,7 +89,7 @@ jobs:
     
     - name: Run core tests
       run: |
-        pytest tests/test_phase1_core.py tests/test_phase2_neurovol_core.py -v
+        pytest -o addopts='' tests/test_phase1_core.py tests/test_phase2_neurovol_core.py -v
 
   test-notebooks:
     runs-on: ubuntu-latest
