@@ -185,7 +185,7 @@ subvol <- vol[2:3, 2:3, 2:3]
 ]]></R>
     <Python><![CDATA[
 import numpy as np
-from pyneuroim import NeuroSpace, DenseNeuroVol
+from neuroim import NeuroSpace, DenseNeuroVol
 
 # Create test volume
 space = NeuroSpace(dim=(4, 4, 4), 

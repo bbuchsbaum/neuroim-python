@@ -1,23 +1,22 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<golden_test xmlns="http://golden-tests.org/schema">
-  <metadata>
-    <id>roi_operations</id>
-    <version>1.0</version>
-    <description>Test ROI (Region of Interest) creation and extraction operations</description>
-    <tags>
-      <tag>spatial_algorithms</tag>
-      <tag>roi</tag>
-      <tag>indexing</tag>
-      <tag>core</tag>
-    </tags>
-  </metadata>
-  
-  <semantic_description>
-    <purpose>
+<?xml version='1.0' encoding='UTF-8'?>
+<ns0:golden_test xmlns:ns0="http://golden-tests.org/schema">
+  <ns0:metadata>
+    <ns0:id>roi_operations</ns0:id>
+    <ns0:version>1.0</ns0:version>
+    <ns0:description>Test ROI (Region of Interest) creation and extraction operations</ns0:description>
+    <ns0:tags>
+      <ns0:tag>spatial_algorithms</ns0:tag>
+      <ns0:tag>roi</ns0:tag>
+      <ns0:tag>indexing</ns0:tag>
+      <ns0:tag>core</ns0:tag>
+    </ns0:tags>
+  </ns0:metadata>
+  <ns0:semantic_description>
+    <ns0:purpose>
       Validate ROI creation from coordinate lists, ROI-based indexing into volumes,
       and extraction of values within regions of interest.
-    </purpose>
-    <algorithm>
+    </ns0:purpose>
+    <ns0:algorithm>
       1. Create a 4x4x4 volume with known values (1 to 64)
       2. Define ROI with 8 specific voxel coordinates forming a cube
       3. Create ROI object from coordinate list
@@ -25,19 +24,18 @@
       5. Compute statistics on ROI values (mean, sum, min, max)
       6. Test ROI size and coordinate access
       7. Verify ROI can be used as mask for operations
-    </algorithm>
-  </semantic_description>
-  
-  <inputs>
-    <array>
-      <name>volume_data</name>
-      <dimensions>4 4 4</dimensions>
-      <values>1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64</values>
-    </array>
-    <matrix>
-      <name>roi_coords</name>
-      <dimensions>8 3</dimensions>
-      <values>
+    </ns0:algorithm>
+  </ns0:semantic_description>
+  <ns0:inputs>
+    <ns0:array>
+      <ns0:name>volume_data</ns0:name>
+      <ns0:dimensions>4 4 4</ns0:dimensions>
+      <ns0:values>1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64</ns0:values>
+    </ns0:array>
+    <ns0:matrix>
+      <ns0:name>roi_coords</ns0:name>
+      <ns0:dimensions>8 3</ns0:dimensions>
+      <ns0:values>
         2 2 2
         3 2 2
         2 3 2
@@ -46,109 +44,91 @@
         3 2 3
         2 3 3
         3 3 3
-      </values>
-    </matrix>
-  </inputs>
-  
-  <expected_outputs>
-    <numeric_checks>
-      <!-- ROI size -->
-      <check>
-        <type>exact_value</type>
-        <name>roi_size</name>
-        <location>roi_size</location>
-        <expected>8</expected>
-      </check>
-      
-      <!-- Values extracted by ROI -->
-      <check>
-        <type>exact_value</type>
-        <name>roi_values_sorted</name>
-        <location>sort(roi_values)</location>
-        <expected>22 23 26 27 38 39 42 43</expected>
-        <tolerance>1e-10</tolerance>
-      </check>
-      
-      <!-- ROI statistics -->
-      <check>
-        <type>exact_value</type>
-        <name>roi_sum</name>
-        <location>sum(roi_values)</location>
-        <expected>260</expected>
-        <tolerance>1e-10</tolerance>
-      </check>
-      
-      <check>
-        <type>exact_value</type>
-        <name>roi_mean</name>
-        <location>mean(roi_values)</location>
-        <expected>32.5</expected>
-        <tolerance>1e-10</tolerance>
-      </check>
-      
-      <check>
-        <type>exact_value</type>
-        <name>roi_min</name>
-        <location>min(roi_values)</location>
-        <expected>22</expected>
-        <tolerance>1e-10</tolerance>
-      </check>
-      
-      <check>
-        <type>exact_value</type>
-        <name>roi_max</name>
-        <location>max(roi_values)</location>
-        <expected>43</expected>
-        <tolerance>1e-10</tolerance>
-      </check>
-      
-      <!-- ROI mask dimensions -->
-      <check>
-        <type>dimension</type>
-        <name>roi_mask_dims</name>
-        <location>dim(roi_mask)</location>
-        <expected>4 4 4</expected>
-      </check>
-      
-      <!-- Number of TRUE values in mask -->
-      <check>
-        <type>exact_value</type>
-        <name>roi_mask_count</name>
-        <location>sum(roi_mask)</location>
-        <expected>8</expected>
-      </check>
-      
-      <!-- Check specific coordinate access -->
-      <check>
-        <type>exact_value</type>
-        <name>roi_coord_check</name>
-        <location>roi_coord_first_row</location>
-        <expected>2 2 2</expected>
-      </check>
-      
-      <!-- Masked volume statistics -->
-      <check>
-        <type>exact_value</type>
-        <name>masked_vol_nonzero</name>
-        <location>sum(masked_vol &gt; 0)</location>
-        <expected>8</expected>
-      </check>
-    </numeric_checks>
-  </expected_outputs>
-  
-  <implementations>
-    <R><![CDATA[
+      </ns0:values>
+    </ns0:matrix>
+  </ns0:inputs>
+  <ns0:expected_outputs>
+    <ns0:numeric_checks>
+      <ns0:check>
+        <ns0:type>exact_value</ns0:type>
+        <ns0:name>roi_size</ns0:name>
+        <ns0:location>roi_size</ns0:location>
+        <ns0:expected>8</ns0:expected>
+      </ns0:check>
+      <ns0:check>
+        <ns0:type>exact_value</ns0:type>
+        <ns0:name>roi_values_sorted</ns0:name>
+        <ns0:location>sort(roi_values)</ns0:location>
+        <ns0:expected>22 23 26 27 38 39 42 43</ns0:expected>
+        <ns0:tolerance>1e-10</ns0:tolerance>
+      </ns0:check>
+      <ns0:check>
+        <ns0:type>exact_value</ns0:type>
+        <ns0:name>roi_sum</ns0:name>
+        <ns0:location>sum(roi_values)</ns0:location>
+        <ns0:expected>260</ns0:expected>
+        <ns0:tolerance>1e-10</ns0:tolerance>
+      </ns0:check>
+      <ns0:check>
+        <ns0:type>exact_value</ns0:type>
+        <ns0:name>roi_mean</ns0:name>
+        <ns0:location>mean(roi_values)</ns0:location>
+        <ns0:expected>32.5</ns0:expected>
+        <ns0:tolerance>1e-10</ns0:tolerance>
+      </ns0:check>
+      <ns0:check>
+        <ns0:type>exact_value</ns0:type>
+        <ns0:name>roi_min</ns0:name>
+        <ns0:location>min(roi_values)</ns0:location>
+        <ns0:expected>22</ns0:expected>
+        <ns0:tolerance>1e-10</ns0:tolerance>
+      </ns0:check>
+      <ns0:check>
+        <ns0:type>exact_value</ns0:type>
+        <ns0:name>roi_max</ns0:name>
+        <ns0:location>max(roi_values)</ns0:location>
+        <ns0:expected>43</ns0:expected>
+        <ns0:tolerance>1e-10</ns0:tolerance>
+      </ns0:check>
+      <ns0:check>
+        <ns0:type>dimension</ns0:type>
+        <ns0:name>roi_mask_dims</ns0:name>
+        <ns0:location>dim(roi_mask)</ns0:location>
+        <ns0:expected>4 4 4</ns0:expected>
+      </ns0:check>
+      <ns0:check>
+        <ns0:type>exact_value</ns0:type>
+        <ns0:name>roi_mask_count</ns0:name>
+        <ns0:location>sum(roi_mask)</ns0:location>
+        <ns0:expected>8</ns0:expected>
+      </ns0:check>
+      <ns0:check>
+        <ns0:type>exact_value</ns0:type>
+        <ns0:name>roi_coord_check</ns0:name>
+        <ns0:location>roi_coords_out[1,]</ns0:location>
+        <ns0:expected>2 2 2</ns0:expected>
+      </ns0:check>
+      <ns0:check>
+        <ns0:type>exact_value</ns0:type>
+        <ns0:name>masked_vol_nonzero</ns0:name>
+        <ns0:location>sum(masked_vol &gt; 0)</ns0:location>
+        <ns0:expected>8</ns0:expected>
+      </ns0:check>
+    </ns0:numeric_checks>
+  </ns0:expected_outputs>
+  <ns0:implementations>
+    <ns0:R>
 library(neuroim2)
 
 # Create test volume
-space <- NeuroSpace(dim = c(4, 4, 4), 
+space &lt;- NeuroSpace(dim = c(4, 4, 4), 
                     spacing = c(1, 1, 1), 
                     origin = c(0, 0, 0))
-volume_data <- array(1:64, dim = c(4, 4, 4))
-vol <- NeuroVol(volume_data, space)
+volume_data &lt;- array(1:64, dim = c(4, 4, 4))
+vol &lt;- NeuroVol(volume_data, space)
 
 # Define ROI coordinates (2x2x2 cube in center)
-roi_coords <- matrix(c(
+roi_coords &lt;- matrix(c(
   2, 2, 2,
   3, 2, 2,
   2, 3, 2,
@@ -160,37 +140,36 @@ roi_coords <- matrix(c(
 ), ncol = 3, byrow = TRUE)
 
 # Create ROI with value 1 for all coordinates
-roi_data <- rep(1, nrow(roi_coords))
-roi <- ROIVol(space = space, coords = roi_coords, data = roi_data)
+roi_data &lt;- rep(1, nrow(roi_coords))
+roi &lt;- ROIVol(space = space, coords = roi_coords, data = roi_data)
 
 # Get ROI size
-roi_size <- length(roi)
+roi_size &lt;- length(roi)
 
 # Extract values using ROI
-roi_values <- vol[roi]
+roi_values &lt;- vol[roi]
 
 # Calculate statistics
-roi_sum <- sum(roi_values)
-roi_mean <- mean(roi_values)
-roi_min <- min(roi_values)
-roi_max <- max(roi_values)
+roi_sum &lt;- sum(roi_values)
+roi_mean &lt;- mean(roi_values)
+roi_min &lt;- min(roi_values)
+roi_max &lt;- max(roi_values)
 
 # Get ROI as logical mask
-roi_mask <- as.logical(roi)
+roi_mask &lt;- as.logical(roi)
 
 # Access coordinates
-roi_coords_out <- coords(roi)
-roi_coord_first_row <- roi_coords_out[1,]
+roi_coords_out &lt;- coords(roi)
 
 # Create masked volume
-masked_vol <- vol * roi_mask
+masked_vol &lt;- vol * roi_mask
 
 # Count non-zero in masked volume
-masked_nonzero <- sum(masked_vol > 0)
-]]></R>
-    <Python><![CDATA[
+masked_nonzero &lt;- sum(masked_vol &gt; 0)
+</ns0:R>
+    <Python>
 import numpy as np
-from pyneuroim import NeuroSpace, DenseNeuroVol, ROIVol, ROICoords
+from neuroim import NeuroSpace, DenseNeuroVol, ROIVol, ROICoords
 
 # Create test volume
 space = NeuroSpace(dim=(4, 4, 4), 
@@ -276,12 +255,11 @@ def dim(obj):
         return obj.dim
     else:
         return (len(obj),)
-]]></Python>
-  </implementations>
-  
-  <propagation_status>
-    <implementation lang="R" status="complete" date="2025-01-06"/>
-    <implementation lang="Python" status="complete" date="2025-01-06"/>
-    <implementation lang="Rust" status="pending"/>
-  </propagation_status>
-</golden_test>
+</Python>
+  </ns0:implementations>
+  <ns0:propagation_status>
+    <ns0:implementation lang="R" status="complete" date="2025-01-06" />
+    <ns0:implementation lang="Python" status="complete" date="2026-05-16" />
+    <ns0:implementation lang="Rust" status="pending" />
+  </ns0:propagation_status>
+</ns0:golden_test>

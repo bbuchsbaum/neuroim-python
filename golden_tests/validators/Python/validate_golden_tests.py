@@ -81,8 +81,12 @@ class GoldenTestValidator:
         # Extract expected outputs
         checks = self._parse_numeric_checks(root)
         
-        # Extract Python implementation if exists
+        # Extract Python implementation if exists.
+        # sync_golden_tests.py emits the <implementations> subtree without the
+        # golden-tests namespace, so fall back to a namespace-agnostic lookup.
         python_impl = root.find('.//gt:Python', self.namespace)
+        if python_impl is None:
+            python_impl = root.find('.//Python')
         python_code = python_impl.text if python_impl is not None else None
         
         return {

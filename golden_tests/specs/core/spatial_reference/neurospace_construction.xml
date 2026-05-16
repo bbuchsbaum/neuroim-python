@@ -159,7 +159,7 @@ bounds_result <- bounds(space)
 ]]></R>
     <Python><![CDATA[
 import numpy as np
-from pyneuroim import NeuroSpace
+from neuroim import NeuroSpace
 
 # Create NeuroSpace
 space = NeuroSpace(dim=(4, 4, 4), 

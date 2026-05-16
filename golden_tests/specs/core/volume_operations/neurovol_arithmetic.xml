@@ -216,7 +216,7 @@ scalar_mult_sum_val <- sum(vol_scalar_mult)
 ]]></R>
     <Python><![CDATA[
 import numpy as np
-from pyneuroim import NeuroSpace, DenseNeuroVol
+from neuroim import NeuroSpace, DenseNeuroVol
 
 # Create test space
 space = NeuroSpace(dim=(3, 3, 3), 

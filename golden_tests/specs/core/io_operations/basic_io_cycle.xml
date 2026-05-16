@@ -189,7 +189,7 @@ unlink(temp_file)
 import numpy as np
 import tempfile
 import os
-from pyneuroim import NeuroSpace, DenseNeuroVol, write_vol, read_vol
+from neuroim import NeuroSpace, DenseNeuroVol, write_vol, read_vol
 
 # Create test volume with floating point data
 space = NeuroSpace(dim=(3, 3, 3), 

@@ -168,7 +168,7 @@ spacing_vals <- spacing(space(vol))
 ]]></R>
     <Python><![CDATA[
 import numpy as np
-from pyneuroim import NeuroSpace, DenseNeuroVol
+from neuroim import NeuroSpace, DenseNeuroVol
 
 # Create test array with pattern: array[i,j,k] = i + j*10 + k*100
 test_data = np.zeros((4, 4, 4), dtype=float)

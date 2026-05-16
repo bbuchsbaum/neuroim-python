@@ -76,7 +76,10 @@ class NeuroVec(ABC):
         self.space = space
 
     def __array__(self, *args, **kwargs):
-        refuse_array_conversion(self, ".as_matrix()")
+        # .data returns the natural-rank 4-D ndarray; .as_matrix() would
+        # hand back a (n_voxels, n_time) matricization, not what a caller
+        # reaching for np.asarray(vec) expects.
+        refuse_array_conversion(self, ".data")
 
     @classmethod
     def from_array(cls, data, space: NeuroSpace) -> "DenseNeuroVec":

@@ -170,7 +170,7 @@ sum_t5 <- sum(neurovec[,,,5])
 ]]></R>
     <Python><![CDATA[
 import numpy as np
-from pyneuroim import NeuroSpace, DenseNeuroVec
+from neuroim import NeuroSpace, DenseNeuroVec
 
 # Create spatial structure - need 4D space for NeuroVec
 space = NeuroSpace(dim=(2, 2, 2, 5), 

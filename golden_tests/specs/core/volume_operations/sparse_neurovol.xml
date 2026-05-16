@@ -226,7 +226,7 @@ sparse_vals <- all_vals[all_vals != 0]
 ]]></R>
     <Python><![CDATA[
 import numpy as np
-from pyneuroim import NeuroSpace, DenseNeuroVol, SparseNeuroVol
+from neuroim import NeuroSpace, DenseNeuroVol, SparseNeuroVol
 
 # Create test space
 space = NeuroSpace(dim=(4, 4, 4), 
@@ -255,7 +255,7 @@ dense_data2[1, 3, 3] = 6
 vol2 = DenseNeuroVol(dense_data2, space)
 
 # Convert to sparse
-# In pyneuroim, we use as_sparse method from DenseNeuroVol
+# In neuroim, we use as_sparse method from DenseNeuroVol
 mask1 = vol1.data > 0
 mask2 = vol2.data > 0
 sparse1 = vol1.as_sparse(mask1)

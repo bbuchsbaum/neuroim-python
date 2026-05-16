@@ -29,17 +29,40 @@ def _hypervec():
                               NeuroSpace((4, 4, 4, 3, 2), (1, 1, 1, 1, 1)))
 
 
-@pytest.mark.parametrize("factory,accessor", [
-    (_vol, ".as_array()"),
-    (_vec, ".as_matrix()"),
-    (_hypervec, ".data"),
+@pytest.mark.parametrize("factory,accessor,natural_shape", [
+    (_vol, ".as_array()", (4, 4, 4)),
+    (_vec, ".data", (4, 4, 4, 3)),
+    (_hypervec, ".data", (4, 4, 4, 3, 2)),
 ])
-def test_np_asarray_refuses_explicitly(factory, accessor):
+def test_np_asarray_refuses_explicitly(factory, accessor, natural_shape):
     obj = factory()
     with pytest.raises(TypeError, match=r"does not implicitly convert to a NumPy array"):
         np.asarray(obj)
     with pytest.raises(TypeError, match=re_escape(accessor)):
         np.array(obj)
+
+
+@pytest.mark.parametrize("factory,accessor,natural_shape", [
+    (_vol, ".as_array()", (4, 4, 4)),
+    (_vec, ".data", (4, 4, 4, 3)),
+    (_hypervec, ".data", (4, 4, 4, 3, 2)),
+])
+def test_refusal_names_a_rank_faithful_accessor(factory, accessor, natural_shape):
+    """The accessor the refusal points to must return the natural-rank
+    ndarray — not a reshaped view. Catches the .as_matrix() defect:
+    pointing a Vec refusal at .as_matrix() sends the caller to a
+    (n_voxels, n_time) 2-D matricization, not the array np.asarray
+    would have produced.
+    """
+    obj = factory()
+    attr = accessor.strip(".").rstrip("()")
+    got = getattr(obj, attr)
+    arr = got() if callable(got) else got
+    assert isinstance(arr, np.ndarray)
+    assert arr.shape == natural_shape, (
+        f"{type(obj).__name__}{accessor} returned shape {arr.shape}, "
+        f"expected rank-faithful {natural_shape}"
+    )
 
 
 def re_escape(s: str) -> str:
