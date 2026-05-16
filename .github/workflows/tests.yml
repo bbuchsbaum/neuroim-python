@@ -22,6 +22,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
     
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
@@ -83,9 +85,8 @@ jobs:
     - name: Install minimal dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e . --no-deps
-        pip install numpy scipy  # Install only required deps
         pip install pytest
+        pip install -e .
     
     - name: Run core tests
       run: |
