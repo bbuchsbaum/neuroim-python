@@ -139,7 +139,7 @@ Before deployment:
 ```bash
 cd docs/source/tutorials/notebooks
 python validate_environment.py
-python test_notebooks_simple.py
+python notebook_execution_test.py --full
 ```
 
 ## Troubleshooting

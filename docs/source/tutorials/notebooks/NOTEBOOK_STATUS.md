@@ -66,9 +66,9 @@ python validate_environment.py
 ### Testing Notebooks
 Two testing methods are available:
 
-1. **Simple Test** (tests key functionality):
+1. **Environment validation**:
    ```bash
-   python test_notebooks_simple.py
+   python validate_environment.py
    ```
 
 2. **Full Execution Test** (requires nbformat/nbconvert):
@@ -84,7 +84,6 @@ Copy this to `.github/workflows/test-notebooks.yml` to automatically test notebo
 
 - **README.md**: Comprehensive guide for users
 - **validate_environment.py**: Environment validation script
-- **test_notebooks_simple.py**: Quick functionality tests
 - **notebook_execution_test.py**: Full notebook execution tests
 - **.github_workflow_notebooks.yml**: CI/CD workflow template
 

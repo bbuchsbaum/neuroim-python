@@ -69,9 +69,9 @@ Testing the Notebooks
 
 Two testing methods are available:
 
-1. **Quick functional test** (no Jupyter required)::
+1. **Environment validation** (no Jupyter required)::
 
-    python test_notebooks_simple.py
+    python validate_environment.py
 
 2. **Full notebook execution** (requires nbformat and nbconvert)::
 

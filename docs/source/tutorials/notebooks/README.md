@@ -79,13 +79,13 @@ vol = pn.DenseNeuroVol(data, space_3d)
 
 ## Testing the Notebooks
 
-A test script is provided to verify all notebooks execute correctly:
+Use the full notebook execution harness to verify notebooks:
 
 ```bash
-python test_notebooks_simple.py
+python notebook_execution_test.py --full
 ```
 
-This script tests key functionality from each notebook and reports any issues.
+Run `python validate_environment.py` first when checking local dependencies.
 
 ## Common Operations
 

@@ -30,15 +30,7 @@ python validate_environment.py
 - Verifies neuroim components
 - Tests basic functionality
 
-### 2. Quick Functional Tests
-```bash
-python test_notebooks_simple.py
-```
-- Tests key code from each notebook
-- Fast execution (~5 seconds)
-- No Jupyter dependencies
-
-### 3. Full Notebook Execution
+### 2. Full Notebook Execution
 ```bash
 python notebook_execution_test.py --full
 ```
@@ -46,19 +38,17 @@ python notebook_execution_test.py --full
 - Requires nbformat/nbconvert
 - Comprehensive validation
 
-### 4. CI/CD Integration
-- GitHub Actions workflow template provided
-- Automated testing on commits
-- Multi-Python version support
+### 3. CI/CD Integration
+The provided workflow template can run the environment check and full notebook
+execution in CI.
 
 ## Documentation Created
 
 1. **README.md** - User guide with examples and troubleshooting
 2. **NOTEBOOK_STATUS.md** - Detailed fix history and current status
 3. **validate_environment.py** - Environment checker script
-4. **test_notebooks_simple.py** - Quick functionality tests
-5. **notebook_execution_test.py** - Full execution tests
-6. **.github_workflow_notebooks.yml** - CI/CD template
+4. **notebook_execution_test.py** - Full execution tests
+5. **.github_workflow_notebooks.yml** - CI/CD template
 
 ## Verification Results
 
