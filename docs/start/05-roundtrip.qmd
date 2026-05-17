@@ -35,7 +35,7 @@ tmp.exists(), tmp.stat().st_size > 0
 `to_nibabel()` serializes the volume to a `nibabel.Nifti1Image` and embeds the Receipt as a NIfTI header extension with `ecode 6` (the standard `comment` ecode) and content prefix `neuroim/receipt/v1:`. The prefix is the version marker; foreign comment extensions from other tools are left alone on read.
 
 ::: {.callout-note}
-Use `to_nibabel()` + `nib.save()` for receipt-preserving writes. Plain writer helpers can be convenient for simple maps, but this explicit path is the one this tutorial uses because it makes the provenance boundary visible.
+`ni.write_vol(...)` saves the array but not the Receipt. Use `to_nibabel()` + `nib.save()` whenever you need the provenance to travel with the file — that is the write path this tutorial uses.
 :::
 
 ## Read

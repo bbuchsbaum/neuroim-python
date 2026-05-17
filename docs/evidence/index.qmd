@@ -1,21 +1,21 @@
 ---
 title: "Evidence"
-subtitle: "The runnable scoreboard. Every claim in these docs resolves to a scenario here."
+subtitle: "The runnable backing for every claim in these docs."
 jupyter: python3
 sidebar: false
 ---
 
-This is the one place the docs compare `neuroim` against raw
-`nibabel`+`numpy` — because here the comparison is a *measurement*,
-not framing. Each row is a scenario under
-[`examples/scenarios/`](https://github.com/bbuchsbaum/neuroim-python/tree/main/examples/scenarios):
-a single neuroimaging task implemented twice, with a `pytest` file
-asserting the verdict.
+When a tutorial says `neuroim` catches a mistake that raw
+`nibabel` + `numpy` would let through, this page is where that claim is
+checked. Each row is one neuroimaging task implemented both ways under
+[`examples/scenarios/`](https://github.com/bbuchsbaum/neuroim-python/tree/main/examples/scenarios),
+with a `pytest` file that runs the comparison.
 
-The rules: every public feature has a scenario; every pain point is
-filed before it is fixed; every verdict below is regenerated from the
-scenario `REPORT.md` files at render time, so this table cannot drift
-from the source of truth.
+You don't need to read these to use the library — they exist so the
+claims in the tutorials are verifiable rather than asserted. Every
+public feature has a scenario, and the table below is regenerated from
+the scenario reports each time the docs are built, so it stays in step
+with the code.
 
 ```{python}
 #| echo: false
