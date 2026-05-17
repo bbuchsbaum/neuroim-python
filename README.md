@@ -5,6 +5,7 @@ A modern Python library for neuroimaging data analysis, providing efficient data
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/bbuchsbaum/neuroim-python/actions/workflows/tests.yml/badge.svg)](https://github.com/bbuchsbaum/neuroim-python/actions/workflows/tests.yml)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://bbuchsbaum.github.io/neuroim-python/)
 [![Scenario evidence](https://img.shields.io/badge/scenario%20evidence-make%20verify--evidence-green)](docs/scenarios.md)
 
 > ⚠️ **Experimental — release candidate (0.3.0rc1).** Usable,
@@ -180,6 +181,7 @@ chunk = big_data[30:40, 30:40, 20:30, :]  # Load only what's needed
 
 The documentation site is built with Quarto from `docs/`.
 
+- [Rendered documentation](https://bbuchsbaum.github.io/neuroim-python/)
 - [Documentation source](docs/)
 - [Tutorials](docs/tutorials/)
 - [API reference](docs/reference/)
