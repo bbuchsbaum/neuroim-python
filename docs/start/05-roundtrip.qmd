@@ -35,7 +35,7 @@ tmp.exists(), tmp.stat().st_size > 0
 `to_nibabel()` serializes the volume to a `nibabel.Nifti1Image` and embeds the Receipt as a NIfTI header extension with `ecode 6` (the standard `comment` ecode) and content prefix `neuroim/receipt/v1:`. The prefix is the version marker; foreign comment extensions from other tools are left alone on read.
 
 ::: {.callout-note}
-`to_nibabel()` + `nib.save()` is the receipt-preserving write path today; `write_vol` gaining the same embedding is tracked as `neuroim-python-ur0` and is the single change that will retire this note. See [scenario S19 PAIN-4](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/19_group_mean_template_tsnr/REPORT.md).
+Use `to_nibabel()` + `nib.save()` for receipt-preserving writes. Plain writer helpers can be convenient for simple maps, but this explicit path is the one this tutorial uses because it makes the provenance boundary visible.
 :::
 
 ## Read
@@ -50,7 +50,7 @@ roundtrip.provenance.mask_hash[:12], tsnr.provenance.mask_hash[:12]
 
 The Receipt comes back. Every field that went in comes out — same `method_name`, same hashes, same `n_voxels`. A collaborator who only has `tsnr.nii.gz` can answer *what produced this, from what input, with what mask, what method?*
 
-The hashes mean more than equality. If the source BOLD and mask are still on disk, you can recompute their `input_space_hash` and `mask_hash` and confirm they match the volume's Receipt. The mission claim — *silent space/orientation/mask mismatches are caught at the contract layer* — survives the file boundary precisely because the Receipt is on the file, not in a sidecar.
+The hashes mean more than equality. If the source BOLD and mask are still on disk, you can recompute their `input_space_hash` and `mask_hash` and confirm they match the volume's Receipt. This is why the Receipt belongs on the file, not in a sidecar: the image carries enough context for a later reader to check which source image and mask produced it.
 
 ## Read it without neuroim
 
@@ -99,4 +99,4 @@ Everything else in the docs — the cookbook recipes, the searchlight infrastruc
 
 - [Concept: Provenance](../concepts/provenance.qmd) — what's rehydrated, what isn't.
 - [Spec: Receipt v1](../spec/receipt-nifti-extension.html) — the on-disk contract.
-- Scenarios for the IO boundary: [S05](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/05_receipt_io_boundary/REPORT.md), [S13](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/13_provenance_audit/REPORT.md), [S08](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/08_pickle_multiprocessing_handoff/REPORT.md).
+- [Evidence](../evidence/index.qmd) — runnable checks for the IO boundary and provenance round trips.

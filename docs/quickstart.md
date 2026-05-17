@@ -1,23 +1,21 @@
 # Quickstart
 
-Four canonical short patterns. Extract a time series at an MNI coordinate,
-mean a BOLD across a brain mask, save a derived map with provenance,
+Four short patterns: extract a time series at an MNI coordinate, mean a
+BOLD series across a brain mask, save a derived map with provenance, and
 recover that provenance in a fresh process. The first two patterns are
-shown side-by-side against raw `nibabel`+`numpy` so the contract delta
-is on-screen.
+shown beside raw `nibabel` + `numpy` so the difference in responsibility
+is visible.
 
-The verdicts in each block are not adjectives — they are the line counts and
-contract-coverage results recorded in the runnable scenarios under
-[`examples/scenarios/`](../examples/scenarios). Each pattern links to its
-scenario REPORT for the evidence.
+The examples below focus on the reader-facing API. Runnable checks for
+these behaviors live in the [Evidence](evidence/index.qmd) section.
 
 ---
 
 ## 1. Extract a time series at an MNI coordinate
 
-Open a BOLD image and pull the voxel time series at a world-mm
-coordinate. One line names the operation; out-of-bounds raises by
-default.
+Open a BOLD image and pull the voxel time series at a world-millimetre
+coordinate. One line names the operation; out-of-grid coordinates raise
+by default.
 
 **neuroim**
 
@@ -28,7 +26,7 @@ bold = ni.read_image("sub-01_bold.nii.gz")
 ts = bold.series_at_world((0.0, -52.0, 26.0))   # raises if outside the grid
 ```
 
-**raw `nibabel`+`numpy`**
+**raw `nibabel` + `numpy`**
 
 ```python
 import nibabel as nib
@@ -43,16 +41,10 @@ if not (0 <= i < nx and 0 <= j < ny and 0 <= k < nz):
 ts = img.get_fdata()[i, j, k, :]
 ```
 
-> **Verdict** (Scenario 01 — MNI Spotlight,
-> [`examples/scenarios/01_mni_spotlight/REPORT.md`](../examples/scenarios/01_mni_spotlight/REPORT.md)):
-> the affine-inversion idiom — `np.linalg.inv(affine) @ [x, y, z, 1]`
-> plus manual rounding and bounds check — collapses to a single named
-> domain operation, and the user-facing function body drops from
-> **10 → 1 statement**. `series_at_world` raises on out-of-bounds by
-> default (an `out_of_bounds="zero"` opt-in is available); the
-> raw-nibabel form silently returns garbage when the bounds check is
-> omitted, which is the failure mode S01's PAIN-3 was filed against
-> and is now closed.
+What to notice: `series_at_world` keeps the affine inversion, rounding,
+bounds check, and indexing together as one domain operation. In raw
+NumPy, forgetting the bounds check can turn a negative voxel index into
+a valid-looking sample from the opposite side of the array.
 
 ---
 
@@ -60,7 +52,7 @@ ts = img.get_fdata()[i, j, k, :]
 
 Take a 4-D BOLD and a 3-D mask, pull every in-mask voxel's time series,
 and average across voxels. The neuroim form checks the mask's spatial
-frame against the data's inside the public API.
+frame against the data inside the public API.
 
 **neuroim**
 
@@ -71,10 +63,10 @@ import neuroim as ni
 bold = ni.read_image("sub-01_bold.nii.gz")
 mask = ni.read_image("sub-01_mask.nii.gz", type="vol")
 roi  = ni.ROICoords(np.argwhere(np.asarray(mask.data)), space=mask.space)
-mean_ts = bold.series_roi(roi).values.mean(axis=1)   # contract gate is inside series_roi
+mean_ts = bold.series_roi(roi).values.mean(axis=1)
 ```
 
-**raw `nibabel`+`numpy`**
+**raw `nibabel` + `numpy`**
 
 ```python
 import nibabel as nib
@@ -83,33 +75,27 @@ import numpy as np
 bold_img = nib.load("sub-01_bold.nii.gz")
 mask_img = nib.load("sub-01_mask.nii.gz")
 if bold_img.shape[:3] != mask_img.shape or not np.allclose(bold_img.affine, mask_img.affine):
-    raise ValueError("mask doesn't match BOLD spatial frame")   # user must remember to write this
+    raise ValueError("mask doesn't match BOLD spatial frame")
 mean_ts = bold_img.get_fdata()[mask_img.get_fdata().astype(bool)].mean(axis=0)
 ```
 
-> **Verdict** (Scenario 02 — ROI mean time series,
-> [`examples/scenarios/02_roi_mean_timeseries/REPORT.md`](../examples/scenarios/02_roi_mean_timeseries/REPORT.md)):
-> the rewrite ties on raw line count and wins on safety. The mask/affine
-> compatibility check moves from a line the user has to remember to write
-> into the contract layer of `series_roi`. The headline failure mode S02
-> surfaced — a wrong-affine mask silently scattering values into the
-> wrong voxels — is blocked at the API surface (**PAIN-5, P0, fixed**)
-> and the same `"spatial contract mismatch"` shape covers seed-sphere,
-> temporal-SNR, and (soon) multi-subject concat. The full S02 verdict —
-> with the receipt, error handling, and contract test — is **11 → 5**
-> in the user-facing function body.
+What to notice: `series_roi` checks the ROI's `NeuroSpace` before it
+extracts values. Raw nibabel can do the same, but only if the caller
+remembers to compare both shape and affine before indexing.
 
-`bold.series_roi(roi)` returns an `ROIExtractionResult` carrying `.values`,
-`.coords`, `.space`, and `.provenance`. Calling `.values.mean(axis=1)` is
-the analysis step; everything else is contract.
+`bold.series_roi(roi)` returns an `ROIExtractionResult` carrying
+`.values`, `.coords`, `.space`, and `.provenance`. Calling
+`.values.mean(axis=1)` is the analysis step; everything else is the
+contract around it.
 
 ---
 
-## 3. Save a derived map — provenance rides on the file
+## 3. Save a derived map with provenance
 
-Run a mean-searchlight across a mask, then write the result. There is no
-side-by-side block here: raw `nibabel` cannot produce a self-describing
-derived map without a hand-curated sidecar.
+Run a mean searchlight across a mask, then write the result. There is no
+side-by-side raw block here: raw `nibabel` can write the array, but it
+will not create a self-describing derived map unless you add your own
+metadata convention.
 
 ```python
 import numpy as np
@@ -119,14 +105,15 @@ import neuroim as ni
 bold = ni.read_image("sub-01_bold.nii.gz")
 mask = ni.read_image("sub-01_mask.nii.gz", type="vol")
 sl   = ni.searchlight_apply(mask, radius=4.5, method=np.mean, data=bold)
-nib.save(sl.to_nibabel(), "sub-01_sl_mean.nii.gz")   # Receipt rides in NIfTI ecode-6 ('comment')
+nib.save(sl.to_nibabel(), "sub-01_sl_mean.nii.gz")
 ```
 
 The `SearchlightResult` carries a `Receipt` with `method_name`,
 `input_space_hash`, `mask_hash`, `radius`, `n_voxels`, and
-`source_affine_hash`. `sl.to_nibabel()` embeds the JSON-serialized
-Receipt into the NIfTI header as an `ecode 6` `comment` extension
-prefixed `neuroim/receipt/v1:`. No sidecar JSON, no curation step.
+`source_affine_hash`. `sl.to_nibabel()` embeds the serialized Receipt
+in the NIfTI header as a `comment` extension prefixed
+`neuroim/receipt/v1:`. The file itself now records the operation, input
+space, and mask used to produce it.
 
 ---
 
@@ -144,43 +131,27 @@ print(img.provenance.mask_hash)           # links back to the mask used
 print(img.provenance.radius)              # 4.5
 ```
 
-> **Verdict** (Scenario 05 — Receipts across the IO boundary,
-> [`examples/scenarios/05_receipt_io_boundary/REPORT.md`](../examples/scenarios/05_receipt_io_boundary/REPORT.md)):
-> at the time the scenario landed, the write boundary silently dropped the
-> Receipt — `to_nibabel()` produced a NIfTI with **zero header extensions**
-> and `read_image(path)` returned a bare `DenseNeuroVol`. This was the
-> falsifying observation against MISSION decision rule 4 ("Receipts by
-> default — silent space/orientation/mask mismatches are caught at the
-> contract layer, not in debugging"). The fix embeds the Receipt as a
-> `comment` extension (NIfTI ecode 6) on write and re-hydrates it on read,
-> so the collaborator who only has the `.nii.gz` path can answer *what
-> produced this, from what input, with what mask, what method?* — without
-> a hand-curated sidecar. The on-disk format is a public contract,
-> readable by **10 lines of `nibabel` alone**, no `neuroim` import
-> required — see [`docs/spec/receipt-nifti-extension.md`](spec/receipt-nifti-extension.md).
+What to notice: a collaborator who only has the `.nii.gz` can inspect
+what produced it, from which spatial frame, with which mask, and with
+which method. The on-disk Receipt is also readable with plain nibabel;
+the schema is described in the [Receipt NIfTI extension spec](spec/receipt-nifti-extension.md).
 
 ---
 
-## When neuroim refuses — three failure modes raw nibabel permits
+## When neuroim refuses
 
-The four patterns above are the happy path.  The shorter case for
-neuroim is the cases where raw `nibabel` + `numpy` silently returns
-wrong-but-plausible bytes and `neuroim` raises a typed error before
-the bad value reaches your analysis.
-
-Each subsection below maps to a closed P0 in the scenarios suite, so
-the assertions are not aspirational — they are backed by the suite at
-HEAD.
+The shorter examples are useful, but the more important habit is that
+neuroim checks spatial assumptions before indexing. These examples show
+the kinds of mistakes that become explicit errors.
 
 ### Wrong-space mask (`series_roi`)
 
-A `mask` whose `affine` differs from the BOLD's gets a free pass in
-raw nibabel — `bold[mask]` does not know the two are in different
-spatial frames and scatters whatever bytes happen to be at the same
-voxel indices.
+A mask whose affine differs from the BOLD's can still be applied by raw
+NumPy because `bold_data[mask]` only sees indices. It does not know that
+the same index may refer to a different physical location.
 
 ```python
-# Raw nibabel — silently scatters when mask is in a different space.
+# Raw nibabel — silently uses voxel indices from the wrong spatial frame.
 mean = bold_data[mask_in_wrong_space].mean(axis=0)
 ```
 
@@ -190,37 +161,27 @@ roi = ni.ROICoords(np.argwhere(mask.data), space=wrong_space)
 bold.series_roi(roi)        # ValueError: spatial contract mismatch
 ```
 
-Backed by `examples/scenarios/02_roi_mean_timeseries/REPORT.md` (PAIN-5,
-closed).
-
 ### World coordinate outside the grid (`series_at_world`)
 
-A world-mm coordinate that maps to a negative voxel index gets
-wrapped by NumPy's signed indexing — you get a plausible-looking time
-series from the *opposite corner* of the image.
+A world-millimetre coordinate that maps to a negative voxel index can be
+wrapped by NumPy's signed indexing. The result is a plausible-looking
+time series from the opposite side of the image.
 
 ```python
-# Raw nibabel — np.linalg.inv(affine) @ [x, y, z, 1] -> negative index,
-# then data[i, j, k, :] silently returns voxel from the far corner.
+# Raw nibabel — a negative i, j, or k can still index the array.
 ts = bold_data[i, j, k, :]
 ```
 
 ```python
 # neuroim — bounds-checks before indexing and raises.
-bold.series_at_world((0.0, -52.0, 26.0))  # IndexError on OOB
+bold.series_at_world((0.0, -52.0, 26.0))  # ValueError if outside the grid
 ```
-
-Backed by `examples/scenarios/01_mni_spotlight/REPORT.md` (PAIN-2,
-closed).
 
 ### Per-volume affine drift (`FileBackedNeuroVec`)
 
-A multi-run experiment stored as one 3-D file per timepoint is the
-canonical place for an affine mismatch to slip in (e.g. one run was
-reconstructed in a slightly different orientation).  Raw nibabel
-stacks the data and trusts the user; the result is a 4-D volume whose
-later timepoints come from a *different spatial frame* than the
-earlier ones.
+A multi-run experiment stored as one 3-D file per timepoint is a common
+place for an affine mismatch to slip in. Raw nibabel will stack arrays
+unless you add the consistency check yourself.
 
 ```python
 # Raw nibabel — stacks regardless of affine drift across volumes.
@@ -230,11 +191,11 @@ stacked = np.stack([nib.load(p).get_fdata() for p in run_paths], axis=-1)
 ```python
 # neuroim — checks affine consistency on volume load and raises.
 vec = ni.FileBackedNeuroVec(run_paths)
-vec.temporal_snr()   # ValueError: Volume N has inconsistent affine/space
+vec.temporal_snr()   # ValueError if a volume has an inconsistent affine
 ```
 
-Backed by `examples/scenarios/12_file_backed_affine_drift/REPORT.md`
-(PAIN-12, closed).
+For runnable comparisons behind these examples, see the
+[Evidence](evidence/index.qmd) page.
 
 ---
 
@@ -250,8 +211,7 @@ bold = ni.read_image("golden_tests/fixtures/tiny_bold.nii.gz")
 mask = ni.read_image("golden_tests/fixtures/tiny_mask.nii.gz", type="vol")
 ```
 
-The full scenario tests (which assert each verdict above against runnable
-baselines) are at:
+The evidence suite exercises the examples and boundary checks:
 
 ```bash
 PYTHONPATH=src:tests:. python -m pytest examples/scenarios -q
@@ -262,5 +222,4 @@ PYTHONPATH=src:tests:. python -m pytest examples/scenarios -q
 - [Get started](get-started.qmd) — the same flow as a Quarto-rendered tour.
 - [Receipt NIfTI extension spec](spec/receipt-nifti-extension.md) — the
   on-disk format for provenance, written as a public contract.
-- [`examples/scenarios/README.md`](../examples/scenarios/README.md) — the
-  runnable evidence behind every verdict above.
+- [Evidence](evidence/index.qmd) — runnable examples behind the tutorial claims.

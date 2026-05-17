@@ -59,7 +59,6 @@ An off-grid world coordinate raises `ValueError`:
 of shape (…).` — *before* signed indexing can return a value from the
 opposite corner. The `out_of_bounds="zero"` opt-in exists for
 algorithms that intentionally want zero-fill; the default is `"raise"`.
-Backed by [scenario S01](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/01_mni_spotlight/REPORT.md).
 
 ## See also
 

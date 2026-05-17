@@ -5,7 +5,7 @@ jupyter: python3
 sidebar: start
 ---
 
-A neuroimaging array without its spatial frame is half a value. Half the bugs in fMRI analysis come from carrying the array without the frame and noticing too late. `NeuroSpace` is the part the rest of the API uses to decide whether two arrays mean the same thing.
+A neuroimaging array without its spatial frame is half a value. Many fMRI mistakes come from carrying the array without the frame and noticing too late. `NeuroSpace` is the part the rest of the API uses to decide whether two arrays mean the same thing.
 
 ## What it is
 
@@ -71,4 +71,4 @@ A true/raise predicate (rather than true/false) is deliberate: the failure carri
 
 - [Concept: NeuroSpace](../concepts/space.qmd) — the short-form vocabulary entry.
 - [Spec: Receipt v1](../spec/receipt-nifti-extension.html) — how `space.dim/spacing/origin/trans` are hashed into a Receipt.
-- Scenarios that exercise spatial frames: [S02](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/02_roi_mean_timeseries/REPORT.md), [S07](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/07_multi_subject_concat/REPORT.md), [S10](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/10_searchlight_space_mismatch/REPORT.md), [S12](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/12_file_backed_affine_drift/REPORT.md).
+- [Evidence](../evidence/index.qmd) — runnable checks that exercise spatial-frame validation across common workflows.

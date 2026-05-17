@@ -36,8 +36,8 @@ out.stat().st_size > 0, tsnr.provenance.method_name
 
 ::: {.callout-note}
 `to_nibabel().save(...)` is the documented write path that embeds the
-Receipt. `ni.write_vol(tsnr, path)` writes the array but does not yet
-embed — tracked as [S19 PAIN-4](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/19_group_mean_template_tsnr/REPORT.md).
+Receipt. Use it when the file itself should explain which operation,
+input image, and mask produced the map.
 :::
 
 ## What's guaranteed
@@ -75,7 +75,6 @@ bold.temporal_snr(mask=ni.DenseNeuroVol(mask.data, wrong))
 
 A wrong-frame mask raises `ValueError` (`spatial contract mismatch`)
 before any numeric work — the failed call leaves the BOLD untouched.
-Backed by [scenario S04](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/04_temporal_snr_map/REPORT.md).
 
 ## See also
 

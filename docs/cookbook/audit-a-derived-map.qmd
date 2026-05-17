@@ -69,14 +69,12 @@ recomputing their hashes if those files are still around.
 
 - A pipeline step that returns a bare `ndarray` breaks the chain — the
   next step has no upstream Receipt to merge. Keep derived values in
-  their typed carriers until the final write. Backed by
-  [scenario S14](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/14_temporal_slice_provenance/REPORT.md)
-  (time-axis slicing as silent provenance loss).
-- `ni.write_vol` does not yet embed; use `to_nibabel().save(...)`
-  ([S19 PAIN-4](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/19_group_mean_template_tsnr/REPORT.md)).
+  their typed carriers until the final write.
+- Use `to_nibabel()` with `nib.save(...)` when you want the Receipt
+  embedded in the `.nii.gz` itself.
 
 ## See also
 
 - [Concept: Provenance](../concepts/provenance.qmd) — chaining semantics.
 - [Spec: Receipt NIfTI extension](../spec/receipt-nifti-extension.html)
-- Scenarios [S13](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/13_provenance_audit/REPORT.md), [S09](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/09_native_to_template_provenance/REPORT.md)
+- [Evidence](../evidence/index.qmd) — runnable provenance audits and round-trip checks.

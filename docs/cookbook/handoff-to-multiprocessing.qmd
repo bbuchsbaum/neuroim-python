@@ -44,8 +44,7 @@ worker does not need a side-channel describing what it received.
 
 - `DenseNeuroVol` / result objects are picklable and the round-trip
   produces an equal `Receipt` (same hashes, same `method_name`).
-- This holds across a *fresh process*, not just in-process — the
-  scenario below proves it via a subprocess.
+- This holds across a *fresh process*, not just in-process.
 
 ## What survives the file
 
@@ -62,11 +61,12 @@ the provenance is intrinsic to the object. The on-disk equivalent is
 - A worker that re-wraps a bare array in a fresh `DenseNeuroVol`
   invents a *new* identity; it does not recover the original Receipt.
 
-Backed by [scenario S08](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/08_pickle_multiprocessing_handoff/REPORT.md)
-(fresh-process pickle round-trip).
+The important rule is to hand off the typed object, not the detached
+array. The typed object carries the Receipt; the array carries only
+numbers.
 
 ## See also
 
 - [Concept: Provenance](../concepts/provenance.qmd) — round-trip safety through pickle.
 - [Save a derived map with provenance](save-derived-map-with-provenance.qmd) — the file-boundary analogue.
-- Scenario [S08](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/08_pickle_multiprocessing_handoff/REPORT.md)
+- [Evidence](../evidence/index.qmd) — runnable round-trip checks for object and file boundaries.

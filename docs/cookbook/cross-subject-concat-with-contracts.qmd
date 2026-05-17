@@ -70,11 +70,10 @@ subj_a.concat(wrong_frame)
 A frame-mismatched subject raises `ValueError`:
 `spatial contract mismatch: NeuroVecs must have same spatial
 dimensions and affine; …`. The failure is at the API surface, before
-any array is stacked. Backed by
-[scenario S07](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/07_multi_subject_concat/REPORT.md).
+any array is stacked.
 
 ## See also
 
 - [Concept: NeuroSpace](../concepts/space.qmd) — `compatible_with`, the leaf check.
 - [Concept: Contract failures](../concepts/contract-failures.qmd) — the `CONCAT-SPACE` refusal.
-- Scenario [S07](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/07_multi_subject_concat/REPORT.md)
+- [Evidence](../evidence/index.qmd) — runnable checks for multi-subject spatial validation.

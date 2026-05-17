@@ -56,9 +56,8 @@ clustered = bold.parcel_means(atlas)
 
 `ClusteredNeuroVec.provenance` is a `Receipt`. Projecting a parcel
 statistic back to a volume (`map_to_volume()` on a derived
-`ParcelEffectResult`, see [Block parcel contrast scenario
-S15](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/15_block_parcel_contrast/REPORT.md))
-yields a `DenseNeuroVol` whose Receipt embeds on `to_nibabel()`.
+`ParcelEffectResult`) yields a `DenseNeuroVol` whose Receipt embeds on
+`to_nibabel()`.
 
 ## Trapdoors
 
@@ -72,11 +71,10 @@ bold.parcel_means(ni.DenseNeuroVol(labels.astype(np.int16), wrong))
 
 A parcellation whose affine disagrees with the BOLD raises
 `ValueError` containing `spatial contract mismatch` — the same leaf
-refusal every spatial operation bottoms out in. Backed by
-[scenario S11](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/11_atlas_parcel_timeseries/REPORT.md).
+refusal every spatial operation bottoms out in.
 
 ## See also
 
 - [Concept: Atlas](../concepts/atlas.qmd)
 - [Concept: Contract failures](../concepts/contract-failures.qmd)
-- Scenarios [S11](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/11_atlas_parcel_timeseries/REPORT.md), [S15](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/15_block_parcel_contrast/REPORT.md)
+- [Evidence](../evidence/index.qmd) — runnable atlas and parcel workflows.

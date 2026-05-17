@@ -63,8 +63,8 @@ This will become important on the [next page](04-derived-maps.qmd), where a `sea
 
 ## Refuses to
 
-- **`series_roi` with a mismatched `roi.space`.** The contract check fires before any indexing happens. Raises `ValueError`; the message contains the greppable substring `spatial contract mismatch` (`assert_same_space: spatial contract mismatch — NeuroSpace mismatch in affine: …`). Backed by [scenario S02](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/02_roi_mean_timeseries/REPORT.md) (PAIN-5, closed).
-- **`series_at_world` outside the grid.** A world-mm coordinate that inverts to a negative voxel index raises rather than silently wrapping to the far corner of the array. Backed by [scenario S01](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/01_mni_spotlight/REPORT.md) (PAIN-2, closed).
+- **ROI coordinates from a different image space.** `series_roi` checks the ROI's `NeuroSpace` against the BOLD image before extracting values. If the affine or dimensions differ, it raises `ValueError` with `spatial contract mismatch`, instead of returning values from the wrong locations.
+- **World coordinates outside the image grid.** `series_at_world` converts millimetres to voxel coordinates and checks the result before indexing. Coordinates outside the grid raise an error rather than relying on NumPy's negative-index wrapping.
 - **Hand back a bare `ndarray`.** `series_roi` returns a `Result`. The numeric payload is `.values`; the spatial context never strips off.
 
 ## Why the result shape, not a tuple

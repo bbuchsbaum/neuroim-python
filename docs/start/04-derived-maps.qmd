@@ -63,12 +63,12 @@ The projected volume is again a `DenseNeuroVol` with `.provenance`. The shape is
 
 A workflow that produces N maps over N subjects ends up with a list of `DenseNeuroVol`s, each carrying its `.provenance`. A group-mean operation can verify every input's `input_space_hash` matches before reducing; the next step's Receipt records the inputs it consumed. None of this requires a sidecar manifest the user has to remember to write.
 
-When you write `tsnr` to disk, `to_nibabel()` + `nib.save()` is the receipt-preserving write path today; `write_vol` gaining the same embedding is tracked as `neuroim-python-ur0` and is the single change that will retire this note. The Receipt then rides in the NIfTI header — the subject of the [next page](05-roundtrip.qmd).
+When you write `tsnr` to disk, `to_nibabel()` + `nib.save()` is the receipt-preserving write path. Use this explicit path when you want the Receipt embedded in the NIfTI header — the subject of the [next page](05-roundtrip.qmd).
 
 ## Refuses to
 
-- **`temporal_snr(mask=...)` with a wrong-space mask.** Same `spatial contract mismatch` refusal (`ValueError`) as `series_roi`, routed through the same `verify.assert_same_space`. The fix mirrors S02. Backed by [scenario S04](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/04_temporal_snr_map/REPORT.md).
-- **`searchlight_apply(mask=..., data=bold)` with a shifted same-shape mask.** Shape agreement is not space agreement; the affine is hashed. Backed by [scenario S10](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/10_searchlight_space_mismatch/REPORT.md) (PAIN-10, closed).
+- **`temporal_snr(mask=...)` with a mask from another space.** The mask must share the BOLD image's spatial frame. Matching array shapes are not enough; the affine and dimensions are checked before the reduction runs.
+- **`searchlight_apply(mask=..., data=bold)` with a shifted same-shape mask.** Shape agreement is not space agreement. `searchlight_apply` checks the mask's affine before building neighborhoods, so a shifted mask raises instead of mixing values from the wrong locations.
 - **Hand back an anonymous 3-D array from a reduction.** Every reduction over a typed object returns a typed object. `temporal_snr` does not return `np.ndarray`; `searchlight_apply` does not return a tuple.
 
 ## Next
@@ -79,4 +79,4 @@ When you write `tsnr` to disk, `to_nibabel()` + `nib.save()` is the receipt-pres
 
 - [Concept: Provenance](../concepts/provenance.qmd) — what survives the file, what doesn't.
 - [Concept: ROI result](../concepts/roi-result.qmd) — the family `SearchlightResult` belongs to.
-- Scenarios for derived maps: [S04](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/04_temporal_snr_map/REPORT.md), [S10](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/10_searchlight_space_mismatch/REPORT.md), [S16](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/16_smoothed_tsnr_qc/REPORT.md), [S17](https://github.com/bbuchsbaum/neuroim-python/blob/main/examples/scenarios/17_searchlight_block_effect/REPORT.md).
+- [Evidence](../evidence/index.qmd) — runnable checks for derived maps and searchlight workflows.
