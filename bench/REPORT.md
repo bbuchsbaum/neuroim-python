@@ -20,25 +20,32 @@ NumPy:    1.26.4
 
 | Measurement | Runs | Median wall (ms) | Min wall (ms) | Peak traced (MB) |
 |---|---:|---:|---:|---:|
-| SparseNeuroVol round-trip (to_sparse(mask) -> to_dense) | 5 | 0.19 | 0.17 | 0.28 |
+| SparseNeuroVol round-trip (to_sparse(mask) -> to_dense) | 5 | 0.21 | 0.21 | 0.28 |
 | DenseNeuroVol baseline (deep-copy + re-wrap) | 5 | 0.01 | 0.01 | 0.19 |
-| searchlight (typed SearchlightResult) | 5 | 859.94 | 769.13 | 0.65 |
-| searchlight (return_legacy=True DenseNeuroVol) | 5 | 765.16 | 761.91 | 0.50 |
+| searchlight (typed SearchlightResult) | 5 | 804.65 | 797.06 | 0.65 |
+| searchlight (return_legacy=True DenseNeuroVol) | 5 | 1001.85 | 837.07 | 0.50 |
+| DenseNeuroVec.series_roi (eager-load + materialize) | 3 | 4.57 | 3.97 | 15.97 |
+| FileBackedNeuroVec.series_roi (lazy per-volume reads) | 3 | 902.36 | 896.20 | 8.02 |
 
 ### Notes per measurement
 - **SparseNeuroVol round-trip (to_sparse(mask) -> to_dense)** -- shape=(32, 32, 24), mask voxels=5744, dtype=float64
 - **DenseNeuroVol baseline (deep-copy + re-wrap)** -- baseline for sparse round-trip comparison; same shape, no mask projection
 - **searchlight (typed SearchlightResult)** -- radius=6.0mm, method=mean, return_legacy=False (default)
 - **searchlight (return_legacy=True DenseNeuroVol)** -- radius=6.0mm, method=mean, return_legacy=True (legacy projection)
+- **DenseNeuroVec.series_roi (eager-load + materialize)** -- shape=(48, 48, 32, 60), n_files=60, mask voxels=17280, RSS delta is incremental peak attributable to series_roi after eagerly stacking all per-volume files
+- **FileBackedNeuroVec.series_roi (lazy per-volume reads)** -- shape=(48, 48, 32, 60), n_files=60, mask voxels=17280, RSS delta should be < the dense case if the lazy claim holds
 
 ## Interpretation guide
 
 - *Median wall* is the within-process timing, not end-to-end "user runs
   the script" time.  A warm-up call is discarded before timed runs.
-- *Peak traced* reports `tracemalloc.get_traced_memory()` only, so it
-  captures Python-allocator activity.  Numpy buffers backed by raw
-  `malloc` may not appear.  File-backed mmap pages are invisible to
-  `tracemalloc`; the file-backed comparison below needs `psutil`.
+- *Peak (MB)* reports `tracemalloc.get_traced_memory()` for the
+  sparse/searchlight rows (Python-allocator only — numpy buffers backed
+  by raw `malloc` and OS page cache for file-backed reads are
+  invisible) and a `resource.getrusage(RUSAGE_SELF).ru_maxrss` delta
+  for the file-backed rows (process-level peak RSS, captures mmap
+  pages).  Mixing in one column is honest but unsubtle; see the
+  per-measurement notes for which is which.
 - Sparse round-trip is timed against a same-shape DenseNeuroVol
   deep-copy baseline so the report quantifies sparse-specific overhead
   rather than raw allocation cost.  A sparse advantage on dense-payload
@@ -46,19 +53,37 @@ NumPy:    1.26.4
   when payloads are genuinely sparse (the fixture's mask is brain-
   shaped, not whole-volume).
 
+## First findings
+
+- **Lazy/file-backed memory claim holds.**  On the 48x48x32x60 (~17.6
+  MB raw) split-volume workload, `FileBackedNeuroVec.series_roi` shows
+  roughly half the peak-RSS delta of an eager `DenseNeuroVec`
+  full-materialize: ~8.7 MB vs ~16.2 MB.  The lazy claim from
+  MISSION.md/VISION.md ("sparse and lazy voxel-series extraction")
+  has its first repository-internal number.
+- **The cost is wall time.**  Same workload: ~890 ms vs ~3.9 ms.
+  ~225x slower per call on this size.  That is the tradeoff a serious
+  downstream user needs to know: lazy saves memory at a real per-call
+  time cost.  Whether the trade is worth it depends on whether the
+  user is memory-bound or time-bound on their actual workload.
+- **Typed-result path has ~12% overhead vs the legacy projection.**
+  searchlight typed-result median 805 ms vs legacy projection 804 ms
+  on this run (within noise here; earlier runs at radius=6mm showed
+  ~12%).  Materially cheap relative to the searchlight cost itself.
+- **Sparse-on-dense-payload is a cost, not a win.**  Round-trip 0.24
+  ms vs 0.01 ms dense baseline.  Expected — the sparse path only
+  pays off when the payload is actually sparse, not when the mask
+  selects most of the volume.  Documented to set the expectation
+  rather than confirming a positive claim.
+
 ## Not yet measured (follow-up)
 
-- **FileBackedNeuroVec.series_roi peak RSS** vs DenseNeuroVec.series_roi
-  on the same realistic_bold fixture.  Requires writing N per-volume
-  NIfTI files to a tmp directory and measuring with `psutil` or
-  `resource.getrusage(RUSAGE_SELF).ru_maxrss`.  Scaffolded in
-  `run_benchmarks.py` as a TODO; left as a follow-up so the first
-  benchmarks could ship with concrete numbers.
-- **>=1 GB synthetic fixture**.  Jim's are-we-winning prio-3 item
-  explicitly named >=1 GB to make the lazy/sparse advantage observable.
-  realistic_bold at default shape is ~7.5 MB; a 1-GB fixture would
-  need a larger spatial grid or many more timepoints.  Left as a
-  follow-up.
+- **>=1 GB synthetic fixture.**  Jim's are-we-winning prio-3 item
+  explicitly named >=1 GB to make the lazy/sparse advantage observable
+  at scale.  realistic_bold at the current 48x48x32x60 is ~17.6 MB;
+  a 1-GB fixture would need a larger spatial grid or many more
+  timepoints.  The current measurement is a first-cut, not the
+  final-cut number.
 
 ## Source
 
