@@ -67,3 +67,6 @@ feature_parity_summary.py
 .dolt/
 *.db
 .beads-credential-key
+
+# Playwright MCP scratch logs (browser automation, not source)
+.playwright-mcp/
