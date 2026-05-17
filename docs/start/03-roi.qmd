@@ -1,11 +1,11 @@
 ---
 title: "03 — ROI extraction"
-subtitle: "Extracting voxels through an ROI returns a *result*, not an array."
+subtitle: "Pull a region's time series, and keep track of where it came from."
 jupyter: python3
 sidebar: start
 ---
 
-ROI extraction is where the first contract fires inside a public operation, and where the return value starts carrying provenance. This page introduces `ROIExtractionResult` and the spatial-mismatch refusal.
+You have a region — a sphere around a coordinate, or a mask — and you want every voxel's time series from it. `series_roi` does that in one call and hands back the matrix together with the coordinates and the frame it came from, so the next step doesn't need a second handle on the mask. It also checks the region and the image agree before it reads a voxel.
 
 ## The call
 
@@ -61,7 +61,9 @@ Every field is a value, not a reference. Two extractions on the same BOLD with t
 
 This will become important on the [next page](04-derived-maps.qmd), where a `searchlight` chains a receipt onto the BOLD's frame, and on [page 05](05-roundtrip.qmd), where that receipt survives the file boundary.
 
-## Refuses to
+## What it refuses
+
+Skippable on a first read — the edges, for when you hit them.
 
 - **ROI coordinates from a different image space.** `series_roi` checks the ROI's `NeuroSpace` against the BOLD image before extracting values. If the affine or dimensions differ, it raises `ValueError` with `spatial contract mismatch`, instead of returning values from the wrong locations.
 - **World coordinates outside the image grid.** `series_at_world` converts millimetres to voxel coordinates and checks the result before indexing. Coordinates outside the grid raise an error rather than relying on NumPy's negative-index wrapping.

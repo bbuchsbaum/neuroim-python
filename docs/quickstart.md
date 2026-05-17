@@ -1,13 +1,13 @@
 # Quickstart
 
-Four short patterns: extract a time series at an MNI coordinate, mean a
-BOLD series across a brain mask, save a derived map with provenance, and
-recover that provenance in a fresh process. The first two patterns are
-shown beside raw `nibabel` + `numpy` so the difference in responsibility
-is visible.
+Four short patterns to copy from: extract a time series at an MNI
+coordinate, average a BOLD series over a brain mask, save a derived map
+with provenance, and recover that provenance in a fresh process.
 
-The examples below focus on the reader-facing API. Runnable checks for
-these behaviors live in the [Evidence](evidence/index.qmd) section.
+If you're coming from `nibabel` + `numpy`, the first two patterns also
+show the raw equivalent side by side, so you can see which steps neuroim
+folds into the call. Runnable versions of everything here live in the
+[Evidence](evidence/index.qmd) section.
 
 ---
 
@@ -138,11 +138,12 @@ the schema is described in the [Receipt NIfTI extension spec](spec/receipt-nifti
 
 ---
 
-## When neuroim refuses
+## Mistakes it turns into errors
 
-The shorter examples are useful, but the more important habit is that
-neuroim checks spatial assumptions before indexing. These examples show
-the kinds of mistakes that become explicit errors.
+The patterns above are the everyday path. This last section is optional
+background: a few common mistakes where neuroim stops with a clear error
+instead of returning plausible-looking wrong numbers. You don't need it
+to start working — it's here so the failure modes aren't a surprise.
 
 ### Wrong-space mask (`series_roi`)
 

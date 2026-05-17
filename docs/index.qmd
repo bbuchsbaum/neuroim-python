@@ -66,16 +66,16 @@ from evidence_scan import find_repo, scenario_rows
 rows = scenario_rows(find_repo(cwd))
 print(
     "::: {.evidence-teaser}\n"
-    f"**{len(rows)} scenario reports**, regenerated from "
-    "`examples/scenarios/*/REPORT.md` at build — "
-    "[open the scoreboard →](evidence/index.qmd).\n"
+    f"**{len(rows)} worked scenarios**, each a real task run both ways "
+    "and checked at build time — "
+    "[see the evidence →](evidence/index.qmd).\n"
     ":::"
 )
 ```
 
 ## In 30 seconds
 
-Here is what neuroim looks like in practice — and the silent mistake it refuses to make. A masked temporal-SNR map: the mask's spatial frame is validated at the API surface; the returned volume carries a `Receipt` whose hashes link back to the input space and mask; the receipt survives a write/read round-trip through a `.nii.gz`.
+A masked temporal-SNR map, start to finish. You read a BOLD and a mask, compute the map, and the result already knows the image and mask it came from — and still knows after a save/reload through a `.nii.gz`. The frame check that would otherwise be a line you have to remember is just part of the call.
 
 ```{python}
 from pathlib import Path
@@ -105,7 +105,7 @@ After `nib.save(tsnr.to_nibabel(), "tsnr.nii.gz")`, a fresh process calling `ni.
 ::: {.promise-card}
 #### Contracts at the surface
 
-Public operations validate spatial inputs before returning a value, so shape, affine, and mask mistakes fail at the API boundary instead of one reduction later. The failure vocabulary is fixed and grep-stable — see [contract failures](concepts/contract-failures.qmd).
+Public operations check spatial inputs before returning a value, so shape, affine, and mask mistakes fail right at the call instead of one reduction later — with a consistent, searchable error message. See [contract failures](concepts/contract-failures.qmd).
 
 [`bold.series_roi(roi)`]{.promise-tag}
 :::
@@ -136,4 +136,4 @@ Dense, sparse, memory-mapped, and file-backed 4-D containers answer the same cal
 - **[Spec](spec/receipt-nifti-extension.html)** — public contracts written so a third party could implement against them without importing neuroim.
 - **[Reference](reference/index.qmd)** — generated API surface, grouped by task.
 
-Every claim above resolves to a runnable scenario. The [evidence scoreboard](evidence/index.qmd) regenerates its verdicts from those scenarios' `REPORT.md` files at render time, so it cannot drift from the source of truth.
+Every claim above is backed by a runnable scenario. The [Evidence](evidence/index.qmd) page is rebuilt from those scenarios each time the docs are built, so it stays in step with the code.

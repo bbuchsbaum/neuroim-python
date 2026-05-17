@@ -1,13 +1,13 @@
 ---
 title: "01 — Read an image"
-subtitle: "`read_image` returns a typed object. The type names what is safe to do with it."
+subtitle: "Load a NIfTI file and get your data — with the spatial frame still attached."
 jupyter: python3
 sidebar: start
 ---
 
-The starting move in every neuroim workflow is one function call. The point of typing the return value is not file-extension dispatch — it is that the returned object's *interface* tells the rest of your code what is safe.
+Reading an image is one function call. You get the array you expect, plus the spatial frame that came with the file — so later steps can't quietly mix images that don't line up.
 
-## The call
+## Load a file
 
 ```{python}
 from pathlib import Path
@@ -15,42 +15,57 @@ import sys
 
 sys.path.insert(0, str(Path.cwd().parents[1] / "src"))
 
+import numpy as np
 import neuroim as ni
 
 repo = Path.cwd().parents[1] if Path.cwd().name == "start" else Path.cwd()
 
 bold = ni.read_image(str(repo / "golden_tests/fixtures/tiny_bold.nii.gz"))
-type(bold).__name__, bold.shape
+arr = np.asarray(bold.data)
+
+bold.shape, arr.dtype, float(arr.mean())
 ```
 
-A 4-D BOLD comes back as a `DenseNeuroVec` because the trailing dimension is a time axis. A 3-D mask comes back as a `DenseNeuroVol`.
+That's your data: a 4-D array, its dtype, and a value you can sanity-check. Indexing works the way you'd expect — `bold.data[..., 0]` is the first volume, `bold.data[x, y, z, :]` is one voxel's time series.
+
+Read a 3-D mask the same way:
 
 ```{python}
 mask = ni.read_image(str(repo / "golden_tests/fixtures/tiny_mask.nii.gz"), type="vol")
-type(mask).__name__, mask.shape
+mask.shape, int(np.asarray(mask.data).sum())
 ```
 
-The `type=` argument is reader dispatch, not a cast. `type="vol"` runs the volume reader — on a 4-D file it extracts volume index 0; `type="vec"` runs the vector reader — on a 3-D file it promotes to singleton-time 4-D `(…, 1)`. On this 3-D mask, `type="vol"` is the matching reader and returns a `DenseNeuroVol`.
+The one extra thing each object carries is `.space` — the spatial frame (dimensions, voxel sizes, orientation) read from the file. It travels with the data automatically; you never assemble it by hand. The [next page](02-space.qmd) is about what that frame does for you.
 
-## What the return type is for
+## Which reader runs
 
-The type is the contract. A `DenseNeuroVec` exposes time-aware operations: `.series_roi(roi)`, `.series_at_world((x, y, z))`, `.temporal_snr(mask=...)`. A `DenseNeuroVol` exposes volume-aware operations: `.to_nibabel()`, mask coercion, ROI extraction without time. You do not check `bold.ndim == 4` in your analysis code; you call the time method directly and let the static type catch the wrong call.
+`read_image` picked `DenseNeuroVec` for the 4-D BOLD (the trailing axis is time) and, with `type="vol"`, `DenseNeuroVol` for the 3-D mask. `type=` chooses the *reader*, it does not reinterpret bytes:
+
+- `type="auto"` (default) — pick by dimensionality.
+- `type="vol"` — volume reader; on a 4-D file it takes volume 0.
+- `type="vec"` — vector reader; on a 3-D file it promotes to a singleton-time 4-D `(…, 1)`.
+
+For most workflows the default is what you want; pass `type=` only when you need a specific shape.
+
+## Why a typed object?
+
+The return type is not bookkeeping — it's what lets you write analysis code without defensive checks. A `DenseNeuroVec` is the 4-D, time-aware type, so its time methods are just there:
 
 ```{python}
-bold.temporal_snr  # bound method on NeuroVec — present
+bold.temporal_snr  # a time-aware method, available because this is a NeuroVec
 ```
 
-Both types share a single attribute: `.space`. That is the spatial frame. The [next page](02-space.qmd) is about what that object guarantees.
+You call `bold.temporal_snr(mask=mask)` directly — no `if data.ndim == 4:` guard, no passing the affine around by hand. If you call a time method on a 3-D volume, that's a wrong call your editor and a type checker can catch, instead of a confusing array error deep in a reduction. The safety is a side effect of getting the right object back; you don't have to think about it to benefit from it.
 
-## What it doesn't do
+## What it refuses
 
-`read_image` is the documented entry point. It uses `nibabel` as substrate underneath — that is an implementation detail, not the API. If you already hold a nibabel `SpatialImage` for some other reason, `ni.from_nibabel(img)` exists as an explicit interchange. It is not the hero of the on-ramp; the hero is the typed return value.
+You can skip this on a first read — it's here so you know the edges.
 
-## Refuses to
+- **Unknown reader mode.** `type=` accepts only `"auto"`, `"vol"`, or `"vec"`. Anything else raises `ValueError: type must be one of 'auto', 'vol', or 'vec'` rather than guessing.
+- **A bare array as the return.** `read_image` always returns a typed object with `.space` attached; it never hands back a plain `numpy.ndarray`. When you explicitly want the raw array, that's what `bold.data[...]` and `as_array()` are for — opting out is deliberate, never accidental.
 
-- **Accept an unknown reader mode.** `type=` takes only `"auto"`, `"vol"`, or `"vec"`; anything else raises `ValueError: type must be one of 'auto', 'vol', or 'vec'`. It does not silently fall back to a guess.
-- **Hand back an anonymous array.** A bare `numpy.ndarray` is never the documented return of `read_image`; the spatial frame stays attached. The explicit accessors (`vol[...]`, `as_array()`) are where you opt into the raw array.
+`read_image` is the entry point. It uses `nibabel` underneath, but that's an implementation detail. If you already hold a nibabel image for some other reason, `ni.from_nibabel(img)` is the explicit bridge — see [interop](../cookbook/interop-with-nibabel.qmd).
 
 ## Next
 
-[02 — Spatial frames](02-space.qmd) introduces `NeuroSpace` — the value object that travels with every image and is the basis for every contract check on the pages after it.
+[02 — Spatial frames](02-space.qmd) introduces `NeuroSpace`, the frame that travels with every image and quietly keeps later steps from mixing mismatched data.

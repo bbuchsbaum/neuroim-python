@@ -1,19 +1,19 @@
 ---
 title: "Start"
-subtitle: "Five pages, ~30 minutes. Each one introduces exactly one new contract."
+subtitle: "Five short pages, about 30 minutes. By the end you can load, inspect, analyze, and save a dataset end-to-end."
 sidebar: start
 ---
 
-The on-ramp is sequenced so that each page adds *one* idea you can name. By the end you have read every public type the rest of the docs build on.
+This is the practical on-ramp. Each page does one real task and shows the result, then explains — briefly — why the API is shaped the way it is.
 
-| # | Page | New idea |
-|---|------|----------|
-| 01 | [Read an image](01-image.qmd) | `read_image` returns a typed object; the type names what is safe to do with it. |
-| 02 | [Spatial frames](02-space.qmd) | `NeuroSpace` is a value object; `compatible_with` is the alignment check. |
-| 03 | [ROI extraction](03-roi.qmd) | ROI extraction returns a *result* with `.values`, `.coords`, `.space`, `.provenance`. |
-| 04 | [Derived maps](04-derived-maps.qmd) | A `DenseNeuroVol` carrying `.provenance` is the unit of derived output. |
-| 05 | [Round-trip](05-roundtrip.qmd) | Writing then reading is provenance-safe by spec. |
+| # | Page | What you'll do |
+|---|------|----------------|
+| 01 | [Read an image](01-image.qmd) | Load a NIfTI file and get your data, with its spatial frame attached. |
+| 02 | [Spatial frames](02-space.qmd) | Check that two images line up before you combine them. |
+| 03 | [ROI extraction](03-roi.qmd) | Pull a region's time-by-voxel matrix and keep track of where it came from. |
+| 04 | [Derived maps](04-derived-maps.qmd) | Compute a map (e.g. temporal SNR) that remembers how it was made. |
+| 05 | [Round-trip](05-roundtrip.qmd) | Save it and read it back — provenance still intact, no sidecar files. |
 
-Each page ends with a **Refuses to** block — the calls neuroim raises on, with links to the runnable scenario that asserts the refusal.
+Each page ends with a short, skippable **What it refuses** note: the few inputs neuroim rejects on purpose so a mistake fails loudly instead of producing wrong numbers. Read it if you want the edges; skip it on a first pass.
 
-If you have used the library before and want vocabulary first, the [Concepts](../concepts/space.qmd) pages are short and indexed.
+Prefer vocabulary first? The [Concepts](../concepts/space.qmd) pages are short and indexed.

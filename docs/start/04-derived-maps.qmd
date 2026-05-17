@@ -1,11 +1,11 @@
 ---
 title: "04 — Derived maps"
-subtitle: "A volume that *also* carries `.provenance` is the unit of derived output."
+subtitle: "Compute a map that remembers how it was made."
 jupyter: python3
 sidebar: start
 ---
 
-ROI extraction returns voxel-shaped values. Many neuroimaging workflows want the inverse: collapse a 4-D BOLD across time, leave a 3-D map. The shape of that map's *carrier* is the load-bearing decision in this section.
+A lot of analysis collapses a 4-D BOLD across time into a 3-D map — temporal SNR, a contrast, a searchlight statistic. The map you get back is a normal volume you can index, save, or plot; it just also remembers which image and mask produced it, so you can answer that question later without keeping notes.
 
 ## Temporal SNR — the canonical case
 
@@ -65,7 +65,9 @@ A workflow that produces N maps over N subjects ends up with a list of `DenseNeu
 
 When you write `tsnr` to disk, `to_nibabel()` + `nib.save()` is the receipt-preserving write path. `ni.write_vol(...)` saves the array but not the Receipt, so reach for the explicit path whenever provenance needs to stay with the file — the subject of the [next page](05-roundtrip.qmd).
 
-## Refuses to
+## What it refuses
+
+Skippable on a first read — the edges, for when you hit them.
 
 - **`temporal_snr(mask=...)` with a mask from another space.** The mask must share the BOLD image's spatial frame. Matching array shapes are not enough; the affine and dimensions are checked before the reduction runs.
 - **`searchlight_apply(mask=..., data=bold)` with a shifted same-shape mask.** Shape agreement is not space agreement. `searchlight_apply` checks the mask's affine before building neighborhoods, so a shifted mask raises instead of mixing values from the wrong locations.

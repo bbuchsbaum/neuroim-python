@@ -1,11 +1,11 @@
 ---
 title: "05 — Round-trip"
-subtitle: "Writing then reading is provenance-safe by spec."
+subtitle: "Save a map and read it back — its provenance comes with it, no sidecar files."
 jupyter: python3
 sidebar: start
 ---
 
-The previous pages built up a typed result with a Receipt. This page is where the Receipt crosses the file boundary and survives. The on-disk format is a versioned public contract — not an implementation detail — which is what makes the round-trip a guarantee instead of a hope.
+The map from the last page knows how it was made. This page saves it to a `.nii.gz` and reads it back in a fresh process — and that knowledge survives the trip, with no companion JSON to keep alongside the file. It works because the on-disk format is a written, versioned contract, so the round-trip is a guarantee rather than a hope.
 
 {{< include ../_includes/lifecycle.qmd >}}
 
@@ -73,7 +73,9 @@ def read_neuroim_receipt(path):
 
 That snippet does not import `neuroim`. The Receipt is a *public* artifact. A pipeline written in a different toolchain can produce Receipt extensions that `neuroim.read_image` will rehydrate, and a pipeline written in neuroim can be inspected by any tool that reads NIfTI extensions. The full schema and a symmetric reference writer live in [the Receipt spec](../spec/receipt-nifti-extension.html).
 
-## Refuses to
+## What it refuses
+
+Skippable on a first read — the edges, for when you hit them.
 
 - **Drop the Receipt on `to_nibabel`.** The receipt extension is always embedded when `.provenance` is set. The regression test at [`tests/test_receipt_spec_external_reader.py`](https://github.com/bbuchsbaum/neuroim-python/blob/main/tests/test_receipt_spec_external_reader.py) re-reads the file with the ten-line snippet above.
 - **Confuse a foreign `comment` extension for a Receipt.** Only extensions whose payload starts with the literal `neuroim/receipt/v1:` are treated as Receipts on read.

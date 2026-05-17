@@ -1,11 +1,11 @@
 ---
 title: "02 — Spatial frames"
-subtitle: "`NeuroSpace` is a value object. `compatible_with` is *the* alignment check."
+subtitle: "Check that two images line up before you combine them."
 jupyter: python3
 sidebar: start
 ---
 
-A neuroimaging array without its spatial frame is half a value. Many fMRI mistakes come from carrying the array without the frame and noticing too late. `NeuroSpace` is the part the rest of the API uses to decide whether two arrays mean the same thing.
+Before you combine two images — a BOLD and its mask, a subject and a template — they need to describe the same grid. Every image you load already carries that information as its `.space`, so the check is one call you don't have to set up.
 
 ## What it is
 
@@ -56,7 +56,9 @@ A true/raise predicate (rather than true/false) is deliberate: the failure carri
 - **No coordinate conversion overload.** Use `apply_affine(space.trans, [x, y, z])` for grid→world and the inverse for world→grid. There is no implicit conversion when comparing spaces.
 - **No mutation.** `dim`, `spacing`, `origin`, `trans` are read-only arrays. Code that needs a modified frame constructs a new `NeuroSpace`; the original keeps its identity for the receipts that reference it.
 
-## Refuses to
+## What it refuses
+
+Skippable on a first read — the edges, for when you hit them.
 
 - **`compatible_with` on differently-shaped grids or affines.** Raises `ValueError`: `"NeuroSpace mismatch in spatial dim: left=…, right=…"` or `"NeuroSpace mismatch in affine: left=…, right=…"`. Public operations wrap this as `"assert_same_space: spatial contract mismatch — …"`.
 - **Construction with non-positive dims or spacing.** `NeuroSpace((-1, 4, 4))` raises `ValueError: "All dimensions must be positive"`; bad spacing raises `"Spacing values must be positive"`.
@@ -65,7 +67,7 @@ A true/raise predicate (rather than true/false) is deliberate: the failure carri
 
 ## Next
 
-[03 — ROI extraction](03-roi.qmd) is the first page where a `compatible_with` check fires inside a public operation, and the first page where the return is a `Result` carrying a `Receipt`.
+[03 — ROI extraction](03-roi.qmd) pulls a region's time-by-voxel matrix — and is the first page where this frame check runs for you automatically, inside the call.
 
 ## See also
 
