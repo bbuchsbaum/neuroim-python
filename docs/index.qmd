@@ -130,7 +130,7 @@ Dense, sparse, memory-mapped, and file-backed 4-D containers answer the same cal
 
 ## How to read these docs
 
-- **[Start](start/01-image.qmd)** — a five-page on-ramp, each page introduces exactly one new contract. About thirty minutes end-to-end.
+- **[Start](start/01-image.qmd)** — a five-page on-ramp, each page centered on one practical task. About thirty minutes end-to-end.
 - **[Concepts](concepts/index.qmd)** — the vocabulary, one page per idea. What each object *is*, what it guarantees, what it refuses.
 - **[Cookbook](cookbook/index.qmd)** — task-driven recipes, each with the trapdoors that the contracts close.
 - **[Spec](spec/receipt-nifti-extension.html)** — public contracts written so a third party could implement against them without importing neuroim.

@@ -62,7 +62,7 @@ You call `bold.temporal_snr(mask=mask)` directly — no `if data.ndim == 4:` gua
 You can skip this on a first read — it's here so you know the edges.
 
 - **Unknown reader mode.** `type=` accepts only `"auto"`, `"vol"`, or `"vec"`. Anything else raises `ValueError: type must be one of 'auto', 'vol', or 'vec'` rather than guessing.
-- **A bare array as the return.** `read_image` always returns a typed object with `.space` attached; it never hands back a plain `numpy.ndarray`. When you explicitly want the raw array, that's what `bold.data[...]` and `as_array()` are for — opting out is deliberate, never accidental.
+- **A bare array as the return.** `read_image` always returns a typed object with `.space` attached; it never hands back a plain `numpy.ndarray`. When you explicitly want the raw array, `bold.data[...]` works for any image, `vol.as_array()` is available on volume objects, and `neuroim.compat.as_array(obj)` is the generic helper — opting out is deliberate, never accidental.
 
 `read_image` is the entry point. It uses `nibabel` underneath, but that's an implementation detail. If you already hold a nibabel image for some other reason, `ni.from_nibabel(img)` is the explicit bridge — see [interop](../cookbook/interop-with-nibabel.qmd).
 
