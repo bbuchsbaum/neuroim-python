@@ -41,6 +41,30 @@ class NeuroSpace:
         4x4 transformation matrix (default: created from spacing/origin)
     """
 
+    @staticmethod
+    def _fit_axis_vector(
+        values: np.ndarray, ndim: int, fill: float, name: str
+    ) -> np.ndarray:
+        """Conform a per-axis vector (spacing/origin) to ``ndim`` axes.
+
+        A user describing a 4D series naturally supplies only the three
+        *spatial* spacings — the time axis has no spatial extent.  Rather than
+        letting a length mismatch surface as a cryptic numpy broadcast error
+        deep in the affine construction, pad any trailing (e.g. temporal) axes
+        with a neutral default (unit spacing / zero origin).  An over-long
+        vector is a genuine mistake and raises a clear error.
+        """
+        values = np.atleast_1d(values)
+        n = values.shape[0]
+        if n == ndim:
+            return values
+        if n < ndim:
+            return np.concatenate([values, np.full(ndim - n, fill, dtype=float)])
+        raise InvalidSpaceError(
+            f"{name} has {n} entries but the space is {ndim}D; "
+            f"provide at most {ndim} values"
+        )
+
     def __init__(
         self,
         dim: Union[Tuple[int, ...], List[int], np.ndarray],
@@ -73,11 +97,13 @@ class NeuroSpace:
             spacing = np.ones(ndim)
         else:
             spacing = np.array(spacing, dtype=float, copy=True)
+            spacing = self._fit_axis_vector(spacing, ndim, 1.0, "spacing")
 
         if origin is None:
             origin = np.zeros(ndim)
         else:
             origin = np.array(origin, dtype=float, copy=True)
+            origin = self._fit_axis_vector(origin, ndim, 0.0, "origin")
 
         object.__setattr__(self, "spacing", spacing)
         object.__setattr__(self, "origin", origin)

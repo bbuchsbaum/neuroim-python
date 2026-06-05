@@ -57,8 +57,30 @@ contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
   it replaces, so existing `except ValueError` keeps working while new
   code can `except SpaceMismatchError`. Canonical messages unchanged.
 - `read_volume()` / `read_series()` intent-revealing readers (additive).
+- `NeuroVec.mean(axis=-1|3)` — first-class mean-over-time reduction
+  returning a provenance-carrying 3D `DenseNeuroVol` (matches the
+  `fmri.mean(axis=3)` form shown in the README).
+- `gaussian_blur` now accepts a 4D `NeuroVec`, smoothing each volume
+  spatially (no temporal blur) and returning a `DenseNeuroVec` with a
+  `gaussian_blur` Receipt — so the canonical fMRI smoothing step is
+  first-class for time-series input.
 
 ### Fixed
+
+- **Ergonomic pass (seed-connectivity workflow stress test).** Five
+  friction points found while exercising a natural end-to-end pipeline
+  through the public surface:
+  - `NeuroSpace(dim=<4-tuple>, spacing=<3-tuple>)` — the natural call for
+    a 4D series whose time axis has no spatial extent — now pads trailing
+    axes with unit spacing / zero origin instead of raising a cryptic
+    numpy broadcast error; an over-long spacing/origin raises a clear
+    `InvalidSpaceError`.
+  - `conn_comp(..., cluster_table=True)` (the default) degrades
+    gracefully when the optional `pandas` dependency is absent: it warns
+    and returns `cluster_table=None` rather than crashing the whole call.
+  - `write_vol` / `write_vec` route through `to_nibabel`, so a provenance
+    Receipt is embedded as a NIfTI extension and survives `write` →
+    `read` — previously only `to_nibabel` persisted it.
 
 - **P0** — `read_image` / `read_vol` / `read_vec` were transiently
   dropped from the public namespace by an over-broad API trim and have
@@ -77,11 +99,6 @@ contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
 
 Tracked and surfaced honestly rather than hidden:
 
-- **Provenance at the write boundary (PAIN-4, P0).** `write_vol(vol,
-  path)` does **not** embed the provenance Receipt — only
-  `vol.to_nibabel()` then `nib.save(...)` does. To preserve provenance
-  across a file round-trip today, use `nib.save(vol.to_nibabel(), path)`
-  and read back with `read_image(...)`. Default-embed fix is pending.
 - **Time-axis slicing (PAIN-13 / PAIN-14).** `vec[..., start:stop]` on a
   `NeuroVec` returns a bare `ndarray`, dropping the `NeuroSpace` and
   upstream provenance; the `slice → temporal_snr` receipt chain is

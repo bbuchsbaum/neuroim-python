@@ -144,9 +144,9 @@ def test_group_map_receipt_survives_nifti_round_trip(fixture, tmp_path_factory):
 
     reloaded = ni.io.read_image(str(out_path))
     rehydrated = getattr(reloaded, "provenance", None)
-    assert isinstance(rehydrated, Receipt), (
-        "group map Receipt did not survive to_nibabel + read_image"
-    )
+    assert isinstance(
+        rehydrated, Receipt
+    ), "group map Receipt did not survive to_nibabel + read_image"
     assert rehydrated.method_name == group_map.provenance.method_name
 
 
@@ -155,7 +155,9 @@ def test_group_map_receipt_survives_nifti_round_trip(fixture, tmp_path_factory):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason="PAIN-1: no first-class group_mean / mean_volumes")
+@pytest.mark.xfail(
+    strict=True, reason="PAIN-1: no first-class group_mean / mean_volumes"
+)
 def test_group_mean_is_in_public_api():
     """PAIN-1 closes when ``ni.group_mean`` (or ``ni.mean_volumes``) ships."""
     assert "group_mean" in ni.__all__ or "mean_volumes" in ni.__all__
@@ -178,16 +180,12 @@ def test_concat_can_stack_3d_volumes_into_vector(fixture):
     assert stacked.shape[3] == 2
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="PAIN-4: write_vol does not embed the receipt; only to_nibabel does",
-)
 def test_write_vol_embeds_receipt_into_nifti(fixture, tmp_path_factory):
-    """PAIN-4 closes when ``ni.write_vol(vol, path)`` writes the same NIfTI
-    a ``nib.save(vol.to_nibabel(), path)`` would — i.e., the on-disk file
+    """``ni.write_vol(vol, path)`` writes the same NIfTI a
+    ``nib.save(vol.to_nibabel(), path)`` would — i.e., the on-disk file
     carries the receipt comment extension and ``ni.read_image`` rehydrates
-    ``.provenance``.  Today the user must remember the ``to_nibabel`` dance
-    on every write or silently lose the chain at the IO boundary.
+    ``.provenance``.  (Closed: ``write_vol``/``write_vec`` now route through
+    ``to_nibabel`` so the provenance chain survives the IO boundary.)
     """
     _, _, typed_subjects, typed_template = fixture
     group_map = rewrite.neuroim_group_tsnr(typed_subjects, typed_template)

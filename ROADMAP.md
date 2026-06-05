@@ -49,7 +49,7 @@ subject to the native API's freedom to change.
 | Version | Theme | Exit criteria |
 |---|---|---|
 | **0.3.0** | First public experimental release | Release gate green (see below). Regular documented interface; [STABILITY.md](STABILITY.md) published; clean `pip install` proven on supported Pythons. Right to break preserved. |
-| **0.3.x** | Honest-gap patches | Patch-only, no API breaks: `write_vol` receipt embedding (PAIN-4); slice→tSNR provenance chain (PAIN-13/14, currently the lone xfail). |
+| **0.3.x** | Honest-gap patches | Patch-only, no API breaks: slice→tSNR provenance chain (PAIN-13/14, currently the lone xfail). (`write_vol` receipt embedding — formerly PAIN-4 — has landed.) |
 | **0.4.0** | Evidence hardening + first deliberate breaks | Perf/memory benchmark with a ≥1 GB fixture and a nibabel head-to-head; deliberate-misuse quickstart; cited Nilearn port promoted to a credibility-grade README example. First batch of pre-announced breaking changes (e.g. `return_legacy=True` paths raise). |
 | **0.5.0** | External validation | Cold-reader docs review; ≥1 outside experimenter runs a public scenario end-to-end and reports; group-level / cross-subject workflow scoped on its own discussion thread. |
 | **0.6–0.9** | API stabilization | Per minor: shrink the deprecation surface; freeze one subsystem at a time (spatial model → ROI/searchlight → provenance schema → IO). `Receipt` schema v1 locked. Last allowable break lands by 0.9. |
@@ -84,7 +84,6 @@ release. Tracked as mote epic `bd-01KRRJKVCKEZXX5FXTB610GRV5`:
 
 ### Not blocking 0.3.0 (named as known limitations in release notes)
 
-- `write_vol` does not yet embed the receipt (only `to_nibabel` does) — PAIN-4.
 - slice→tSNR provenance chain incomplete — PAIN-13/14 (the lone xfail).
 - Benchmark evidence is first-cut: no ≥1 GB fixture, no nibabel head-to-head
   timing yet.

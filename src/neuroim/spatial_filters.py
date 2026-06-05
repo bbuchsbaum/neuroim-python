@@ -10,6 +10,7 @@ from .neuro_vol import NeuroVol, DenseNeuroVol, LogicalNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec
 from .kernel import Kernel, gaussian_kernel
 
+
 def gaussian_blur(
     vol: NeuroVol,
     mask: Optional[LogicalNeuroVol] = None,
@@ -56,7 +57,15 @@ def gaussian_blur(
         ``method_name="gaussian_blur"`` or an upstream-chained method name
         such as ``"temporal_snr+gaussian_blur"``, the FWHM (when supplied),
         and the mask hash.
+
+    A 4-D :class:`~neuroim.neuro_vec.NeuroVec` is smoothed spatially,
+    volume-by-volume (no temporal blur), and a
+    :class:`~neuroim.neuro_vec.DenseNeuroVec` is returned.
     """
+    if isinstance(vol, NeuroVec):
+        return _gaussian_blur_vec(
+            vol, mask=mask, sigma=sigma, window=window, fwhm_mm=fwhm_mm
+        )
     if window < 1:
         raise ValueError("Window size must be at least 1")
     if fwhm_mm is not None:
@@ -107,6 +116,75 @@ def gaussian_blur(
         upstream=vol,
     )
     return DenseNeuroVol(output_data, vol.space, provenance=receipt)
+
+
+def _gaussian_blur_vec(
+    vec: NeuroVec,
+    *,
+    mask: Optional[LogicalNeuroVol] = None,
+    sigma: float = 2,
+    window: int = 1,
+    fwhm_mm: Optional[float] = None,
+) -> DenseNeuroVec:
+    """Spatially Gaussian-blur each volume of a 4-D NeuroVec.
+
+    Mirrors :func:`gaussian_blur`'s sigma/FWHM contract on the three spatial
+    axes and applies zero blur along time, so the canonical fMRI smoothing
+    step is first-class for time-series input.
+    """
+    if window < 1:
+        raise ValueError("Window size must be at least 1")
+
+    spatial = vec.spatial_space
+    if fwhm_mm is not None:
+        if fwhm_mm <= 0:
+            raise ValueError("fwhm_mm must be positive")
+        spacing = np.asarray(spatial.spacing[:3], dtype=float)
+        spatial_sigma = (fwhm_mm / (2.0 * np.sqrt(2.0 * np.log(2.0)))) / spacing
+        truncate_used = 4.0
+    else:
+        if sigma <= 0:
+            raise ValueError("Sigma must be positive")
+        spatial_sigma = np.full(3, float(sigma))
+        truncate_used = float(window)
+
+    if mask is not None:
+        from .verify import assert_same_space
+
+        assert_same_space(vec, mask)
+
+    data = np.asarray(vec.to_dense().data, dtype=float)
+    # Zero sigma on the trailing time axis -> spatial-only smoothing.
+    sigma_4d = np.concatenate([np.asarray(spatial_sigma, dtype=float), [0.0]])
+    blurred = ndimage.gaussian_filter(data, sigma=sigma_4d, truncate=truncate_used)
+
+    if mask is not None:
+        mask_bool = np.asarray(mask.data, dtype=bool)
+        output = data.copy()
+        output[mask_bool] = blurred[mask_bool]
+    else:
+        mask_bool = None
+        output = blurred
+
+    from .results import SpatialFilterParams, receipt_for
+
+    n_voxels = (
+        int(np.prod(vec.shape[:3])) if mask_bool is None else int(mask_bool.sum())
+    )
+    receipt = receipt_for(
+        vec,
+        mask=mask_bool,
+        n_voxels=n_voxels,
+        params=SpatialFilterParams(
+            method_name="gaussian_blur",
+            radius=float(fwhm_mm) if fwhm_mm is not None else float(sigma),
+        ),
+        upstream=vec,
+    )
+    result = DenseNeuroVec(output, vec.space)
+    result.provenance = receipt
+    return result
+
 
 def guided_filter(
     vol: NeuroVol, radius: int = 4, epsilon: float = 0.49
@@ -173,6 +251,7 @@ def guided_filter(
     output_data[mask_indices] = mean_a * data[mask_indices] + mean_b
 
     return DenseNeuroVol(output_data, vol.space)
+
 
 def bilateral_filter(
     vol: NeuroVol,
@@ -269,6 +348,7 @@ def bilateral_filter(
 
     return DenseNeuroVol(output_data, vol.space)
 
+
 def bilateral_filter_vec(
     vec: NeuroVec,
     mask: Optional[LogicalNeuroVol] = None,
@@ -312,6 +392,7 @@ def bilateral_filter_vec(
     # Stack filtered volumes
     filtered_data = np.stack([vol.data for vol in filtered_vols], axis=-1)
     return DenseNeuroVec(filtered_data, vec.space)
+
 
 def bilateral_filter_4d(
     vec: NeuroVec,
@@ -422,6 +503,7 @@ def bilateral_filter_4d(
             output[x, y, z, t] = val_sum / weight_sum if weight_sum > 0 else center
 
     return DenseNeuroVec(output, vec.space)
+
 
 def box_blur(vol: NeuroVol, mask_indices: tuple, radius: int) -> np.ndarray:
     """Helper function for guided filter: applies box blur to the data.

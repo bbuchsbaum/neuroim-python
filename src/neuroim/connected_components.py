@@ -8,6 +8,8 @@ Connected-component utilities for labeled 3D neuroimaging data.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 from scipy.ndimage import label, maximum_filter
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
@@ -166,11 +168,27 @@ def conn_comp(
         provenance=receipt,
     )
 
-    # Compute cluster table if requested
+    # Compute cluster table if requested.  The table projection is the only
+    # pandas-dependent step; pandas is an OPTIONAL dependency, so on a stock
+    # install it may be absent.  Degrade gracefully (warn + leave the table
+    # ``None``) rather than crashing the whole call — the cluster index,
+    # sizes, voxel lists and provenance are all still returned.
     if cluster_table and num_features > 0:
-        result.cluster_table = _compute_cluster_table(
-            x, labeled_array, voxels_list, x.space
-        )
+        try:
+            result.cluster_table = _compute_cluster_table(
+                x, labeled_array, voxels_list, x.space
+            )
+        except ModuleNotFoundError as exc:
+            if exc.name != "pandas":
+                raise
+            warnings.warn(
+                "conn_comp(cluster_table=True) needs pandas to build the "
+                "cluster table, but pandas is not installed. Returning "
+                "cluster_table=None. Install pandas (`pip install pandas`) "
+                "or pass cluster_table=False to silence this warning.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     # Find local maxima if requested
     if local_maxima and num_features > 0:
