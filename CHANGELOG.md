@@ -64,6 +64,15 @@ contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
   spatially (no temporal blur) and returning a `DenseNeuroVec` with a
   `gaussian_blur` Receipt — so the canonical fMRI smoothing step is
   first-class for time-series input.
+- `ClusteredNeuroVec.connectome(metric="correlation"|"covariance")` — a
+  typed parcel-to-parcel connectivity reducer returning a `ConnectomeResult`
+  (`labels`, `matrix`, `metric`, `provenance`, `n_nodes`, optional
+  `.to_dataframe()`) whose Receipt chains the upstream extraction
+  (`parcel_means+connectome`). `ConnectomeResult` is exported at the package
+  root.
+- `ClusteredNeuroVec.timeseries_matrix()` — public, copy-returning accessor
+  for the `(n_time, n_clusters)` parcel mean-series payload, column-ordered
+  by sorted cluster id (previously only the undocumented `.ts` attribute).
 
 ### Fixed
 

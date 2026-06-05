@@ -9,7 +9,13 @@ from typing import Any, Dict, Optional
 
 from .neuro_space import NeuroSpace
 from .clustered_neuro_vol import ClusteredNeuroVol
-from .results import ParcelContrastParams, Receipt, chain_receipt, receipt_for
+from .results import (
+    ConnectomeParams,
+    ParcelContrastParams,
+    Receipt,
+    chain_receipt,
+    receipt_for,
+)
 
 
 @dataclass(frozen=True)
@@ -64,6 +70,47 @@ class ParcelEffectResult:
         vol = DenseNeuroVol(out, self.cvol.space, label="parcel_effect")
         vol.provenance = self.provenance
         return vol
+
+
+@dataclass(frozen=True)
+class ConnectomeResult:
+    """A parcel-to-parcel connectivity matrix with owned provenance.
+
+    The ``matrix`` is ``(N, N)`` over the parcels in ``labels`` (sorted
+    cluster ids); ``metric`` records whether it is a Pearson
+    ``"correlation"`` or a ``"covariance"`` matrix.  The Receipt chains the
+    upstream extraction (e.g. ``parcel_means+connectome``) so the matrix
+    stays traceable to the atlas and input space that produced it.
+    """
+
+    labels: np.ndarray
+    matrix: np.ndarray
+    metric: str
+    provenance: Receipt
+    atlas_provenance: Optional[Any] = None
+
+    @property
+    def n_nodes(self) -> int:
+        """Number of parcels (matrix is ``n_nodes x n_nodes``)."""
+        return int(self.labels.size)
+
+    def to_dataframe(self):
+        """Return the connectome as a labelled ``pandas.DataFrame``.
+
+        pandas is an optional dependency, imported lazily here so importing
+        ``neuroim`` never requires it.  Index and columns are the parcel
+        ids in ``labels``.
+        """
+        try:
+            import pandas as pd
+        except ModuleNotFoundError as exc:  # pragma: no cover - optional dep
+            raise ModuleNotFoundError(
+                "ConnectomeResult.to_dataframe() requires pandas; install "
+                "pandas or use the .matrix / .labels arrays directly."
+            ) from exc
+
+        ids = [int(v) for v in self.labels]
+        return pd.DataFrame(self.matrix, index=ids, columns=ids)
 
 
 class ClusteredNeuroVec:
@@ -147,6 +194,17 @@ class ClusteredNeuroVec:
     # ------------------------------------------------------------------
     # Accessors
     # ------------------------------------------------------------------
+
+    def timeseries_matrix(self) -> np.ndarray:
+        """Return the ``(n_time, n_clusters)`` per-parcel mean-series matrix.
+
+        Column *k* is the representative time-series for the *k*-th cluster
+        id in :attr:`cluster_ids` (sorted ascending).  This is the public,
+        copy-returning accessor for the underlying ``ts`` payload — use it
+        instead of reaching for the ``ts`` attribute so callers cannot
+        mutate the stored matrix in place.
+        """
+        return np.array(self.ts, copy=True)
 
     def cluster_timeseries(self, cluster_id: int) -> np.ndarray:
         """Return the representative time-series for a cluster.
@@ -256,6 +314,54 @@ class ClusteredNeuroVec:
             atlas_provenance=self.atlas_provenance,
             positive_name=positive_name,
             negative_name=negative_name,
+        )
+
+    def connectome(self, *, metric: str = "correlation") -> ConnectomeResult:
+        """Build the parcel-to-parcel connectivity matrix.
+
+        Reduces the ``(n_time, n_clusters)`` parcel time-series into an
+        ``(N, N)`` matrix over the parcels in :attr:`cluster_ids`.
+
+        Parameters
+        ----------
+        metric : {"correlation", "covariance"}, optional
+            ``"correlation"`` (default) yields a Pearson connectome;
+            ``"covariance"`` yields the unnormalized form.
+
+        Returns
+        -------
+        ConnectomeResult
+            The matrix plus a Receipt chaining this extraction's provenance
+            (e.g. ``"parcel_means+connectome"``).
+        """
+        if metric == "correlation":
+            matrix = np.corrcoef(self.ts, rowvar=False)
+        elif metric == "covariance":
+            matrix = np.cov(self.ts, rowvar=False)
+        else:
+            raise ValueError(
+                f"metric must be 'correlation' or 'covariance', got {metric!r}"
+            )
+        # np.corrcoef / np.cov collapse a single column to a 0-D scalar; keep
+        # the result a 2-D (1, 1) matrix so the shape contract holds for N=1.
+        matrix = np.atleast_2d(matrix)
+
+        params = ConnectomeParams(method_name="connectome", metric=metric)
+        if isinstance(self.provenance, Receipt):
+            receipt = chain_receipt(self, params=params, n_voxels=self.n_clusters)
+        else:
+            receipt = receipt_for(
+                self.cvol,
+                mask=self.cvol.as_dense().data,
+                n_voxels=self.n_clusters,
+                params=params,
+            )
+        return ConnectomeResult(
+            labels=self.cluster_ids,
+            matrix=matrix,
+            metric=metric,
+            provenance=receipt,
+            atlas_provenance=self.atlas_provenance,
         )
 
     # ------------------------------------------------------------------

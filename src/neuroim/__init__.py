@@ -233,7 +233,11 @@ from .simulation import simulate_fmri, prepare_confounds, make_time_weights
 # Import connected components
 from .connected_components import conn_comp, conn_comp_3D, ConnCompResult
 from .clustered_neuro_vol import ClusteredNeuroVol
-from .clustered_neuro_vec import ClusteredNeuroVec, ParcelEffectResult
+from .clustered_neuro_vec import (
+    ClusteredNeuroVec,
+    ConnectomeResult,
+    ParcelEffectResult,
+)
 from .neuro_bucket import NeuroBucket
 
 # Import statistical operations
