@@ -101,3 +101,60 @@ class TestClusteredNeuroVecProperties:
         assert "ClusteredNeuroVec" in r
         assert "3" in r  # num clusters
         assert "5" in r  # num time
+
+
+class TestClusteredNeuroVecTimeseriesMatrix:
+
+    def test_returns_copy_of_ts(self, cvec):
+        tm = cvec.timeseries_matrix()
+        assert tm.shape == (cvec.n_time, cvec.n_clusters)
+        np.testing.assert_array_equal(tm, cvec.ts)
+        tm[0, 0] += 1.0
+        assert not np.shares_memory(tm, cvec.ts)
+
+
+class TestClusteredNeuroVecConnectome:
+
+    def test_correlation_matrix_shape_and_validity(self, cvec):
+        from neuroim import ConnectomeResult
+
+        result = cvec.connectome()
+        assert isinstance(result, ConnectomeResult)
+        assert result.matrix.shape == (cvec.n_clusters, cvec.n_clusters)
+        assert result.metric == "correlation"
+        assert result.n_nodes == cvec.n_clusters
+        np.testing.assert_array_equal(result.labels, cvec.cluster_ids)
+        # symmetric, unit-diagonal
+        np.testing.assert_allclose(result.matrix, result.matrix.T)
+        np.testing.assert_allclose(np.diag(result.matrix), 1.0)
+
+    def test_matches_manual_corrcoef(self, cvec):
+        manual = np.corrcoef(cvec.ts, rowvar=False)
+        np.testing.assert_allclose(cvec.connectome().matrix, manual)
+
+    def test_covariance_metric(self, cvec):
+        cov = cvec.connectome(metric="covariance").matrix
+        np.testing.assert_allclose(cov, np.cov(cvec.ts, rowvar=False))
+
+    def test_invalid_metric_raises(self, cvec):
+        with pytest.raises(ValueError, match="correlation"):
+            cvec.connectome(metric="spearman")
+
+    def test_provenance_without_upstream(self, cvec):
+        # cvec was built directly (no parcel_means Receipt): the connectome
+        # anchors its own Receipt rather than chaining.
+        from neuroim.results import Receipt
+
+        rc = cvec.connectome().provenance
+        assert isinstance(rc, Receipt)
+        assert rc.method_name == "connectome"
+        assert rc.n_voxels == cvec.n_clusters
+
+    def test_single_parcel_yields_2d_matrix(self, cvol):
+        # np.corrcoef collapses a single column to a scalar; connectome keeps
+        # a (1, 1) matrix so the shape contract holds for N == 1.
+        single = np.array([0] * cvol.clusters.size)
+        one_cluster_cvol = ClusteredNeuroVol(cvol.mask, single)
+        cvec1 = ClusteredNeuroVec(one_cluster_cvol, np.arange(5.0).reshape(5, 1))
+        m = cvec1.connectome().matrix
+        assert m.shape == (1, 1)

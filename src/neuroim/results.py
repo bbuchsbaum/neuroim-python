@@ -460,6 +460,18 @@ class ParcelContrastParams(OpParams):
 
 
 @dataclass(frozen=True)
+class ConnectomeParams(OpParams):
+    """Op-params for a parcel-to-parcel connectivity reduction.
+
+    ``metric`` records how the matrix was formed (``"correlation"`` for a
+    Pearson connectome, ``"covariance"`` for the unnormalized form) so a
+    downstream consumer can tell what the off-diagonal entries mean.
+    """
+
+    metric: str = "correlation"
+
+
+@dataclass(frozen=True)
 class ConcatParams(OpParams):
     """Op-params for time-axis concat across inputs."""
 

@@ -21,13 +21,14 @@ Checks:
    nibabel pipeline returns a wrong-but-plausible connectome on the flipped
    atlas.  Evidence the bug class is real without neuroim's contract layer.
 
-4. **Provenance** -- the connectome carries the ``parcel_means`` Receipt, so
-   the matrix is traceable to the extraction (and its input space) that
-   produced it.
+4. **Provenance** -- the typed ``ConnectomeResult`` chains the extraction's
+   Receipt (``parcel_means+connectome``), so the matrix is traceable to the
+   atlas and input space that produced it.
 
-5. **Public-surface accessor parity** -- the ``(n_time, n_parcels)`` matrix
-   built from ``cluster_ids`` + ``cluster_timeseries`` matches the typed
-   ``ClusteredNeuroVec.ts`` payload.
+5. **First-class API** -- ``ClusteredNeuroVec.connectome()`` (typed reducer)
+   and the public ``ClusteredNeuroVec.timeseries_matrix()`` accessor replace
+   the hand-rolled ``cluster_timeseries`` loop + bare ``np.corrcoef`` the
+   scenario originally needed (S20 PAIN-1 / PAIN-2, now closed).
 """
 
 from __future__ import annotations
@@ -160,23 +161,61 @@ def test_baseline_silently_accepts_mismatched_affine_atlas(fixture, atlas, nib_b
 # ----------------------------------------------------------------------
 # Provenance + public-surface accessor
 # ----------------------------------------------------------------------
-def test_connectome_carries_parcel_means_provenance(fixture, atlas):
-    """The connectome inherits the extraction's typed Receipt."""
+def test_connectome_chains_extraction_provenance(fixture, atlas):
+    """The typed ConnectomeResult chains the parcel_means Receipt."""
     result = rewrite.parcel_connectome(fixture.bold, atlas)
+    assert isinstance(result, ni.ConnectomeResult)
     assert isinstance(result.provenance, Receipt)
-    assert result.provenance.method_name == "parcel_means"
+    assert result.provenance.method_name == "parcel_means+connectome"
     assert result.provenance.n_voxels == result.labels.size
+    assert result.metric == "correlation"
+    assert result.n_nodes == result.labels.size
 
 
-def test_public_accessor_matches_typed_matrix(fixture, atlas):
-    """``cluster_ids`` + ``cluster_timeseries`` reproduce ``ClusteredNeuroVec.ts``."""
+# ----------------------------------------------------------------------
+# First-class API (S20 PAIN-1 / PAIN-2 -- now closed)
+# ----------------------------------------------------------------------
+def test_connectome_reducer_matches_manual_corrcoef(fixture, atlas):
+    """``ClusteredNeuroVec.connectome()`` equals the hand-rolled corrcoef."""
     parcels = fixture.bold.parcel_means(atlas)
-    public = rewrite.parcel_timeseries_matrix(parcels)  # (n_time, n_parcels)
-    assert public.shape == (parcels.n_time, parcels.n_clusters)
-    np.testing.assert_allclose(public, parcels.ts, rtol=1e-12, atol=1e-12)
+    typed = parcels.connectome()
+    manual = np.corrcoef(
+        np.column_stack(
+            [parcels.cluster_timeseries(c) for c in parcels.cluster_ids]
+        ),
+        rowvar=False,
+    )
+    np.testing.assert_allclose(typed.matrix, manual, rtol=1e-12, atol=1e-12)
+
+    # Covariance metric is offered too; an unknown metric is rejected.
+    assert parcels.connectome(metric="covariance").matrix.shape == manual.shape
+    with pytest.raises(ValueError, match="correlation"):
+        parcels.connectome(metric="nope")
+
+
+def test_public_timeseries_matrix_accessor(fixture, atlas):
+    """``timeseries_matrix()`` returns a copy of the ``(n_time, n_parcels)`` payload."""
+    parcels = fixture.bold.parcel_means(atlas)
+    tm = parcels.timeseries_matrix()
+    assert tm.shape == (parcels.n_time, parcels.n_clusters)
+    np.testing.assert_allclose(tm, parcels.ts, rtol=1e-12, atol=1e-12)
+    # It is a copy -- mutating it must not corrupt the stored matrix.
+    tm[0, 0] += 1.0
+    assert not np.shares_memory(tm, parcels.ts)
+
+
+def test_connectome_to_dataframe_is_labelled(fixture, atlas):
+    """The optional pandas projection is indexed by parcel id."""
+    result = rewrite.parcel_connectome(fixture.bold, atlas)
+    df = result.to_dataframe()
+    assert list(df.index) == [int(v) for v in result.labels]
+    assert list(df.columns) == [int(v) for v in result.labels]
+    np.testing.assert_allclose(df.to_numpy(), result.matrix, rtol=1e-12, atol=1e-12)
 
 
 def test_clustered_classes_are_publicly_exported():
     """The atlas-workflow classes are discoverable via the curated public API."""
     assert "ClusteredNeuroVec" in ni.__all__
     assert "ClusteredNeuroVol" in ni.__all__
+    # The typed connectome result is importable from the package root.
+    assert hasattr(ni, "ConnectomeResult")
