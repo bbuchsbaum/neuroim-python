@@ -463,6 +463,44 @@ class NeuroVec(ABC):
             provenance=receipt,
         )
 
+    def mean(self, axis: int = -1):
+        """Reduce across the time axis to a 3-D :class:`DenseNeuroVol`.
+
+        ``axis`` selects the dimension to average over and must be the time
+        axis (``3`` or ``-1``); other axes are not meaningful spatial
+        reductions for a 4-D vector and raise ``ValueError``.  The result
+        lives on this vector's spatial frame and carries a provenance
+        :class:`~neuroim.results.Receipt` recording ``method_name="mean"``.
+        """
+        if axis not in (-1, 3):
+            raise ValueError(
+                "NeuroVec.mean reduces over the time axis only; "
+                f"pass axis=-1 or axis=3, got axis={axis}"
+            )
+        from .neuro_vol import DenseNeuroVol
+        from .results import TemporalReductionParams, receipt_for
+
+        data = np.asarray(self.to_dense().data, dtype=np.float64)
+        if data.ndim != 4:
+            raise ValueError(f"expected 4D BOLD, got {data.ndim}D")
+
+        mean_data = data.mean(axis=3)
+        spatial = self.spatial_space
+        receipt = receipt_for(
+            spatial,
+            n_voxels=int(np.prod(mean_data.shape)),
+            params=TemporalReductionParams(method_name="mean"),
+        )
+        upstream = getattr(self, "provenance", None)
+        if upstream is not None:
+            try:
+                receipt = upstream.merge(
+                    receipt, method_name=f"{upstream.method_name}+mean"
+                )
+            except ValueError:
+                pass
+        return DenseNeuroVol(mean_data, spatial, label="mean", provenance=receipt)
+
     def temporal_snr(self, *, mask=None):
         """Compute a masked 3-D temporal SNR map with provenance.
 

@@ -244,10 +244,14 @@ def write_vol(
             raise ValueError(f"Unsupported NIfTI data_type: {data_type}")
 
     if format_key == "NIFTI":
-        # Create NIfTI image
-        nifti_img = nib.Nifti1Image(data, vol.trans)
-
-        # Set spacing in header
+        # Route through ``to_nibabel`` so a provenance Receipt is embedded as
+        # a NIfTI extension and survives the file boundary (matching the
+        # documented ``to_nibabel`` contract).  Rebuild with the possibly
+        # dtype-cast ``data`` while carrying over the header (which holds the
+        # receipt extension and restored sform/qform).
+        base_img = vol.to_nibabel()
+        nifti_img = nib.Nifti1Image(data, base_img.affine, header=base_img.header)
+        nifti_img.set_data_dtype(data.dtype)
         nifti_img.header.set_zooms(vol.spacing)
 
         # Save
@@ -551,10 +555,12 @@ def write_vec(
             raise ValueError(f"Unsupported NIfTI data_type: {data_type}")
 
     if format_key == "NIFTI":
-        # Create NIfTI image
-        nifti_img = nib.Nifti1Image(data, vec.trans[:4, :4])
-
-        # Set spacing in header
+        # Route through ``to_nibabel`` so a provenance Receipt is embedded as
+        # a NIfTI extension and survives the file boundary, consistent with
+        # ``write_vol``.
+        base_img = vec.to_nibabel()
+        nifti_img = nib.Nifti1Image(data, base_img.affine, header=base_img.header)
+        nifti_img.set_data_dtype(data.dtype)
         nifti_img.header.set_zooms(vec.spacing)
 
         # Save

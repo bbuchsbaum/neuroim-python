@@ -63,7 +63,7 @@ The projected volume is again a `DenseNeuroVol` with `.provenance`. The shape is
 
 A workflow that produces N maps over N subjects ends up with a list of `DenseNeuroVol`s, each carrying its `.provenance`. A group-mean operation can verify every input's `input_space_hash` matches before reducing; the next step's Receipt records the inputs it consumed. None of this requires a sidecar manifest the user has to remember to write.
 
-When you write `tsnr` to disk, `to_nibabel()` + `nib.save()` is the receipt-preserving write path. `ni.write_vol(...)` saves the array but not the Receipt, so reach for the explicit path whenever provenance needs to stay with the file — the subject of the [next page](05-roundtrip.qmd).
+When you write `tsnr` to disk, the Receipt travels with the file: `ni.write_vol(...)` routes through `to_nibabel()` and embeds it, and the explicit `to_nibabel()` + `nib.save()` form does the same thing — the subject of the [next page](05-roundtrip.qmd).
 
 ## What it refuses
 

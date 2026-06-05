@@ -35,10 +35,10 @@ out.stat().st_size > 0, tsnr.provenance.method_name
 ```
 
 ::: {.callout-note}
-`to_nibabel().save(...)` is the documented write path that embeds the
-Receipt. `ni.write_vol(tsnr, path)` saves the array but not the
-Receipt, so use the `to_nibabel()` path when the file itself should
-explain which operation, input image, and mask produced the map.
+`to_nibabel()` + `nib.save(...)` is the explicit write path that embeds
+the Receipt. `ni.write_vol(tsnr, path)` routes through `to_nibabel()`
+and embeds the same Receipt, so either path lets the file itself explain
+which operation, input image, and mask produced the map.
 :::
 
 ## What's guaranteed

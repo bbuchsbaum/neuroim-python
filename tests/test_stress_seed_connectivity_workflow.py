@@ -2,8 +2,8 @@
 
 This test approaches ``neuroim`` the way a competent-but-new user would:
 it reads only the curated public surface (``ni.*`` / what ``dir(ni)``
-advertises and what the README documents) and tries to run a complete,
-natural fMRI workflow end to end::
+advertises and what the README documents) and runs a complete, natural
+fMRI workflow end to end::
 
     4D BOLD  ->  spatial mask  ->  seed ROI  ->  seed time series
              ->  voxelwise correlation map (NeuroVol)
@@ -11,48 +11,39 @@ natural fMRI workflow end to end::
              ->  write to NIfTI with provenance  ->  read back & verify
              ->  quick orthographic plot
 
-The happy-path test (:func:`test_seed_connectivity_workflow_completes`)
-walks the whole pipeline and *passes* — but every spot where ergonomics
-forced a detour onto a numpy escape hatch or a non-obvious workaround is
-flagged inline with a ``PAIN-N`` marker.
+The workflow test (:func:`test_seed_connectivity_workflow_completes`)
+walks the whole pipeline using the *ergonomic* form of each step.
 
-The five ``PAIN-N`` findings discovered while exercising this workflow are
-pinned below as focused tests. Four are ``xfail(strict=True)`` so they flip
-to **XPASS** (and fail the suite, demanding this file be updated) the moment
-the gap closes — mirroring the convention already used by the ``s11``-``s19``
-scenario tests. PAIN-4 is environment-sensitive (pandas is a *dev*-only
-optional dep, so it is present in CI but absent for a stock
-``pip install neuroim``) and is therefore pinned as a deterministic,
-pandas-blocking documentation test instead.
+Five ergonomic snags were originally discovered while exercising this
+workflow; all five have since been fixed, and each is now pinned below as
+a focused **regression guard** so the ergonomic path cannot silently
+regress:
 
 PAIN-1  ``NeuroSpace(dim=<4-tuple>, spacing=<3-tuple>)`` — the natural call
-        for a 4D series whose time axis has no spatial spacing — raises a
-        cryptic ``ValueError: could not broadcast input array from shape
-        (3,3) into shape (4,4)`` instead of accepting the 3-length spacing
-        (or raising a clear ``InvalidSpaceError``).
+        for a 4D series whose time axis has no spatial spacing — used to
+        raise a cryptic numpy broadcast ``ValueError``. The constructor now
+        pads trailing (e.g. temporal) axes with unit spacing / zero origin,
+        and an over-long vector raises a clear ``InvalidSpaceError``.
 
-PAIN-2  ``NeuroVec`` has no ``.mean()`` — yet ``README.md`` documents
-        ``mean_vol = fmri.mean(axis=3)  # Mean across time``. The single
-        most common time reduction has no method on the public surface; the
-        user must drop to ``np.asarray(vec.data).mean(axis=3)``.
+PAIN-2  ``NeuroVec`` had no ``.mean()`` despite the README documenting
+        ``mean_vol = fmri.mean(axis=3)``. ``NeuroVec.mean(axis=-1|3)`` now
+        returns a provenance-carrying 3D ``DenseNeuroVol``.
 
-PAIN-3  ``ni.gaussian_blur`` rejects a 4D ``NeuroVec`` with the array-level
-        message ``Data must be 1D, 2D ... got 4D``. Gaussian smoothing of a
-        4D BOLD series — the canonical preprocessing step — has no
-        first-class API (only ``bilateral_filter_vec`` / ``_4d`` exist), and
-        the error names array dims rather than a remedy.
+PAIN-3  ``ni.gaussian_blur`` rejected a 4D ``NeuroVec``. It now smooths a
+        time series spatially (no temporal blur) and returns a
+        ``DenseNeuroVec`` with a ``gaussian_blur`` Receipt.
 
-PAIN-4  ``ni.conn_comp(vol, threshold=...)`` crashes by default with
-        ``ModuleNotFoundError: No module named 'pandas'`` on a stock install,
-        because the ``cluster_table=True`` default lazily imports pandas,
-        which is declared only under ``[project.optional-dependencies].dev``.
+PAIN-4  ``ni.conn_comp(vol, threshold=...)`` used to crash with
+        ``ModuleNotFoundError: No module named 'pandas'`` on a stock install
+        (the ``cluster_table=True`` default lazily imports pandas, which is
+        only a ``dev`` extra). It now degrades gracefully: with pandas the
+        table is a ``DataFrame``; without pandas the call succeeds, warns,
+        and leaves ``cluster_table=None``.
 
-PAIN-5  ``ni.write_vol`` silently drops provenance: a volume carrying a
-        populated Receipt writes **zero** NIfTI extensions to disk, so
-        ``read_vol`` recovers no receipt — even though ``to_nibabel`` *does*
-        embed it and ``read_vol`` *does* recover it from a ``to_nibabel``
-        file. The curated top-level write path is inconsistent with the
-        library's headline provenance contract.
+PAIN-5  ``ni.write_vol`` / ``ni.write_vec`` dropped provenance (wrote zero
+        NIfTI extensions). Both now route through ``to_nibabel``, so a
+        Receipt survives ``write_vol`` -> ``read_vol`` just as it does via
+        ``to_nibabel``.
 """
 
 from __future__ import annotations
@@ -66,6 +57,7 @@ import numpy as np
 import pytest
 
 import neuroim as ni
+from neuroim.exceptions import InvalidSpaceError
 from neuroim.verify import receipt_of
 
 from fixtures.realistic_bold import make_realistic_bold
@@ -80,13 +72,12 @@ def bundle():
 
 
 # ----------------------------------------------------------------------
-# Happy path — the full ergonomic workflow, end to end.
+# Workflow — the full ergonomic pipeline, end to end.
 # ----------------------------------------------------------------------
 def test_seed_connectivity_workflow_completes(bundle, tmp_path):
     bold, mask = bundle.bold, bundle.mask
 
-    # --- spaces line up. `spatial_space` is the (non-curated but
-    #     discoverable) bridge from a 4D vec to its 3D spatial contract.
+    # --- spaces line up. `spatial_space` bridges a 4D vec to its 3D frame.
     assert bold.spatial_space.compatible_with(mask.space)
 
     # --- seed ROI over a known active region of the fixture.
@@ -100,11 +91,10 @@ def test_seed_connectivity_workflow_completes(bundle, tmp_path):
     seed = extraction.values.mean(axis=1)  # (n_time,)
     assert seed.shape == (bold.shape[-1],)
 
-    # --- mean-over-time volume.
-    #     PAIN-2: `bold.mean(axis=3)` does not exist; drop to numpy.
-    mean_data = np.asarray(bold.data, dtype=np.float64).mean(axis=3)
-    mean_vol = ni.NeuroVol.from_array(mean_data.astype(np.float32), space=mask.space)
+    # --- mean-over-time volume via the first-class API (PAIN-2).
+    mean_vol = bold.mean(axis=3)
     assert mean_vol.shape == mask.shape
+    assert mean_vol.provenance.method_name == "mean"
 
     # --- voxelwise Pearson r of the seed against every in-mask voxel.
     arr = np.asarray(bold.data, dtype=np.float64)
@@ -119,30 +109,29 @@ def test_seed_connectivity_workflow_completes(bundle, tmp_path):
     # The planted signal must produce a strong positive cluster.
     assert float(np.nanmax(r)) > 0.4
 
-    # --- spatial smoothing of the 3D statistic map (works on a NeuroVol).
-    #     PAIN-3: smoothing the *4D* series directly is not possible here.
+    # --- spatial smoothing works on both a 3D map and the 4D series (PAIN-3).
     conn_sm = ni.gaussian_blur(conn, fwhm_mm=4.0)
     assert conn_sm.shape == conn.shape
+    bold_sm = ni.gaussian_blur(bold, fwhm_mm=4.0)
+    assert bold_sm.shape == bold.shape
+    assert bold_sm.provenance.method_name == "gaussian_blur"
 
-    # --- threshold + connected components on the (unsmoothed) statistic map.
-    #     PAIN-4: must pass cluster_table=False to avoid an undeclared
-    #     pandas dependency on a stock install.
-    cc = ni.conn_comp(conn, threshold=0.3, cluster_table=False)
+    # --- threshold + connected components, with the cluster table (PAIN-4).
+    cc = ni.conn_comp(conn, threshold=0.3)
     assert len(cc.voxels) >= 1
+    assert cc.cluster_table is not None  # pandas present in the dev/CI env
+    assert len(cc.cluster_table) == len(cc.voxels)
 
-    # --- write / read round-trip via the curated top-level I/O.
+    # --- write / read round-trip that *preserves provenance* (PAIN-5).
+    conn_with_prov = ni.gaussian_blur(conn, fwhm_mm=4.0)
     out_path = tmp_path / "seed_connectivity.nii.gz"
-    ni.write_vol(conn, str(out_path))
+    ni.write_vol(conn_with_prov, str(out_path))
     back = ni.read_vol(str(out_path))
-    assert np.allclose(np.asarray(back.data), np.asarray(conn.data), atol=1e-4)
+    assert np.allclose(
+        np.asarray(back.data), np.asarray(conn_with_prov.data), atol=1e-4
+    )
     assert back.space.compatible_with(conn.space)
-
-    # --- provenance survives the file boundary via the documented
-    #     `to_nibabel` path (PAIN-5 covers the `write_vol` gap separately).
-    prov_path = tmp_path / "blurred.nii.gz"
-    nib.save(conn_sm.to_nibabel(), str(prov_path))
-    recovered = ni.read_vol(str(prov_path))
-    rc = receipt_of(recovered)
+    rc = receipt_of(back)
     assert rc is not None and rc.method_name == "gaussian_blur"
 
     # --- quick orthographic plot (smoke).
@@ -153,59 +142,69 @@ def test_seed_connectivity_workflow_completes(bundle, tmp_path):
 # ----------------------------------------------------------------------
 # PAIN-1 — natural 4D-dim / 3D-spacing constructor call.
 # ----------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="PAIN-1: NeuroSpace(4D dim, 3D spacing) should accept the spatial "
-    "spacing (or raise a clear InvalidSpaceError), not a numpy broadcast error.",
-)
 def test_pain1_neurospace_accepts_spatial_spacing_for_4d():
-    # A user building a 4D series naturally gives 3 spatial spacings; the
-    # time axis has none. This should succeed.
+    # A 4D series naturally carries only 3 spatial spacings; the time axis
+    # has none. The trailing axis is padded with unit spacing.
     space = ni.NeuroSpace(dim=(20, 24, 18, 60), spacing=(3.0, 3.0, 3.5))
-    assert tuple(np.asarray(space.spacing)[:3]) == (3.0, 3.0, 3.5)
+    assert tuple(np.asarray(space.spacing)) == (3.0, 3.0, 3.5, 1.0)
+    assert np.allclose(np.diag(np.asarray(space.trans))[:4], (3.0, 3.0, 3.5, 1.0))
+
+    # An over-long spacing is a genuine mistake -> a clear, typed error.
+    with pytest.raises(InvalidSpaceError):
+        ni.NeuroSpace(dim=(4, 4, 4), spacing=(1.0, 1.0, 1.0, 1.0))
 
 
 # ----------------------------------------------------------------------
-# PAIN-2 — documented-but-missing NeuroVec.mean.
+# PAIN-2 — first-class NeuroVec.mean over time (README's documented form).
 # ----------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="PAIN-2: README documents `fmri.mean(axis=3)`; NeuroVec has no "
-    "`mean`, so the most common time reduction has no public method.",
-)
 def test_pain2_neurovec_mean_over_time(bundle):
-    mean_vol = bundle.bold.mean(axis=3)  # AttributeError today
+    bold = bundle.bold
+    mean_vol = bold.mean(axis=3)
     assert mean_vol.shape == bundle.mask.shape
+    assert mean_vol.provenance.method_name == "mean"
+    np.testing.assert_allclose(
+        np.asarray(mean_vol.data),
+        np.asarray(bold.data, dtype=np.float64).mean(axis=3),
+        rtol=1e-6,
+    )
+    # axis=-1 is equivalent; a non-time axis is rejected with guidance.
+    assert bold.mean(axis=-1).shape == bundle.mask.shape
+    with pytest.raises(ValueError):
+        bold.mean(axis=0)
 
 
 # ----------------------------------------------------------------------
-# PAIN-3 — Gaussian smoothing of a 4D series.
+# PAIN-3 — Gaussian smoothing of a 4D series is first-class & spatial-only.
 # ----------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="PAIN-3: gaussian_blur has no 4D/NeuroVec path; spatial smoothing "
-    "of a BOLD time series — the canonical preprocessing step — is not "
-    "first-class and fails with an array-dimension error.",
-)
 def test_pain3_gaussian_blur_accepts_4d_vec(bundle):
-    smoothed = ni.gaussian_blur(bundle.bold, fwhm_mm=6.0)  # ValueError today
-    assert smoothed.shape == bundle.bold.shape
+    bold = bundle.bold
+    smoothed = ni.gaussian_blur(bold, fwhm_mm=6.0)
+    assert isinstance(smoothed, ni.DenseNeuroVec)
+    assert smoothed.shape == bold.shape
+    assert smoothed.provenance.method_name == "gaussian_blur"
+
+    # Spatial-only: a constant-in-space, varying-in-time signal keeps its
+    # exact temporal profile (no blurring across time).
+    data = np.asarray(bold.data, dtype=np.float64)
+    sm = np.asarray(smoothed.data, dtype=np.float64)
+    flat_mean_in, flat_mean_out = data.mean(axis=(0, 1, 2)), sm.mean(axis=(0, 1, 2))
+    np.testing.assert_allclose(flat_mean_in, flat_mean_out, rtol=1e-6)
+
+    # A mask restricts the write region; outside-mask voxels are untouched.
+    masked = ni.gaussian_blur(bold, sigma=1.5, mask=bundle.mask)
+    outside = ~np.asarray(bundle.mask.data, dtype=bool)
+    np.testing.assert_array_equal(np.asarray(masked.data)[outside], data[outside])
 
 
 # ----------------------------------------------------------------------
-# PAIN-4 — conn_comp's default needs an undeclared optional dependency.
+# PAIN-4 — conn_comp degrades gracefully without the optional pandas dep.
 #
-# pandas ships in the `dev` extra, so it IS importable in CI; a stock
-# `pip install neuroim` does not get it. We reproduce the stock condition
-# deterministically by blocking the import, then assert two things:
-#   (a) the default call (cluster_table=True) hard-crashes, and
-#   (b) the workaround (cluster_table=False) works without pandas.
-# Both are bugs-as-documented, so this test PASSES (it pins current
-# behaviour); when conn_comp stops requiring pandas by default, part (a)
-# will start failing and force this file to be revisited.
+# pandas ships only in the `dev` extra, so a stock `pip install neuroim`
+# does not get it. We reproduce the stock condition deterministically by
+# blocking the import and assert the natural call still succeeds.
 # ----------------------------------------------------------------------
-def test_pain4_conn_comp_default_requires_undeclared_pandas(bundle):
-    # pandas is not declared as a runtime dependency (only under [dev]).
+def test_pain4_conn_comp_graceful_without_pandas(bundle):
+    # pandas is (still) not a declared *runtime* dependency.
     runtime_deps = [r for r in (requires("neuroim") or []) if "extra ==" not in r]
     assert not any(d.lower().startswith("pandas") for d in runtime_deps)
 
@@ -213,15 +212,22 @@ def test_pain4_conn_comp_default_requires_undeclared_pandas(bundle):
         np.asarray(bundle.mask.data, dtype=np.float32), space=bundle.mask.space
     )
 
+    # With pandas available, the default call builds a real DataFrame.
+    import pandas as pd
+
+    with_pandas = ni.conn_comp(vol, threshold=0.5)
+    assert isinstance(with_pandas.cluster_table, pd.DataFrame)
+
+    # Now simulate a stock install: the natural call must NOT crash.
     saved = sys.modules.get("pandas", "<<absent>>")
     sys.modules["pandas"] = None  # makes `import pandas` raise ImportError
     try:
-        # (a) the natural call fails on a stock install.
-        with pytest.raises(ModuleNotFoundError):
-            ni.conn_comp(vol, threshold=0.5)
-        # (b) the non-obvious workaround succeeds.
-        cc = ni.conn_comp(vol, threshold=0.5, cluster_table=False)
-        assert len(cc.voxels) >= 1
+        with pytest.warns(RuntimeWarning, match="pandas"):
+            result = ni.conn_comp(vol, threshold=0.5)  # default cluster_table=True
+        assert result.cluster_table is None
+        # The structural outputs are still fully populated.
+        assert len(result.voxels) >= 1
+        assert result.provenance is not None
     finally:
         if saved == "<<absent>>":
             del sys.modules["pandas"]
@@ -230,23 +236,32 @@ def test_pain4_conn_comp_default_requires_undeclared_pandas(bundle):
 
 
 # ----------------------------------------------------------------------
-# PAIN-5 — write_vol drops the provenance receipt.
+# PAIN-5 — write_vol / write_vec persist the provenance receipt.
 # ----------------------------------------------------------------------
-@pytest.mark.xfail(
-    strict=True,
-    reason="PAIN-5: write_vol writes 0 NIfTI extensions, so the provenance "
-    "Receipt is lost — inconsistent with to_nibabel, which embeds it.",
-)
 def test_pain5_write_vol_persists_provenance(bundle, tmp_path):
     blurred = ni.gaussian_blur(bundle.bold.vols()[0], fwhm_mm=6.0)
-    assert blurred.provenance is not None  # source carries a receipt
+    assert blurred.provenance is not None
 
     out_path = tmp_path / "blurred.nii.gz"
     ni.write_vol(blurred, str(out_path))
 
-    # Today: zero extensions on disk -> receipt is lost.
+    # The receipt is embedded as a NIfTI extension on disk ...
     on_disk = nib.load(str(out_path))
     assert len(on_disk.header.extensions) == 1
 
+    # ... and `read_vol` recovers it intact.
     recovered = receipt_of(ni.read_vol(str(out_path)))
+    assert recovered is not None and recovered.method_name == "gaussian_blur"
+
+
+def test_pain5_write_vec_persists_provenance(bundle, tmp_path):
+    blurred = ni.gaussian_blur(bundle.bold, fwhm_mm=6.0)
+    assert blurred.provenance is not None
+
+    out_path = tmp_path / "blurred_vec.nii.gz"
+    ni.write_vec(blurred, str(out_path))
+
+    on_disk = nib.load(str(out_path))
+    assert len(on_disk.header.extensions) == 1
+    recovered = receipt_of(ni.read_vec(str(out_path)))
     assert recovered is not None and recovered.method_name == "gaussian_blur"
