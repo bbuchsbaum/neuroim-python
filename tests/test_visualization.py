@@ -3,6 +3,7 @@ map_to_colors, resolve_cmap)."""
 
 import numpy as np
 import matplotlib
+import warnings
 matplotlib.use("Agg")  # non-interactive backend -- must be set before pyplot import
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -313,6 +314,8 @@ class TestPlotOverlay:
             ov_cmap="hot",
             ov_alpha_mode="proportional",
             ov_thresh=1.0,
+            ov_range=(0, 5),
+            colorbar=True,
         )
         try:
             assert len(axes) == 1
@@ -322,6 +325,8 @@ class TestPlotOverlay:
             assert rgba.shape[-1] == 4
             assert rgba[..., 3].max() == pytest.approx(0.5)
             assert np.count_nonzero(rgba[..., 3]) == 1
+            assert fig.axes[-1].get_ylabel() == "Overlay"
+            assert fig.axes[-1].get_ylim()[1] == pytest.approx(5.0)
         finally:
             plt.close(fig)
 
@@ -343,5 +348,32 @@ class TestPlotOverlay:
         try:
             assert [ax.get_title() for ax in axes] == ["Axial", "Sagittal", "Coronal"]
             assert all(len(ax.images) == 2 for ax in axes)
+        finally:
+            plt.close(fig)
+
+    def test_soft_alpha_clips_before_power(self):
+        sp = NeuroSpace((5, 5, 3))
+        bg = DenseNeuroVol(np.ones((5, 5, 3), dtype=float), sp)
+        ov_data = np.zeros((5, 5, 3), dtype=float)
+        ov_data[2, 2, 1] = 4.0
+        ov_data[1, 1, 1] = 0.5
+        ov = DenseNeuroVol(ov_data, sp)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            fig, axes = plot_overlay(
+                background=bg,
+                overlay=ov,
+                zlevels=[1],
+                ov_alpha_mode="soft",
+                ov_thresh=1.0,
+            )
+        try:
+            assert not any(
+                issubclass(item.category, RuntimeWarning) for item in caught
+            )
+            rgba = np.asarray(axes[0].images[1].get_array())
+            assert rgba[1, 1, 3] == pytest.approx(0.0)
+            assert rgba[2, 2, 3] > 0
         finally:
             plt.close(fig)

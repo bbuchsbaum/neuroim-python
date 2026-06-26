@@ -13,6 +13,7 @@ from typing import Iterable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Colormap, LinearSegmentedColormap, Normalize
 
 from .neuro_slice import NeuroSlice
@@ -404,7 +405,8 @@ def _alpha_for_overlay(
         alpha = (mags - thresh) / denom
     elif mode == "soft":
         lo, hi, gamma = _soft_alpha_params(mags, threshold=thresh, cap=cap, gamma=gamma)
-        alpha = ((mags - lo) / (hi - lo)) ** gamma
+        t = np.clip((mags - lo) / (hi - lo), 0.0, 1.0)
+        alpha = t**gamma
     else:
         raise ValueError("alpha_mode must be 'binary', 'proportional', 'ramp', or 'soft'")
 
@@ -794,7 +796,9 @@ def plot_overlay(
     used = len(specs)
     _finalize_grid(fig, axes, used, title=title)
     if colorbar and last is not None:
-        fig.colorbar(last, ax=list(axes[:used]), shrink=0.8, label="Overlay")
+        sm = ScalarMappable(norm=Normalize(*ov_limits), cmap=resolve_cmap(overlay_cmap))
+        sm.set_array([])
+        fig.colorbar(sm, ax=list(axes[:used]), shrink=0.8, label="Overlay")
     return fig, axes[:used]
 
 
