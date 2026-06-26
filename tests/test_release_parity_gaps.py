@@ -105,8 +105,8 @@ def test_registration_qc_plots_validate_grids_and_return_slice_panels():
     fig, axes = ni.plot_edge_overlay(bg, edges, edges, zlevels=[1], ncol=1, draw=False)
     try:
         edge_layer = axes[0].images[1].get_array()
-        assert np.ma.is_masked(edge_layer)
-        assert bool(np.all(np.ma.getmaskarray(edge_layer)))
+        assert edge_layer.shape[-1] == 4
+        assert np.allclose(edge_layer[..., 3], 0)
     finally:
         plt.close(fig)
 

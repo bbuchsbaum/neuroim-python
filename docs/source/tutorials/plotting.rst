@@ -1,300 +1,201 @@
 Visualization and Plotting
 ==========================
 
-neuroim provides convenient functions for visualizing neuroimaging data using matplotlib.
+neuroim plotting is matplotlib-native and does not require nilearn. The helpers
+work with plain 3D arrays, but they add the most value with ``NeuroVol`` objects:
+slices are displayed with spatial orientation and world-coordinate extents when
+the volume carries a ``NeuroSpace``.
 
 Single Volume Display
-----------------------
+---------------------
 
-Display a single slice from a 3D volume:
+Display a small slice montage from a 3D volume:
 
 .. code-block:: python
 
     import neuroim
     import matplotlib.pyplot as plt
 
-    # Load a structural image
     vol = neuroim.read_vol("structural.nii.gz")
 
-    # Plot a single slice
-    fig, ax = neuroim.plot_neuro_vol(
+    fig = neuroim.plot_neuro_vol(
         vol,
-        slice_index=32,       # Which slice to show
-        axis='z',             # Slice orientation ('x', 'y', or 'z')
-        cmap='gray',          # Colormap
+        zlevels=[12, 20, 28, 36],
+        axis="z",
+        cmap="gray",
+        range="robust",
+        ncol=4,
         title="Structural MRI",
-        colorbar=True
+        colorbar=True,
     )
 
-    plt.savefig("structural_slice.png")
+    fig.savefig("structural_montage.png", dpi=150)
+    plt.close(fig)
+
+``zlevels`` are Python slice indices. Use ``axis="x"``, ``"y"``, or ``"z"``
+for sagittal, coronal, or axial slicing. The compatibility argument
+``along=1``/``2``/``3`` is also accepted for neuroim2-style calls.
 
 Orthogonal Views
 ----------------
 
-Display three orthogonal slices simultaneously:
+Display three orthogonal slices at a voxel or world coordinate:
 
 .. code-block:: python
 
-    # Plot orthogonal views at a specific coordinate
-    fig = neuroim.plot_ortho(
+    fig, axes = neuroim.plot_ortho(
         vol,
-        coords=[32, 32, 16],  # x, y, z coordinates
-        cmap='gray',
-        title="Orthogonal Views"
+        coords=(32, 32, 16),
+        coord_space="voxel",
+        cmap="gray",
+        crosshair=True,
+        title="Orthogonal Views",
     )
 
-    plt.savefig("ortho_views.png")
+    fig.savefig("ortho_views.png", dpi=150)
+    plt.close(fig)
 
-    # Plot at the center of mass of a statistical map
-    stat_vol = neuroim.read_vol("tstat.nii.gz")
-    com = stat_vol.center_of_mass()
+World coordinates are accepted for spatial volumes:
 
-    fig = neuroim.plot_ortho(
-        stat_vol,
-        coords=com,
-        cmap='RdBu_r',
-        title="Statistical Map at Peak"
+.. code-block:: python
+
+    fig, axes = neuroim.plot_ortho(
+        vol,
+        coords=(12.0, -18.0, 32.0),
+        coord_space="world",
+        cmap="gray",
+        crosshair=True,
     )
 
 Slice Montage
 -------------
 
-Display multiple slices in a grid:
+Use ``plot_montage`` when you need a regular grid of slices and access to the
+created axes:
 
 .. code-block:: python
 
-    # Create a montage of axial slices
-    fig = neuroim.plot_montage(
+    fig, axes = neuroim.plot_montage(
         vol,
-        axis='z',
-        n_slices=12,          # Number of slices to show
-        start_slice=5,        # First slice index
-        step=2,               # Skip every other slice
-        cols=4,               # Columns in grid
-        cmap='gray',
-        title="Axial Montage"
+        axis="z",
+        zlevels=range(8, 56, 4),
+        ncols=4,
+        cmap="gray",
+        range="robust",
+        colorbar=True,
+        title="Axial Montage",
     )
 
-    plt.savefig("axial_montage.png")
-
-    # Automatic slice selection (evenly spaced)
-    fig = neuroim.plot_montage(
-        vol,
-        axis='z',
-        n_slices=16,
-        cols=4,
-        cmap='gray'
-    )
+    fig.savefig("axial_montage.png", dpi=150)
+    plt.close(fig)
 
 Statistical Overlay
 -------------------
 
-Overlay statistical maps on anatomical images:
+Overlay statistical maps on anatomical images. With ``zlevels=None`` the helper
+returns the historical three-plane orthogonal view; with ``zlevels`` it returns a
+neuroim2-style slice panel grid.
 
 .. code-block:: python
 
-    # Load anatomical and statistical images
     anat = neuroim.read_vol("T1.nii.gz")
     stat = neuroim.read_vol("tstat.nii.gz")
 
-    # Plot overlay with thresholding
-    fig = neuroim.plot_overlay(
+    fig, axes = neuroim.plot_overlay(
         background=anat,
         overlay=stat,
-        slice_index=25,
-        axis='z',
-        bg_cmap='gray',
-        overlay_cmap='hot',
-        threshold=2.5,        # Only show |stat| > 2.5
-        alpha=0.7,            # Overlay transparency
-        title="Activation Map"
+        zlevels=[18, 24, 30, 36, 42, 48],
+        axis="z",
+        ncol=3,
+        bg_cmap="gray",
+        ov_cmap="blue-red",
+        ov_thresh=2.5,
+        ov_alpha_mode="soft",
+        ov_symmetric=True,
+        title="Activation Map",
+        colorbar=True,
     )
 
-    plt.savefig("activation_overlay.png")
+    fig.savefig("activation_overlay.png", dpi=150)
+    plt.close(fig)
 
-    # Two-sided threshold for positive and negative effects
-    fig = neuroim.plot_overlay(
-        background=anat,
-        overlay=stat,
-        slice_index=25,
-        axis='z',
-        bg_cmap='gray',
-        overlay_cmap='RdBu_r',    # Diverging colormap
-        threshold=(-3, 3),         # Separate thresholds
-        symmetric=True             # Center colormap at zero
+For a coordinate-centered overlay:
+
+.. code-block:: python
+
+    fig, axes = neuroim.plot_overlay(
+        anat,
+        stat,
+        coords=(12.0, -18.0, 32.0),
+        coord_space="world",
+        threshold=2.5,
+        overlay_cmap="blue-red",
+    )
+
+Registration QC
+---------------
+
+The registration QC helpers validate that inputs occupy the same image grid
+before plotting:
+
+.. code-block:: python
+
+    fig, axes = neuroim.plot_checkerboard(
+        fixed,
+        moving,
+        zlevels=[16, 24, 32, 40],
+        axis="z",
+        tile=16,
+        ncol=4,
+        title="Checkerboard QC",
+    )
+
+    fig, axes = neuroim.plot_edge_overlay(
+        fixed,
+        fixed_edges,
+        moving_edges,
+        zlevels=[16, 24, 32, 40],
+        axis="z",
+        ncol=4,
+        title="Edge Overlay QC",
     )
 
 Custom Colormapping
 -------------------
 
-Create custom color schemes:
+Use ``resolve_cmap`` and ``map_to_colors`` for lower-level color mapping:
 
 .. code-block:: python
 
-    # Map volume values to RGB colors
-    rgb_array = neuroim.map_to_colors(
-        vol,
-        cmap='viridis',
-        vmin=None,            # Auto-scale or specify
-        vmax=None
+    data = vol.as_array()
+    rgba = neuroim.map_to_colors(
+        data,
+        cmap=["#1f2937", "#f97316", "#fef3c7"],
+        vmin=0.0,
+        vmax=1000.0,
+        alpha=0.85,
     )
 
-    print(rgb_array.shape)    # (x, y, z, 3) RGB values
+    cmap = neuroim.resolve_cmap("blue-red")
 
-    # Resolve colormap from string or matplotlib colormap
-    cmap = neuroim.resolve_cmap('hot')
+Matplotlib Customization
+------------------------
 
-    # Use custom normalization
-    from matplotlib.colors import PowerNorm
-
-    rgb_array = neuroim.map_to_colors(
-        vol,
-        cmap=cmap,
-        norm=PowerNorm(gamma=0.5)  # Nonlinear scaling
-    )
-
-Plotting 4D Data
-----------------
-
-Visualize time series data:
+Most plotting helpers return ``(fig, axes)``. The lower-level matplotlib objects
+remain available for additional annotations or layout adjustments:
 
 .. code-block:: python
 
-    # Load 4D fMRI data
-    vec = neuroim.read_vec("fmri.nii.gz")
-
-    # Plot mean across time
-    mean_vol = vec.mean(axis=3)
-    fig, ax = neuroim.plot_neuro_vol(
-        mean_vol,
-        slice_index=16,
-        axis='z',
-        cmap='gray',
-        title="Mean fMRI Signal"
+    fig, axes = neuroim.plot_montage(
+        stat,
+        zlevels=[18, 24, 30],
+        ncols=3,
+        cmap="blue-red",
+        range=(-5, 5),
     )
 
-    # Plot standard deviation across time
-    std_vol = vec.std(axis=3)
-    fig, ax = neuroim.plot_neuro_vol(
-        std_vol,
-        slice_index=16,
-        axis='z',
-        cmap='hot',
-        title="Temporal Standard Deviation"
-    )
+    for ax in axes[:3]:
+        ax.set_facecolor("black")
 
-    # Animate through time
-    fig, ax = plt.subplots()
-
-    for t in range(0, vec.shape[3], 5):
-        vol_t = vec[..., t]
-        ax.clear()
-        ax.imshow(vol_t.data[:, :, 16], cmap='gray')
-        ax.set_title(f"Time point {t}")
-        plt.pause(0.1)
-
-ROI Visualization
------------------
-
-Highlight regions of interest:
-
-.. code-block:: python
-
-    # Create an ROI
-    center = [32, 32, 16]
-    roi = neuroim.spherical_roi(vol, center, radius=8.0)
-
-    # Create a mask volume
-    roi_vol = neuroim.LogicalNeuroVol(
-        roi.as_mask(),
-        vol.space
-    )
-
-    # Overlay ROI on anatomical image
-    fig = neuroim.plot_overlay(
-        background=vol,
-        overlay=roi_vol.astype(float),
-        slice_index=16,
-        axis='z',
-        bg_cmap='gray',
-        overlay_cmap='Reds',
-        alpha=0.5,
-        title="ROI Overlay"
-    )
-
-Advanced Plotting
------------------
-
-Customize plots with matplotlib:
-
-.. code-block:: python
-
-    # Create custom figure layout
-    fig = plt.figure(figsize=(15, 10))
-
-    # Anatomical image
-    ax1 = plt.subplot(2, 3, 1)
-    im1 = ax1.imshow(anat.data[:, :, 25], cmap='gray')
-    ax1.set_title('Anatomical')
-    ax1.axis('off')
-
-    # Statistical map
-    ax2 = plt.subplot(2, 3, 2)
-    im2 = ax2.imshow(stat.data[:, :, 25], cmap='RdBu_r', vmin=-5, vmax=5)
-    ax2.set_title('T-statistic')
-    ax2.axis('off')
-    plt.colorbar(im2, ax=ax2)
-
-    # Overlay
-    ax3 = plt.subplot(2, 3, 3)
-    ax3.imshow(anat.data[:, :, 25], cmap='gray')
-    mask = np.abs(stat.data[:, :, 25]) > 2.5
-    im3 = ax3.imshow(
-        np.ma.masked_where(~mask, stat.data[:, :, 25]),
-        cmap='RdBu_r',
-        alpha=0.7,
-        vmin=-5,
-        vmax=5
-    )
-    ax3.set_title('Overlay')
-    ax3.axis('off')
-
-    # Time series from ROI
-    ax4 = plt.subplot(2, 1, 2)
-    ts = vec.series(32, 32, 16)
-    ax4.plot(ts)
-    ax4.set_xlabel('Time point')
-    ax4.set_ylabel('Signal')
-    ax4.set_title('Time Series')
-    ax4.grid(True)
-
-    plt.tight_layout()
-    plt.savefig("comprehensive_figure.png", dpi=300)
-
-Glass Brain Visualization
--------------------------
-
-Create glass brain projections:
-
-.. code-block:: python
-
-    # Maximum intensity projection
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-
-    # Sagittal projection
-    axes[0].imshow(np.max(stat.data, axis=0).T, cmap='hot', origin='lower')
-    axes[0].set_title('Sagittal')
-    axes[0].axis('off')
-
-    # Coronal projection
-    axes[1].imshow(np.max(stat.data, axis=1).T, cmap='hot', origin='lower')
-    axes[1].set_title('Coronal')
-    axes[1].axis('off')
-
-    # Axial projection
-    axes[2].imshow(np.max(stat.data, axis=2), cmap='hot', origin='lower')
-    axes[2].set_title('Axial')
-    axes[2].axis('off')
-
-    plt.suptitle('Glass Brain Projections')
-    plt.savefig("glass_brain.png")
+    fig.savefig("custom_stat_map.png", dpi=150)
+    plt.close(fig)

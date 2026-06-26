@@ -2,36 +2,74 @@
 
 ```python
 plot_overlay(
-    base_vol,
-    overlay_vol,
+    base_vol=None,
+    overlay_vol=None,
     alpha=0.5,
-    base_cmap='gray',
-    overlay_cmap='hot',
+    base_cmap="gray",
+    overlay_cmap="hot",
     threshold=None,
     coords=None,
     figsize=(12, 4),
     axes=None,
+    *,
+    coord_space="voxel",
+    unit=None,
+    background=None,
+    overlay=None,
+    bg_cmap=None,
+    ov_cmap=None,
+    zlevels=None,
+    axis=2,
+    along=None,
+    ncol=3,
+    bg_range="robust",
+    ov_range="robust",
+    probs=(0.02, 0.98),
+    ov_thresh=None,
+    alpha_mode="binary",
+    ov_alpha_mode=None,
+    symmetric=None,
+    ov_symmetric=None,
+    alpha_gamma=None,
+    ov_cap=None,
+    title=None,
+    colorbar=False,
 )
 ```
 
-Orthogonal view with a statistical overlay.
+Overlay a statistical or label volume on a background volume.
+
+With ``zlevels=None``, this returns a three-plane orthogonal view. With
+``zlevels`` supplied, it returns a neuroim2-style slice montage. Inputs must
+occupy the same grid when both carry ``NeuroSpace`` metadata.
 
 ## Parameters {.doc-section .doc-section-parameters}
 
-| Name         | Type                                     | Description                                                          | Default    |
-|--------------|------------------------------------------|----------------------------------------------------------------------|------------|
-| base_vol     | [np](`numpy`).[ndarray](`numpy.ndarray`) | 3-D base and overlay volumes (same shape).                           | _required_ |
-| overlay_vol  | [np](`numpy`).[ndarray](`numpy.ndarray`) | 3-D base and overlay volumes (same shape).                           | _required_ |
-| alpha        | [float](`float`)                         | Overlay transparency.                                                | `0.5`      |
-| base_cmap    | [str](`str`)                             | Colormaps for base and overlay.                                      | `'gray'`   |
-| overlay_cmap | [str](`str`)                             | Colormaps for base and overlay.                                      | `'gray'`   |
-| threshold    | [float](`float`)                         | If given, overlay voxels with ``abs(value) < threshold`` are hidden. | `None`     |
-| coords       | tuple of int                             | ``(x, y, z)`` crosshair.  Defaults to volume centre.                 | `None`     |
-| figsize      | [tuple](`tuple`)                         | Figure size.                                                         | `(12, 4)`  |
-| axes         | array-like of Axes                       | Three pre-existing axes.                                             | `None`     |
+| Name | Type | Description | Default |
+|------|------|-------------|---------|
+| base_vol, background | NeuroVol or array-like | Background image. ``background`` is the keyword alias. | _required_ |
+| overlay_vol, overlay | NeuroVol or array-like | Overlay image on the same grid. ``overlay`` is the keyword alias. | _required_ |
+| alpha | float | Global overlay alpha. Per-pixel alpha modes multiply this value. | ``0.5`` |
+| base_cmap, bg_cmap | str, sequence, or Colormap | Background colormap. | ``"gray"`` |
+| overlay_cmap, ov_cmap | str, sequence, or Colormap | Overlay colormap. Signed overlays default to ``"blue-red"`` when no diverging palette is supplied. | ``"hot"`` |
+| threshold, ov_thresh | float or tuple | Hide overlay values below threshold. Tuple thresholds hide values between the two endpoints. | ``None`` |
+| coords | tuple | Voxel or world coordinate for orthogonal views. The volume center is used when omitted. | ``None`` |
+| coord_space, unit | str | ``"voxel"``/``"index"`` or ``"world"``/``"mm"`` for ``coords``. | ``"voxel"`` |
+| zlevels | sequence of int | Python slice indices for montage mode. | ``None`` |
+| axis | int or str | Slice axis for montage mode. | ``2`` |
+| along | int | neuroim2-style one-based slice axis. Overrides ``axis`` when provided. | ``None`` |
+| ncol | int | Number of montage columns. | ``3`` |
+| bg_range, ov_range | str or tuple | Display ranges: ``"robust"``, ``"data"``, or explicit ``(lo, hi)``. | ``"robust"`` |
+| probs | tuple | Quantiles used for robust ranges. | ``(0.02, 0.98)`` |
+| alpha_mode, ov_alpha_mode | str | Overlay alpha mode: ``"binary"``, ``"proportional"``, ``"ramp"``, or ``"soft"``. | ``"binary"`` |
+| symmetric, ov_symmetric | bool | Force symmetric overlay limits around zero. Defaults to signed-data detection. | ``None`` |
+| alpha_gamma | float | Optional exponent for ``alpha_mode="soft"``. | ``None`` |
+| ov_cap | float | Shared overlay color/alpha cap. | ``None`` |
+| title | str | Figure title. | ``None`` |
+| colorbar | bool | Draw a shared overlay colorbar. | ``False`` |
 
 ## Returns {.doc-section .doc-section-returns}
 
-| Name   | Type                | Description   |
-|--------|---------------------|---------------|
-|        | (fig, axes) : tuple |               |
+| Name | Type | Description |
+|------|------|-------------|
+|  | (fig, axes) tuple | Matplotlib Figure and displayed Axes. |

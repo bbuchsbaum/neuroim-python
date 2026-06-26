@@ -5,31 +5,42 @@ plot_montage(
     vol,
     axis=2,
     n_slices=16,
-    cmap='gray',
+    cmap="gray",
     ncols=4,
     title=None,
     figsize=None,
     axes=None,
+    *,
+    zlevels=None,
+    along=None,
+    range="robust",
+    probs=(0.02, 0.98),
+    colorbar=False,
 )
 ```
 
-Show multiple evenly-spaced slices along *axis* in a grid.
+Show multiple world-oriented slices along one axis in a grid.
 
 ## Parameters {.doc-section .doc-section-parameters}
 
-| Name     | Type                                     | Description                                                 | Default    |
-|----------|------------------------------------------|-------------------------------------------------------------|------------|
-| vol      | [np](`numpy`).[ndarray](`numpy.ndarray`) | 3-D volume array.                                           | _required_ |
-| axis     | [int](`int`)                             | Axis along which to slice (0, 1, or 2).  Default 2 (axial). | `2`        |
-| n_slices | [int](`int`)                             | Number of slices to display.                                | `16`       |
-| cmap     | [str](`str`)                             | Colormap name.                                              | `'gray'`   |
-| ncols    | [int](`int`)                             | Number of columns in the grid.                              | `4`        |
-| title    | [str](`str`)                             | Super-title for the figure.                                 | `None`     |
-| figsize  | [tuple](`tuple`)                         | Figure size.  If *None* it is computed automatically.       | `None`     |
-| axes     | array-like of Axes                       | Pre-existing axes (must have at least *n_slices* elements). | `None`     |
+| Name | Type | Description | Default |
+|------|------|-------------|---------|
+| vol | NeuroVol or array-like | 3D volume to display. ``NeuroVol`` inputs use spatial orientation and world extents. | _required_ |
+| axis | int or str | Slice axis: ``0``/``"x"``, ``1``/``"y"``, or ``2``/``"z"``. | ``2`` |
+| n_slices | int | Number of evenly spaced slices when ``zlevels`` is omitted. | ``16`` |
+| cmap | str, sequence, or Colormap | Matplotlib colormap or neuroim alias. | ``"gray"`` |
+| ncols | int | Number of columns in the grid. | ``4`` |
+| title | str | Figure title. | ``None`` |
+| figsize | tuple | Figure size. Computed from panel count when omitted. | ``None`` |
+| axes | array-like of Axes | Existing axes. Must contain at least the number of displayed slices. | ``None`` |
+| zlevels | sequence of int | Python slice indices to display. | ``None`` |
+| along | int | neuroim2-style one-based slice axis. Overrides ``axis`` when provided. | ``None`` |
+| range | str or tuple | Display range: ``"robust"``, ``"data"``, or explicit ``(lo, hi)``. | ``"robust"`` |
+| probs | tuple | Quantiles used for robust ranges. | ``(0.02, 0.98)`` |
+| colorbar | bool | Draw a shared colorbar. | ``False`` |
 
 ## Returns {.doc-section .doc-section-returns}
 
-| Name   | Type                | Description   |
-|--------|---------------------|---------------|
-|        | (fig, axes) : tuple |               |
+| Name | Type | Description |
+|------|------|-------------|
+|  | (fig, axes) tuple | Matplotlib Figure and grid Axes. |

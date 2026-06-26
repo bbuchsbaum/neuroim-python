@@ -3,25 +3,47 @@
 ```python
 plot_neuro_vol(
     vol,
-    cmap='gray',
+    cmap="gray",
     zlevels=None,
     irange=None,
     thresh=(0, 0),
     alpha=1,
     bgvol=None,
-    bgcmap='gray',
+    bgcmap="gray",
     figsize=(12, 8),
+    *,
+    axis=2,
+    along=None,
+    ncol=3,
+    colorbar=True,
+    range=None,
+    title=None,
 )
 ```
 
-Plot a NeuroVol as a series of 2D slices.
+Plot a 3D volume as a world-oriented slice montage.
 
-:param vol: The NeuroVol object to display.
-:param cmap: A colormap name or matplotlib colormap object.
-:param zlevels: The series of slice indices to display. If None, 6 evenly spaced slices are chosen.
-:param irange: The intensity range for color scaling. If None, the full range of the data is used.
-:param thresh: A 2-element tuple indicating the lower and upper transparency thresholds.
-:param alpha: The level of alpha transparency.
-:param bgvol: A background volume that serves as an image underlay (optional).
-:param bgcmap: A colormap name or matplotlib colormap object for the background layer.
-:param figsize: The size of the figure in inches (width, height).
+## Parameters {.doc-section .doc-section-parameters}
+
+| Name | Type | Description | Default |
+|------|------|-------------|---------|
+| vol | NeuroVol or array-like | 3D volume to display. ``NeuroVol`` inputs use spatial orientation and world extents. | _required_ |
+| cmap | str, sequence, or Colormap | Matplotlib colormap, color list, or neuroim alias such as ``"grays"`` or ``"blue-red"``. | ``"gray"`` |
+| zlevels | sequence of int | Python slice indices to display. Evenly spaced slices are chosen when omitted. | ``None`` |
+| irange, range | ``"robust"``, ``"data"``, tuple, or None | Display limits. ``irange`` is the legacy name; ``range`` is the Pythonic alias. | ``None`` |
+| thresh | tuple | Inclusive display threshold used by the legacy overlay path. | ``(0, 0)`` |
+| alpha | float | Image alpha. | ``1`` |
+| bgvol | NeuroVol or array-like | Optional background underlay on the same grid. | ``None`` |
+| bgcmap | str, sequence, or Colormap | Background colormap. | ``"gray"`` |
+| figsize | tuple | Figure size in inches. | ``(12, 8)`` |
+| axis | int or str | Slice axis: ``0``/``"x"``, ``1``/``"y"``, or ``2``/``"z"``. | ``2`` |
+| along | int | neuroim2-style one-based slice axis. Overrides ``axis`` when provided. | ``None`` |
+| ncol | int | Number of montage columns. | ``3`` |
+| colorbar | bool | Draw a shared colorbar for the displayed layer. | ``True`` |
+| title | str | Figure title. | ``None`` |
+
+## Returns {.doc-section .doc-section-returns}
+
+| Name | Type | Description |
+|------|------|-------------|
+|  | matplotlib Figure | The created figure. |

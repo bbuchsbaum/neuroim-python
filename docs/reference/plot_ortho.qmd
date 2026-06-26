@@ -5,27 +5,39 @@ plot_ortho(
     vol,
     coords=None,
     title=None,
-    cmap='gray',
+    cmap="gray",
     figsize=(12, 4),
     axes=None,
+    *,
+    coord_space="voxel",
+    unit=None,
+    range="robust",
+    probs=(0.02, 0.98),
+    crosshair=False,
+    colorbar=False,
 )
 ```
 
-Orthogonal 3-plane view (axial, sagittal, coronal).
+Display axial, sagittal, and coronal slices at a voxel or world coordinate.
 
 ## Parameters {.doc-section .doc-section-parameters}
 
-| Name    | Type                                     | Description                                                                              | Default    |
-|---------|------------------------------------------|------------------------------------------------------------------------------------------|------------|
-| vol     | [np](`numpy`).[ndarray](`numpy.ndarray`) | 3-D volume array.                                                                        | _required_ |
-| coords  | tuple of int                             | ``(x, y, z)`` voxel coordinates for the crosshair.  If *None* the volume centre is used. | `None`     |
-| title   | [str](`str`)                             | Super-title for the figure.                                                              | `None`     |
-| cmap    | [str](`str`)                             | Colormap name.                                                                           | `'gray'`   |
-| figsize | [tuple](`tuple`)                         | Figure size in inches.                                                                   | `(12, 4)`  |
-| axes    | array-like of Axes                       | Three pre-existing axes to draw into.  When provided *figsize* is ignored.               | `None`     |
+| Name | Type | Description | Default |
+|------|------|-------------|---------|
+| vol | NeuroVol or array-like | 3D volume. ``NeuroVol`` inputs use spatial orientation and world extents. | _required_ |
+| coords | tuple | Length-3 voxel/index or world/mm coordinate. Defaults to the volume center. | ``None`` |
+| title | str | Figure title. | ``None`` |
+| cmap | str, sequence, or Colormap | Matplotlib colormap or neuroim alias. | ``"gray"`` |
+| figsize | tuple | Figure size in inches when ``axes`` is not supplied. | ``(12, 4)`` |
+| axes | array-like of Axes | Three existing axes to draw into. | ``None`` |
+| coord_space, unit | str | ``"voxel"``/``"index"`` or ``"world"``/``"mm"``. ``unit`` is a compatibility alias. | ``"voxel"`` |
+| range | str or tuple | Display range: ``"robust"``, ``"data"``, or explicit ``(lo, hi)``. | ``"robust"`` |
+| probs | tuple | Quantiles used for robust ranges. | ``(0.02, 0.98)`` |
+| crosshair | bool | Draw crosshair lines at the selected coordinate. | ``False`` |
+| colorbar | bool | Draw a shared colorbar. | ``False`` |
 
 ## Returns {.doc-section .doc-section-returns}
 
-| Name   | Type                | Description                                  |
-|--------|---------------------|----------------------------------------------|
-|        | (fig, axes) : tuple | Matplotlib Figure and ndarray of three Axes. |
+| Name | Type | Description |
+|------|------|-------------|
+|  | (fig, axes) tuple | Matplotlib Figure and the three displayed Axes. |

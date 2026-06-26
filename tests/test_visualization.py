@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import pytest
 
+from neuroim.neuro_space import NeuroSpace
+from neuroim.neuro_vol import DenseNeuroVol
 from neuroim.plotting import (
     plot_ortho,
     plot_montage,
@@ -231,6 +233,23 @@ class TestPlotMontage:
         assert fig is ext_fig
         plt.close(fig)
 
+    def test_neurovol_respects_flipped_world_axis(self):
+        data = np.zeros((4, 5, 2), dtype=float)
+        data[0, 0, 0] = 1.0
+        data[3, 4, 0] = 2.0
+        affine = np.eye(4)
+        affine[0, 0] = -1.0
+        affine[0, 3] = 3.0
+        vol = DenseNeuroVol(data, NeuroSpace((4, 5, 2), trans=affine))
+
+        fig, axes = plot_montage(vol, zlevels=[0], ncols=1, range="data")
+        try:
+            shown = np.asarray(axes[0].images[0].get_array())
+            np.testing.assert_array_equal(np.argwhere(shown == 1.0), [[0, 3]])
+            np.testing.assert_array_equal(np.argwhere(shown == 2.0), [[4, 0]])
+        finally:
+            plt.close(fig)
+
 
 # ---------------------------------------------------------------------------
 # plot_overlay
@@ -277,3 +296,52 @@ class TestPlotOverlay:
         assert axes[1].get_title() == "Sagittal"
         assert axes[2].get_title() == "Coronal"
         plt.close(fig)
+
+    def test_montage_overlay_aliases_and_alpha_map(self):
+        sp = NeuroSpace((5, 5, 3))
+        bg = DenseNeuroVol(np.arange(75, dtype=float).reshape(5, 5, 3), sp)
+        ov_data = np.zeros((5, 5, 3), dtype=float)
+        ov_data[2, 2, 1] = 5.0
+        ov = DenseNeuroVol(ov_data, sp)
+
+        fig, axes = plot_overlay(
+            background=bg,
+            overlay=ov,
+            zlevels=[1],
+            ncol=1,
+            bg_cmap="grays",
+            ov_cmap="hot",
+            ov_alpha_mode="proportional",
+            ov_thresh=1.0,
+        )
+        try:
+            assert len(axes) == 1
+            assert axes[0].get_title() == "z = 1"
+            assert len(axes[0].images) == 2
+            rgba = np.asarray(axes[0].images[1].get_array())
+            assert rgba.shape[-1] == 4
+            assert rgba[..., 3].max() == pytest.approx(0.5)
+            assert np.count_nonzero(rgba[..., 3]) == 1
+        finally:
+            plt.close(fig)
+
+    def test_overlay_accepts_world_coordinates_for_ortho(self):
+        affine = np.diag([2.0, 2.0, 2.0, 1.0])
+        sp = NeuroSpace((5, 5, 5), trans=affine)
+        bg = DenseNeuroVol(np.zeros((5, 5, 5), dtype=float), sp)
+        ov_data = np.zeros((5, 5, 5), dtype=float)
+        ov_data[2, 2, 2] = 4.0
+        ov = DenseNeuroVol(ov_data, sp)
+
+        fig, axes = plot_overlay(
+            bg,
+            ov,
+            coords=(4.0, 4.0, 4.0),
+            coord_space="world",
+            threshold=1.0,
+        )
+        try:
+            assert [ax.get_title() for ax in axes] == ["Axial", "Sagittal", "Coronal"]
+            assert all(len(ax.images) == 2 for ax in axes)
+        finally:
+            plt.close(fig)
