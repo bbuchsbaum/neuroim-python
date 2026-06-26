@@ -352,6 +352,27 @@ def _threshold_mask(values: np.ndarray, threshold) -> np.ndarray:
     return (~np.isfinite(arr)) | ((arr > lo) & (arr < hi))
 
 
+def _overlay_values_for_limits(values: np.ndarray, threshold) -> np.ndarray:
+    arr = np.asarray(values, dtype=float)
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return finite
+
+    visible = finite
+    if threshold is not None:
+        visible = arr[~_threshold_mask(arr, threshold)]
+        visible = visible[np.isfinite(visible)]
+
+    nonzero_visible = visible[visible != 0]
+    if nonzero_visible.size:
+        return nonzero_visible
+    if visible.size:
+        return visible
+
+    nonzero = finite[finite != 0]
+    return nonzero if nonzero.size else finite
+
+
 def _soft_alpha_params(mags, threshold=0.0, cap=None, gamma=None):
     vals = np.asarray(mags, dtype=float)
     vals = vals[np.isfinite(vals) & (vals > 0)]
@@ -669,7 +690,7 @@ def plot_overlay(
     overlay_cmap: CmapLike = "hot",
     threshold: Optional[Union[float, Tuple[float, float]]] = None,
     coords: Optional[Tuple[int, int, int]] = None,
-    figsize: Tuple[float, float] = (12, 4),
+    figsize: Optional[Tuple[float, float]] = None,
     axes: Optional[np.ndarray] = None,
     *,
     coord_space: str = "voxel",
@@ -731,7 +752,7 @@ def plot_overlay(
             axes = np.asarray(axes).ravel()
             fig = axes[0].figure
         else:
-            fig, axes = plt.subplots(1, 3, figsize=figsize)
+            fig, axes = plt.subplots(1, 3, figsize=figsize or (12, 4))
             axes = np.asarray(axes).ravel()
     else:
         indices = _normalize_indices(
@@ -747,7 +768,8 @@ def plot_overlay(
         _slice_raw(overlay_data, ax, idx).ravel() for ax, idx in specs
     ])
     bg_limits = _resolve_display_limits(bg_vals, bg_range, probs=probs)
-    ov_limits = _resolve_display_limits(ov_vals, ov_range, probs=probs)
+    ov_display_vals = _overlay_values_for_limits(ov_vals, threshold)
+    ov_limits = _resolve_display_limits(ov_display_vals, ov_range, probs=probs)
 
     finite_ov = ov_vals[np.isfinite(ov_vals)]
     signed = finite_ov.size > 0 and np.nanmin(finite_ov) < 0 < np.nanmax(finite_ov)

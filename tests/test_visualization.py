@@ -330,6 +330,44 @@ class TestPlotOverlay:
         finally:
             plt.close(fig)
 
+    def test_montage_overlay_default_figsize_is_grid_sized(self):
+        sp = NeuroSpace((5, 5, 6))
+        bg = DenseNeuroVol(np.ones((5, 5, 6), dtype=float), sp)
+        ov = DenseNeuroVol(np.ones((5, 5, 6), dtype=float), sp)
+
+        fig, _ = plot_overlay(bg, ov, zlevels=[0, 1, 2, 3, 4, 5], ncol=3)
+        try:
+            assert fig.get_figwidth() == pytest.approx(9.6)
+            assert fig.get_figheight() == pytest.approx(6.4)
+        finally:
+            plt.close(fig)
+
+    def test_overlay_robust_range_uses_visible_nonzero_values(self):
+        sp = NeuroSpace((6, 6, 3))
+        bg = DenseNeuroVol(np.ones((6, 6, 3), dtype=float), sp)
+        ov_data = np.zeros((6, 6, 3), dtype=float)
+        ov_data[1, 1, 1] = 0.5
+        ov_data[2, 2, 1] = 2.0
+        ov_data[3, 3, 1] = 4.0
+        ov_data[4, 4, 1] = -5.0
+        ov = DenseNeuroVol(ov_data, sp)
+
+        fig, _ = plot_overlay(
+            background=bg,
+            overlay=ov,
+            zlevels=[1],
+            ov_thresh=1.8,
+            ov_alpha_mode="soft",
+            ov_symmetric=True,
+            colorbar=True,
+        )
+        try:
+            lo, hi = fig.axes[-1].get_ylim()
+            assert lo < -4.0
+            assert hi > 3.0
+        finally:
+            plt.close(fig)
+
     def test_overlay_accepts_world_coordinates_for_ortho(self):
         affine = np.diag([2.0, 2.0, 2.0, 1.0])
         sp = NeuroSpace((5, 5, 5), trans=affine)

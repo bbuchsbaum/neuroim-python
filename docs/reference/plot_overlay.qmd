@@ -9,7 +9,7 @@ plot_overlay(
     overlay_cmap="hot",
     threshold=None,
     coords=None,
-    figsize=(12, 4),
+    figsize=None,
     axes=None,
     *,
     coord_space="voxel",
@@ -54,6 +54,7 @@ occupy the same grid when both carry ``NeuroSpace`` metadata.
 | overlay_cmap, ov_cmap | str, sequence, or Colormap | Overlay colormap. Signed overlays default to ``"blue-red"`` when no diverging palette is supplied. | ``"hot"`` |
 | threshold, ov_thresh | float or tuple | Hide overlay values below threshold. Tuple thresholds hide values between the two endpoints. | ``None`` |
 | coords | tuple | Voxel or world coordinate for orthogonal views. The volume center is used when omitted. | ``None`` |
+| figsize | tuple | Figure size. Defaults to ``(12, 4)`` for orthogonal mode and a grid-derived size for montage mode. | ``None`` |
 | coord_space, unit | str | ``"voxel"``/``"index"`` or ``"world"``/``"mm"`` for ``coords``. | ``"voxel"`` |
 | zlevels | sequence of int | Python slice indices for montage mode. | ``None`` |
 | axis | int or str | Slice axis for montage mode. | ``2`` |
