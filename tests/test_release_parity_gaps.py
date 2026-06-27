@@ -102,7 +102,19 @@ def test_registration_qc_plots_validate_grids_and_return_slice_panels():
     finally:
         plt.close(fig)
 
+    # Default contour style: all-zero edge maps must not draw any overlay marks
+    # (no edge image layers, no contour collections) over the single base image.
     fig, axes = ni.plot_edge_overlay(bg, edges, edges, zlevels=[1], ncol=1, draw=False)
+    try:
+        assert len(axes[0].images) == 1
+        assert len(axes[0].collections) == 0
+    finally:
+        plt.close(fig)
+
+    # Legacy fill style still overlays edges as transparent RGBA layers.
+    fig, axes = ni.plot_edge_overlay(
+        bg, edges, edges, zlevels=[1], ncol=1, style="fill", draw=False
+    )
     try:
         edge_layer = axes[0].images[1].get_array()
         assert edge_layer.shape[-1] == 4
