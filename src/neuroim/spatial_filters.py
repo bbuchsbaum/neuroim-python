@@ -11,13 +11,51 @@ from .neuro_vec import NeuroVec, DenseNeuroVec
 from .kernel import Kernel, gaussian_kernel
 
 
+def _positive_finite_scalar(value, name: str) -> float:
+    arr = np.asarray(value)
+    if arr.ndim != 0 or isinstance(value, (bool, np.bool_)):
+        raise ValueError(f"{name} must be one positive finite numeric scalar")
+    try:
+        scalar = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be one positive finite numeric scalar") from exc
+    if not np.isfinite(scalar) or scalar <= 0:
+        raise ValueError(f"{name} must be one positive finite numeric scalar")
+    return scalar
+
+
+def _gaussian_support(window, truncate, shape) -> tuple[Optional[int], float]:
+    truncate_value = _positive_finite_scalar(truncate, "truncate")
+    if window is None:
+        return None, truncate_value
+    arr = np.asarray(window)
+    if arr.ndim != 0 or isinstance(window, (bool, np.bool_)):
+        raise ValueError("window must be one positive integer or None")
+    try:
+        value = float(window)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("window must be one positive integer or None") from exc
+    if not np.isfinite(value) or value < 1 or not value.is_integer():
+        raise ValueError("window must be one positive integer or None")
+    return min(int(value), max(int(d) for d in shape[:3])), truncate_value
+
+
+def _gaussian_sigma(space, sigma, fwhm_mm):
+    if fwhm_mm is None:
+        return _positive_finite_scalar(sigma, "sigma")
+    fwhm = _positive_finite_scalar(fwhm_mm, "fwhm_mm")
+    spacing = np.asarray(space.spacing[:3], dtype=float)
+    return (fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))) / spacing
+
+
 def gaussian_blur(
     vol: NeuroVol,
     mask: Optional[LogicalNeuroVol] = None,
     sigma: float = 2,
-    window: int = 1,
+    window: Optional[int] = None,
     *,
     fwhm_mm: Optional[float] = None,
+    truncate: float = 4.0,
 ) -> DenseNeuroVol:
     """Apply a Gaussian blur to a volumetric image.
 
@@ -41,13 +79,18 @@ def gaussian_blur(
     sigma : float, optional
         Voxel-space sigma for the legacy scalar form.  Used only when
         ``fwhm_mm`` is None.  Default is 2 voxels.
-    window : int
-        Truncation half-width in voxels (``window=1`` corresponds to the
-        scipy default ``truncate=1``).
+    window : int, optional
+        Explicit kernel half-width in voxels. ``window=1`` is exactly a
+        3x3x3 kernel. The default ``None`` derives support from the Gaussian
+        width and ``truncate``, avoiding the under-smoothing caused by the old
+        fixed default. Explicit values retain the legacy clipped-support path.
     fwhm_mm : float, optional (keyword only)
         Full width at half maximum, in millimetres.  When supplied, this
         takes precedence over ``sigma`` and is converted to per-axis voxel
         sigma using ``vol.space.spacing``.
+    truncate : float, optional (keyword only)
+        Standard deviations retained when ``window`` is ``None``. Default 4,
+        matching :func:`scipy.ndimage.gaussian_filter`.
 
     Returns
     -------
@@ -64,27 +107,15 @@ def gaussian_blur(
     """
     if isinstance(vol, NeuroVec):
         return _gaussian_blur_vec(
-            vol, mask=mask, sigma=sigma, window=window, fwhm_mm=fwhm_mm
+            vol,
+            mask=mask,
+            sigma=sigma,
+            window=window,
+            fwhm_mm=fwhm_mm,
+            truncate=truncate,
         )
-    if window < 1:
-        raise ValueError("Window size must be at least 1")
-    if fwhm_mm is not None:
-        if fwhm_mm <= 0:
-            raise ValueError("fwhm_mm must be positive")
-        spacing = np.asarray(vol.space.spacing[:3], dtype=float)
-        # FWHM -> sigma conversion, per axis.
-        sigma_used: Union[float, np.ndarray] = (
-            fwhm_mm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
-        ) / spacing
-        # Use scipy's default kernel extent (~4 sigma each side) rather than the
-        # legacy ``window=1`` voxel-truncation; otherwise the kernel is so narrow
-        # that anisotropic-voxel correctness is lost to discretisation.
-        truncate_used = 4.0
-    else:
-        if sigma <= 0:
-            raise ValueError("Sigma must be positive")
-        sigma_used = sigma
-        truncate_used = float(window)
+    radius_used, truncate_used = _gaussian_support(window, truncate, vol.shape)
+    sigma_used: Union[float, np.ndarray] = _gaussian_sigma(vol.space, sigma, fwhm_mm)
 
     if mask is not None:
         from .verify import assert_same_space
@@ -93,7 +124,10 @@ def gaussian_blur(
 
     data = vol.data
     blurred_data = ndimage.gaussian_filter(
-        data, sigma=sigma_used, truncate=truncate_used
+        data,
+        sigma=sigma_used,
+        truncate=truncate_used,
+        radius=radius_used,
     )
     if mask is not None:
         output_data = data.copy()
@@ -123,8 +157,9 @@ def _gaussian_blur_vec(
     *,
     mask: Optional[LogicalNeuroVol] = None,
     sigma: float = 2,
-    window: int = 1,
+    window: Optional[int] = None,
     fwhm_mm: Optional[float] = None,
+    truncate: float = 4.0,
 ) -> DenseNeuroVec:
     """Spatially Gaussian-blur each volume of a 4-D NeuroVec.
 
@@ -132,21 +167,9 @@ def _gaussian_blur_vec(
     axes and applies zero blur along time, so the canonical fMRI smoothing
     step is first-class for time-series input.
     """
-    if window < 1:
-        raise ValueError("Window size must be at least 1")
-
     spatial = vec.spatial_space
-    if fwhm_mm is not None:
-        if fwhm_mm <= 0:
-            raise ValueError("fwhm_mm must be positive")
-        spacing = np.asarray(spatial.spacing[:3], dtype=float)
-        spatial_sigma = (fwhm_mm / (2.0 * np.sqrt(2.0 * np.log(2.0)))) / spacing
-        truncate_used = 4.0
-    else:
-        if sigma <= 0:
-            raise ValueError("Sigma must be positive")
-        spatial_sigma = np.full(3, float(sigma))
-        truncate_used = float(window)
+    radius_used, truncate_used = _gaussian_support(window, truncate, vec.shape)
+    spatial_sigma = _gaussian_sigma(spatial, sigma, fwhm_mm)
 
     if mask is not None:
         from .verify import assert_same_space
@@ -154,9 +177,18 @@ def _gaussian_blur_vec(
         assert_same_space(vec, mask)
 
     data = np.asarray(vec.to_dense().data, dtype=float)
-    # Zero sigma on the trailing time axis -> spatial-only smoothing.
-    sigma_4d = np.concatenate([np.asarray(spatial_sigma, dtype=float), [0.0]])
-    blurred = ndimage.gaussian_filter(data, sigma=sigma_4d, truncate=truncate_used)
+    # SciPy 1.10 (the declared package minimum) supports ``radius`` but not
+    # the later ``axes`` keyword. A zero sigma/radius on the trailing time
+    # axis expresses the same spatial-only operation on that version.
+    spatial_sigma_values = np.broadcast_to(np.asarray(spatial_sigma, dtype=float), (3,))
+    sigma_4d = tuple(spatial_sigma_values) + (0.0,)
+    radius_4d = None if radius_used is None else (radius_used,) * 3 + (0,)
+    blurred = ndimage.gaussian_filter(
+        data,
+        sigma=sigma_4d,
+        truncate=truncate_used,
+        radius=radius_4d,
+    )
 
     if mask is not None:
         mask_bool = np.asarray(mask.data, dtype=bool)

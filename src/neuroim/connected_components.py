@@ -48,6 +48,7 @@ class ConnCompResult:
     local_maxima: Optional[np.ndarray] = None
     provenance: Optional[Receipt] = None
 
+
 def conn_comp(
     x: NeuroVol,
     threshold: float = 0,
@@ -151,9 +152,7 @@ def conn_comp(
     # ``receipt_for`` path so the call site cannot silently omit fields
     # an op should always record (the bd-01KRKRZPDC6V5CZF7SH0C9KEDD
     # contract).
-    mask_payload = (
-        np.asarray(mask.data, dtype=bool) if mask is not None else None
-    )
+    mask_payload = np.asarray(mask.data, dtype=bool) if mask is not None else None
     receipt = receipt_for(
         x,
         mask=mask_payload,
@@ -197,6 +196,7 @@ def conn_comp(
         )
 
     return result
+
 
 def conn_comp_3D(
     mask: Union[np.ndarray, LogicalNeuroVol], connect: str = "26-connect"
@@ -251,6 +251,7 @@ def conn_comp_3D(
         size_array[component_mask] = component_size
 
     return {"index": labeled_array, "size": size_array}
+
 
 def _get_structure(connectivity: str) -> np.ndarray:
     """Get the structuring element for the specified connectivity.
@@ -313,6 +314,7 @@ def _get_structure(connectivity: str) -> np.ndarray:
             f"Invalid connectivity: {connectivity}. "
             "Choose from '6-connect', '18-connect', or '26-connect'."
         )
+
 
 def _compute_cluster_table(
     vol: NeuroVol,
@@ -385,6 +387,7 @@ def _compute_cluster_table(
 
     return pd.DataFrame(rows)
 
+
 def _find_local_maxima(
     vol: NeuroVol, labeled_array: np.ndarray, min_distance: float, space: NeuroSpace
 ) -> np.ndarray:
@@ -406,8 +409,19 @@ def _find_local_maxima(
     np.ndarray
         Array with columns: index, x, y, z, value
     """
-    # Convert minimum distance to voxels
-    min_dist_voxels = min_distance / np.mean(space.spacing)
+    try:
+        min_distance_value = np.asarray(min_distance, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "local_maxima_dist must be a finite non-negative scalar"
+        ) from exc
+    if (
+        min_distance_value.ndim != 0
+        or not np.isfinite(min_distance_value.item())
+        or min_distance_value.item() < 0
+    ):
+        raise ValueError("local_maxima_dist must be a finite non-negative scalar")
+    min_distance = float(min_distance_value.item())
 
     maxima_list = []
 
@@ -438,29 +452,33 @@ def _find_local_maxima(
             # For boolean data, no need to sort
             sort_idx = np.arange(len(maxima_values))
         else:
-            sort_idx = np.argsort(-maxima_values)
+            sort_idx = np.argsort(-maxima_values, kind="stable")
         maxima_coords = maxima_coords[sort_idx]
         maxima_values = maxima_values[sort_idx]
 
-        # Apply minimum distance constraint
+        # Apply the user-facing distance constraint in world coordinates.
+        # A grid-distance threshold derived from mean voxel spacing is wrong
+        # for anisotropic images and cannot represent an oblique/sheared
+        # affine.  Greedy value-order pruning retains the strongest peak and
+        # guarantees that every retained pair is at least ``min_distance`` mm
+        # apart.  Stable sorting makes equal-valued plateaus deterministic.
+        maxima_world = space.grid_to_coord(maxima_coords.astype(float))
         keep_mask = np.ones(len(maxima_coords), dtype=bool)
         for j in range(len(maxima_coords)):
             if not keep_mask[j]:
                 continue
-            # Remove nearby maxima
             for k in range(j + 1, len(maxima_coords)):
                 if keep_mask[k]:
-                    dist = np.linalg.norm(maxima_coords[j] - maxima_coords[k])
-                    if dist < min_dist_voxels:
+                    dist = np.linalg.norm(maxima_world[j] - maxima_world[k])
+                    if dist < min_distance:
                         keep_mask[k] = False
 
         # Keep only filtered maxima
         maxima_coords = maxima_coords[keep_mask]
         maxima_values = maxima_values[keep_mask]
+        maxima_world = maxima_world[keep_mask]
 
-        # Convert to world coordinates
-        for coord, value in zip(maxima_coords, maxima_values):
-            world_coord = space.grid_to_coord(coord.reshape(1, -1))[0]
+        for world_coord, value in zip(maxima_world, maxima_values):
             maxima_list.append(
                 [i, world_coord[0], world_coord[1], world_coord[2], value]
             )

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 from neuroim.neuro_space import NeuroSpace
 from neuroim.neuro_vol import DenseNeuroVol
-from neuroim.plotting import _display_slice, plot_montage
+from neuroim.plotting import _display_slice, plot_montage, plot_ortho
 
 
 _ORIENTATION_SCRIPT = r"""
@@ -176,6 +176,31 @@ def _assert_png_nonblank(path: Path) -> None:
     assert float(np.nanstd(image)) > 1e-3
 
 
+def _asr_marker_volume() -> DenseNeuroVol:
+    """ASR voxel axes with a landmark away from every panel edge."""
+    shape = (5, 6, 7)
+    data = np.zeros(shape, dtype=float)
+    data[1, 4, 2] = 1.0
+    affine = np.eye(4)
+    affine[:3, :3] = np.array(
+        [
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ]
+    )
+    return DenseNeuroVol(data, NeuroSpace(shape, trans=affine))
+
+
+def _png_value_at_data_coordinate(image, ax, xy) -> float:
+    """Sample a rendered PNG at a Matplotlib data coordinate."""
+    x_px, y_px = ax.transData.transform(xy)
+    row = int(round(image.shape[0] - 1 - y_px))
+    col = int(round(x_px))
+    patch = image[max(0, row - 1) : row + 2, max(0, col - 1) : col + 2]
+    return float(np.mean(patch[..., :3]))
+
+
 def test_slice_orientation_matches_neuroim2_raster_positions():
     proc = _run_r(_ORIENTATION_SCRIPT)
     r_cases = _parse_orientation_cases(proc.stdout)
@@ -186,6 +211,73 @@ def test_slice_orientation_matches_neuroim2_raster_positions():
         # our matrix with origin="lower", so flipping rows compares the same
         # visible marker positions.
         np.testing.assert_array_equal(python_matrix, np.flipud(r_matrix))
+
+
+def test_permuted_affine_selects_anatomical_planes_and_landmark_positions():
+    vol = _asr_marker_volume()
+
+    fig, axes = plot_ortho(vol, coords=(1, 4, 2), range=(0, 1), crop=False)
+    try:
+        assert [ax.get_title() for ax in axes] == [
+            "Axial",
+            "Sagittal",
+            "Coronal",
+        ]
+        expected_pixels = [
+            (1, 2),  # axial: y=A voxel 1, x=R voxel 2
+            (4, 1),  # sagittal: y=S voxel 4, x=A voxel 1
+            (4, 2),  # coronal: y=S voxel 4, x=R voxel 2
+        ]
+        for ax, expected in zip(axes, expected_pixels):
+            shown = np.asarray(ax.images[0].get_array())
+            np.testing.assert_array_equal(np.argwhere(shown == 1.0), [expected])
+    finally:
+        plt.close(fig)
+
+
+def test_oblique_affine_uses_regular_native_pixel_grid():
+    shape = (8, 10, 6)
+    data = np.zeros(shape, dtype=float)
+    data[1, 7, 2] = 1.0
+    affine = np.eye(4)
+    affine[0, 1] = 0.25
+    affine[1, 0] = -0.15
+    vol = DenseNeuroVol(data, NeuroSpace(shape, trans=affine))
+
+    display = _display_slice(vol, axis=2, index=2)
+
+    assert display.data.shape == (10, 8)
+    assert np.isfinite(display.data).all()
+    x_step = (display.extent[1] - display.extent[0]) / display.data.shape[1]
+    y_step = (display.extent[3] - display.extent[2]) / display.data.shape[0]
+    assert x_step == pytest.approx(np.linalg.norm(affine[:3, 0]))
+    assert y_step == pytest.approx(np.linalg.norm(affine[:3, 1]))
+
+
+def test_permuted_affine_rendered_png_has_landmark_in_each_anatomical_panel(
+    tmp_path,
+):
+    vol = _asr_marker_volume()
+    path = tmp_path / "asr_plot_ortho_visual_qa.png"
+    fig, axes = plot_ortho(
+        vol,
+        coords=(1, 4, 2),
+        range=(0, 1),
+        crop=False,
+        figsize=(9, 3),
+    )
+    try:
+        fig.savefig(path)
+        rendered = plt.imread(path)
+        marker_xy = [(2, 1), (1, 4), (2, 4)]
+        background_xy = [(0, 4), (3, 0), (0, 0)]
+        for ax, marker, background in zip(axes, marker_xy, background_xy):
+            assert _png_value_at_data_coordinate(rendered, ax, marker) > 0.8
+            assert _png_value_at_data_coordinate(rendered, ax, background) < 0.2
+    finally:
+        plt.close(fig)
+
+    _assert_png_nonblank(path)
 
 
 def test_can_emit_neuroim2_visual_qc_artifacts(tmp_path):

@@ -12,7 +12,7 @@ from joblib import Parallel, delayed
 from .neuro_vol import NeuroVol, LogicalNeuroVol, DenseNeuroVol
 from .neuro_vec import NeuroVec
 from .results import SearchlightResult, make_receipt
-from .searchlight import searchlight_iterator
+from .searchlight import _as_logical_mask, searchlight_iterator
 from .clustered_neuro_vol import ClusteredNeuroVol
 from .protocols import MaskLike, NeuroVecLike, NeuroVolLike
 
@@ -31,23 +31,27 @@ def _warn_legacy_return(return_legacy: bool) -> None:
 
 def _coords_from_parent_index(space, parent_index: int) -> tuple[int, ...]:
     """Return coordinate tuple for an opaque parent index."""
-    return tuple(space.index_to_grid(np.array([parent_index], dtype=int))[0].astype(int))
+    return tuple(
+        space.index_to_grid(np.array([parent_index], dtype=int))[0].astype(int)
+    )
 
 
-def searchlight(mask: MaskLike,
-                radius: float,
-                method,
-                combiner: str = "mean",
-                data: Optional[Union[NeuroVolLike, NeuroVecLike]] = None,
-                eager: bool = False,
-                nonzero: bool = False,
-                cores: int = 0,
-                return_legacy: bool = False):
+def searchlight(
+    mask: MaskLike,
+    radius: float,
+    method,
+    combiner: str = "mean",
+    data: Optional[Union[NeuroVolLike, NeuroVecLike]] = None,
+    eager: bool = False,
+    nonzero: bool = False,
+    cores: int = 0,
+    return_legacy: bool = False,
+):
     """Apply a searchlight analysis with a given method function.
-    
+
     This function performs searchlight analysis by applying a method function
     to each searchlight sphere and combining the results.
-    
+
     Parameters
     ----------
     mask : NeuroVol or LogicalNeuroVol
@@ -69,7 +73,7 @@ def searchlight(mask: MaskLike,
     cores : int, optional
         Number of cores to use for parallel computation. Default is 0,
         which uses a single core.
-        
+
     Returns
     -------
     SearchlightResult or NeuroVol
@@ -88,8 +92,7 @@ def searchlight(mask: MaskLike,
         data = mask
 
     # Convert to LogicalNeuroVol if needed
-    if not isinstance(mask, LogicalNeuroVol):
-        mask = mask.as_logical()
+    mask = _as_logical_mask(mask)
 
     # PAIN-10: validate that the supplied data carrier and the mask live in
     # the same spatial frame *before* sampling neighborhoods.  Without this
@@ -103,13 +106,15 @@ def searchlight(mask: MaskLike,
         from .verify import assert_same_space
 
         assert_same_space(data, mask)
-    
+
     # Create result volume with same space as mask
     result_data = np.full(mask.data.shape, np.nan, dtype=np.float64)
-    
+
     # Get searchlight iterator
-    searchlights = searchlight_iterator(mask, radius, eager=eager, nonzero=nonzero, cores=cores)
-    
+    searchlights = searchlight_iterator(
+        mask, radius, eager=eager, nonzero=nonzero, cores=cores
+    )
+
     # Define processing function for a single searchlight
     def process_searchlight(sl):
         """Process a single searchlight and return (center_idx, result)."""
@@ -117,21 +122,21 @@ def searchlight(mask: MaskLike,
         if hasattr(data, "series_at_coords"):
             # For NeuroVec, extract time series
             sl_data = data.series_at_coords(sl.coords)
-        elif hasattr(data, 'series'):
+        elif hasattr(data, "series"):
             sl_data = data.series(sl.coords)
         else:
             # For NeuroVol, extract values
             sl_indices = mask.space.grid_to_index(sl.coords)
             sl_data = data.data.ravel(order="F")[sl_indices]
-        
+
         # Apply method
         if sl_data.size > 0:
             result = method(sl_data)
         else:
             result = np.nan
-            
+
         return sl.parent_index, result
-    
+
     if cores > 1 and eager:
         # Parallel processing when searchlights are eagerly computed
         results = Parallel(n_jobs=cores, prefer="threads")(
@@ -145,7 +150,7 @@ def searchlight(mask: MaskLike,
         for sl in searchlights:
             center_idx, result = process_searchlight(sl)
             result_data[_coords_from_parent_index(mask.space, center_idx)] = result
-    
+
     legacy_vol = DenseNeuroVol(result_data, mask.space)
     if return_legacy:
         return legacy_vol
@@ -238,13 +243,16 @@ def resampled_searchlight(
     if mask is None:
         first_vol = vec[..., 0]
         if isinstance(first_vol, NeuroVol):
-            mask = first_vol.as_logical()
+            mask = _as_logical_mask(first_vol)
         else:
             from .neuro_space import NeuroSpace as _NS
-            mask_space = _NS(vec.shape[:3], spacing=vec.spacing[:3], origin=vec.origin[:3])
+
+            mask_space = _NS(
+                vec.shape[:3], spacing=vec.spacing[:3], origin=vec.origin[:3]
+            )
             mask = LogicalNeuroVol(first_vol != 0, mask_space)
-    elif not isinstance(mask, LogicalNeuroVol):
-        mask = mask.as_logical()
+    else:
+        mask = _as_logical_mask(mask)
 
     searchlights = searchlight_iterator(mask, radius, eager=False, nonzero=True)
 

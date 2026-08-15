@@ -15,6 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Colormap, LinearSegmentedColormap, Normalize
+from nibabel.orientations import io_orientation
 
 from .neuro_slice import NeuroSlice
 from .neuro_vol import NeuroVol
@@ -33,6 +34,11 @@ class _DisplaySlice:
     index: int
     plane: str
     alpha: Optional[np.ndarray] = None
+    native_axes: Tuple[int, int] = (0, 1)
+    input_order: Tuple[int, int] = (0, 1)
+    flipped: Tuple[bool, bool] = (False, False)
+    display_dim: Tuple[int, int] = (0, 0)
+    display_spacing: Tuple[float, float] = (1.0, 1.0)
 
 
 _CMAP_ALIASES = {
@@ -300,6 +306,87 @@ def _orient_matrix(
     return out, (xmin, xmax, ymin, ymax), out_alpha
 
 
+def _spatial_orientation(space) -> np.ndarray:
+    """Return a validated native-axis to anatomical-axis orientation."""
+    orientation = io_orientation(np.asarray(space.affine, dtype=float))
+    world_axes = orientation[:, 0]
+    if (
+        orientation.shape != (3, 2)
+        or not np.all(np.isfinite(orientation))
+        or len(set(world_axes.astype(int))) != 3
+    ):
+        raise ValueError(
+            "volume affine must map its three voxel axes to distinct "
+            "anatomical directions"
+        )
+    return orientation
+
+
+def _display_from_native_matrix(
+    mat: np.ndarray,
+    *,
+    space,
+    axis: int,
+    index: int,
+    alpha_map: Optional[np.ndarray] = None,
+) -> _DisplaySlice:
+    """Orient one native voxel plane on a regular anatomical raster.
+
+    The affine supplies a signed permutation from native voxel axes to their
+    nearest world axes.  Oblique data remain on their native pixel lattice;
+    this function only permutes/flips pixels and scales the regular display
+    grid by the physical native-axis spacing.
+    """
+    values = np.asarray(mat)
+    if values.ndim != 2:
+        raise ValueError("slice data must be 2D")
+    if alpha_map is not None:
+        alpha_map = np.asarray(alpha_map, dtype=float)
+        if alpha_map.shape != values.shape:
+            raise ValueError("alpha_map must have the same shape as slice data")
+
+    orientation = _spatial_orientation(space)
+    native_axes = tuple(i for i in range(3) if i != axis)
+    anatomical_axes = orientation[list(native_axes), 0].astype(int)
+    input_order = tuple(int(i) for i in np.argsort(anatomical_axes))
+    directions = orientation[np.asarray(native_axes, dtype=int)[list(input_order)], 1]
+    flipped = tuple(bool(direction < 0) for direction in directions)
+
+    canonical = np.transpose(values, input_order)
+    canonical_alpha = (
+        None if alpha_map is None else np.transpose(alpha_map, input_order)
+    )
+    for display_axis, should_flip in enumerate(flipped):
+        if should_flip:
+            canonical = np.flip(canonical, axis=display_axis)
+            if canonical_alpha is not None:
+                canonical_alpha = np.flip(canonical_alpha, axis=display_axis)
+
+    display_dim = tuple(int(d) for d in canonical.shape)
+    native_spacing = np.linalg.norm(np.asarray(space.affine)[:3, :3], axis=0)
+    retained_spacing = native_spacing[list(native_axes)]
+    display_spacing = tuple(float(retained_spacing[i]) for i in input_order)
+    xvals = np.arange(display_dim[0], dtype=float) * display_spacing[0]
+    yvals = np.arange(display_dim[1], dtype=float) * display_spacing[1]
+    xmin, xmax = _raster_extent_from_centers(xvals)
+    ymin, ymax = _raster_extent_from_centers(yvals)
+    world_normal = int(orientation[axis, 0])
+
+    return _DisplaySlice(
+        data=canonical.T,
+        extent=(xmin, xmax, ymin, ymax),
+        axis=axis,
+        index=int(index),
+        plane=_PLANE_BY_AXIS[world_normal],
+        alpha=None if canonical_alpha is None else canonical_alpha.T,
+        native_axes=native_axes,
+        input_order=input_order,
+        flipped=flipped,
+        display_dim=display_dim,
+        display_spacing=display_spacing,
+    )
+
+
 def _display_slice(
     vol,
     *,
@@ -308,9 +395,18 @@ def _display_slice(
     alpha_map: Optional[np.ndarray] = None,
 ) -> _DisplaySlice:
     arr = _as_3d_array(vol)
-    slc = _slice_object(vol, axis, index)
-    raw = np.asarray(slc.data if slc is not None else _slice_raw(arr, axis, index))
-    oriented, extent, oriented_alpha = _orient_matrix(raw, slc=slc, alpha_map=alpha_map)
+    raw = _slice_raw(arr, axis, index)
+    space = _space_of(vol)
+    if space is not None:
+        return _display_from_native_matrix(
+            raw,
+            space=space,
+            axis=axis,
+            index=index,
+            alpha_map=alpha_map,
+        )
+
+    oriented, extent, oriented_alpha = _orient_matrix(raw, alpha_map=alpha_map)
     return _DisplaySlice(
         data=oriented,
         extent=extent,
@@ -319,6 +415,37 @@ def _display_slice(
         plane=_PLANE_BY_AXIS[axis],
         alpha=oriented_alpha,
     )
+
+
+def _slice_grid_to_display(
+    display: _DisplaySlice, grid_coord: Sequence[float]
+) -> np.ndarray:
+    """Map a 3-D native grid coordinate into a displayed slice raster."""
+    grid = np.asarray(grid_coord, dtype=float)
+    if grid.shape != (3,) or not np.all(np.isfinite(grid)):
+        raise ValueError("grid_coord must contain three finite voxel coordinates")
+    retained = grid[list(display.native_axes)]
+    shown = retained[list(display.input_order)].copy()
+    for axis, should_flip in enumerate(display.flipped):
+        if should_flip:
+            shown[axis] = display.display_dim[axis] - 1 - shown[axis]
+    return shown * np.asarray(display.display_spacing)
+
+
+def _anatomical_specs(vol, coord: Sequence[int]) -> list[Tuple[int, int]]:
+    """Native slice axes for Axial, Sagittal, Coronal display order."""
+    space = _space_of(vol)
+    if space is None:
+        return [(2, int(coord[2])), (0, int(coord[0])), (1, int(coord[1]))]
+    orientation = _spatial_orientation(space)
+    native_for_world = {
+        int(world_axis): int(native_axis)
+        for native_axis, world_axis in enumerate(orientation[:, 0])
+    }
+    return [
+        (native_for_world[world_axis], int(coord[native_for_world[world_axis]]))
+        for world_axis in (2, 0, 1)
+    ]
 
 
 def _resolve_display_limits(values, range_arg: RangeArg = "robust", probs=(0.02, 0.98)):
@@ -721,7 +848,7 @@ def plot_ortho(
     limits = _resolve_display_limits(_as_3d_array(vol), range, probs=probs)
     crop_margin = _crop_margin(crop)
 
-    specs = [(2, coord[2]), (0, coord[0]), (1, coord[1])]
+    specs = _anatomical_specs(vol, coord)
     displays = [_display_slice(vol, axis=axis, index=idx) for axis, idx in specs]
 
     created = axes is None
@@ -744,10 +871,7 @@ def plot_ortho(
         last = _imshow(ax, display, cmap=cmap, limits=limits)
         ax.set_title(display.plane, fontsize=_TITLE_FONTSIZE)
         if crosshair:
-            keep = [i for i in (0, 1, 2) if i != axis]
-            center = np.asarray(coord)[keep]
-            if _space_of(vol) is not None:
-                center = _space_grid_to_coord(_space_of(vol).drop_dim(axis), center)[0]
+            center = _slice_grid_to_display(display, coord)
             ax.axvline(float(center[0]), color="white", linewidth=0.6, alpha=0.75)
             ax.axhline(float(center[1]), color="white", linewidth=0.6, alpha=0.75)
         ax.axis("off")
@@ -894,7 +1018,7 @@ def plot_overlay(
 
     if zlevels is None:
         coord = _coord_to_voxel(base_vol, coords, coord_space)
-        specs = [(2, coord[2]), (0, coord[0]), (1, coord[1])]
+        specs = _anatomical_specs(base_vol, coord)
         if axes is not None:
             axes = np.asarray(axes).ravel()
             fig = axes[0].figure
@@ -1035,9 +1159,16 @@ def plot_checkerboard(
         use_base = ((grid[0] // int(tile)) + (grid[1] // int(tile))) % 2 == 0
         panel = np.where(use_base, bg01, ov01)
 
-        slc = _slice_object(base_vol, axis, int(idx))
-        oriented, extent, _ = _orient_matrix(panel, slc=slc)
-        display = _DisplaySlice(oriented, extent, axis, int(idx), _PLANE_BY_AXIS[axis])
+        space = _space_of(base_vol)
+        if space is not None:
+            display = _display_from_native_matrix(
+                panel, space=space, axis=axis, index=int(idx)
+            )
+        else:
+            oriented, extent, _ = _orient_matrix(panel)
+            display = _DisplaySlice(
+                oriented, extent, axis, int(idx), _PLANE_BY_AXIS[axis]
+            )
         displays.append(display)
         _imshow(ax_obj, display, cmap=cmap, limits=(0.0, 1.0))
         ax_obj.set_title(f"{_AXIS_NAME[axis]} = {int(idx)}", fontsize=_TITLE_FONTSIZE)
@@ -1133,13 +1264,16 @@ def plot_edge_overlay(
             (edge_vol2, edge2, moving_color),
         ):
             if style == "contour":
-                slc = _slice_object(edge_vol, axis, int(idx))
-                raw = (
-                    slc.data
-                    if slc is not None
-                    else _slice_raw(edge_arr, axis, int(idx))
-                )
-                oriented, extent, _ = _orient_matrix(np.abs(np.asarray(raw)), slc=slc)
+                raw = np.abs(_slice_raw(edge_arr, axis, int(idx)))
+                space = _space_of(edge_vol)
+                if space is not None:
+                    oriented_display = _display_from_native_matrix(
+                        raw, space=space, axis=axis, index=int(idx)
+                    )
+                    oriented = oriented_display.data
+                    extent = oriented_display.extent
+                else:
+                    oriented, extent, _ = _orient_matrix(raw)
                 if np.any(np.isfinite(oriented) & (oriented >= level)):
                     ax_obj.contour(
                         np.nan_to_num(oriented, nan=0.0),

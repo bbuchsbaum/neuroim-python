@@ -178,8 +178,8 @@ class TestReadWriteVol:
             os.unlink(tmp_path_binary)
             os.unlink(tmp_path_ubyte)
 
-    def test_write_vol_defaults_to_float_type(self):
-        """Test no data_type uses default float output."""
+    def test_write_vol_defaults_to_source_dtype(self):
+        """No data_type hint preserves the source dtype."""
         vol = DenseNeuroVol(
             np.array([[[1, 0], [1, 0]], [[0, 1], [1, 0]]], dtype=np.int16),
             NeuroSpace(dim=(2, 2, 2)),
@@ -191,7 +191,7 @@ class TestReadWriteVol:
         try:
             write_vol(vol, tmp_path)
             loaded = nib.load(tmp_path)
-            assert loaded.header.get_data_dtype() == np.dtype(np.float32)
+            assert loaded.header.get_data_dtype() == np.dtype(np.int16)
         finally:
             os.unlink(tmp_path)
 
@@ -488,8 +488,8 @@ class TestReadWriteVec:
             os.unlink(tmp_path_binary)
             os.unlink(tmp_path_ubyte)
 
-    def test_write_vec_defaults_to_float_type(self):
-        """Test no data_type uses default float output."""
+    def test_write_vec_defaults_to_source_dtype(self):
+        """No data_type hint preserves the source dtype."""
         vec = DenseNeuroVec(
             np.arange(24, dtype=np.int16).reshape((4, 3, 2, 1)),
             NeuroSpace(dim=(4, 3, 2, 1)),
@@ -501,7 +501,7 @@ class TestReadWriteVec:
         try:
             write_vec(vec, tmp_path)
             loaded = nib.load(tmp_path)
-            assert loaded.header.get_data_dtype() == np.dtype(np.float32)
+            assert loaded.header.get_data_dtype() == np.dtype(np.int16)
         finally:
             os.unlink(tmp_path)
 

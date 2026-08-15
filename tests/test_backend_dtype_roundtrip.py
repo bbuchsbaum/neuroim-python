@@ -93,9 +93,7 @@ def _vol_factory(name: str, arr: np.ndarray, space: NeuroSpace):
     if name == "dense":
         return DenseNeuroVol(arr, space)
     if name == "sparse":
-        full_mask = LogicalNeuroVol(
-            np.ones(arr.shape, dtype=bool), space
-        )
+        full_mask = LogicalNeuroVol(np.ones(arr.shape, dtype=bool), space)
         return SparseNeuroVol(arr, space, mask=full_mask)
     raise ValueError(name)
 
@@ -160,14 +158,13 @@ def test_vol_write_read_preserves_values(tmp_path, backend_name, dtype):
     recovered = read_vol(str(target))
 
     np.testing.assert_array_equal(
-        recovered.data.astype(dtype), arr.astype(dtype),
+        recovered.data.astype(dtype),
+        arr.astype(dtype),
         err_msg=f"Vol round-trip value drift: backend={backend_name} dtype={dtype}",
     )
 
 
-@pytest.mark.parametrize(
-    "backend_name", ["dense", "sparse", "mapped", "file_backed"]
-)
+@pytest.mark.parametrize("backend_name", ["dense", "sparse", "mapped", "file_backed"])
 @pytest.mark.parametrize("dtype", _DTYPES)
 def test_vec_write_read_preserves_dtype(tmp_path, backend_name, dtype):
     space = _vec_space()
@@ -183,30 +180,20 @@ def test_vec_write_read_preserves_dtype(tmp_path, backend_name, dtype):
         f"input={dtype} recovered={recovered.data.dtype}"
     )
     np.testing.assert_array_equal(
-        recovered.data.astype(dtype), arr.astype(dtype),
+        recovered.data.astype(dtype),
+        arr.astype(dtype),
         err_msg=f"Vec round-trip value drift: backend={backend_name} dtype={dtype}",
     )
 
 
-# A second matrix asserting the parity claim WITHOUT explicit data_type:
-# this is the form the issue body literally writes (`read_vol(write_vol(x))`).
-# Behavior here is the "default-preservation" contract — when the caller does
-# not specify a target on-disk dtype, the round-trip preserves the input
-# dtype.  Today's NIfTI default is FLOAT32, so float64 silently downcasts;
-# this matrix documents that drift class through xfail markers until the
-# defaults are corrected in a follow-up.
+# A second matrix asserts the parity claim WITHOUT explicit data_type. This is
+# the normal ``read_vol(write_vol(x))`` path: absent a requested on-disk dtype,
+# the writer preserves the source dtype and values.
 
 
 @pytest.mark.parametrize("dtype", _DTYPES)
-def test_vol_default_write_dtype_drift_documented(tmp_path, dtype):
-    """Documents which dtypes survive the default NIfTI write path.
-
-    float32 round-trips cleanly today.  float64 silently downcasts to
-    float32 because :func:`write_vol` defaults ``data_type='FLOAT'``.
-    Integer dtypes round-trip cleanly when ``read_vol`` uses ``get_fdata``
-    only because the writer chose float32 — so the recovered array is
-    float32, not the input integer dtype.
-    """
+def test_vol_default_write_preserves_source_dtype_and_values(tmp_path, dtype):
+    """The default NIfTI path preserves source dtype without a hint."""
     space = _vol_space()
     arr = _vol_array(dtype)
     vol = DenseNeuroVol(arr, space)
@@ -215,12 +202,5 @@ def test_vol_default_write_dtype_drift_documented(tmp_path, dtype):
     write_vol(vol, str(target))
     recovered = read_vol(str(target))
 
-    if dtype == "float32":
-        assert np.dtype(recovered.data.dtype) == np.dtype("float32")
-    else:
-        # documented drift: the default write path casts to float32
-        assert np.dtype(recovered.data.dtype) != np.dtype(dtype), (
-            "default write path no longer drifts dtype; lift the xfail in "
-            "test_vol_default_write_dtype_drift_documented and tighten the "
-            "default behaviour."
-        )
+    assert np.dtype(recovered.data.dtype) == np.dtype(dtype)
+    np.testing.assert_array_equal(recovered.data, arr)

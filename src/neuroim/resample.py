@@ -7,12 +7,13 @@ volumes and vectors to match different spatial configurations.
 import warnings
 
 import numpy as np
-from typing import Union, List, Tuple, Optional
+from typing import Union, List
 
 # Try to import nibabel for resampling support
 try:
     import nibabel as nib
     from nibabel.processing import resample_from_to
+
     HAS_NIBABEL = True
 except ImportError:
     HAS_NIBABEL = False
@@ -20,11 +21,75 @@ except ImportError:
 from .neuro_vol import NeuroVol, DenseNeuroVol, SparseNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_space import NeuroSpace
-from .axis import (
-    NamedAxis, LEFT_RIGHT, RIGHT_LEFT, ANT_POST, POST_ANT,
-    INF_SUP, SUP_INF
-)
+from .axis import LEFT_RIGHT, RIGHT_LEFT, ANT_POST, POST_ANT, INF_SUP, SUP_INF
 from .results import ResampleParams, hash_neurospace, receipt_for
+
+
+_LOW_OVERLAP_WARNING_THRESHOLD = 0.05
+
+
+def _world_bounding_box(space: NeuroSpace) -> tuple[np.ndarray, np.ndarray]:
+    """Return the axis-aligned world bounds of the first three voxel axes."""
+    if len(space.dim) < 3:
+        raise ValueError("resampling requires at least three spatial dimensions")
+    spatial_dim = np.asarray(space.dim[:3], dtype=float)
+    # Voxel cells, rather than voxel centres, give non-zero physical extent to
+    # singleton axes and describe the full support handed to the interpolator.
+    edges = [(-0.5, dim - 0.5) for dim in spatial_dim]
+    corners = np.array(np.meshgrid(*edges, indexing="ij")).reshape(3, -1).T
+    world = space.grid_to_coord(corners)
+    return np.min(world, axis=0), np.max(world, axis=0)
+
+
+def _target_overlap_fraction(
+    source_space: NeuroSpace, target_space: NeuroSpace
+) -> tuple[float, tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
+    """Fraction of the target world AABB covered by the source world AABB."""
+    source_bounds = _world_bounding_box(source_space)
+    target_bounds = _world_bounding_box(target_space)
+    overlap = np.maximum(
+        0.0,
+        np.minimum(source_bounds[1], target_bounds[1])
+        - np.maximum(source_bounds[0], target_bounds[0]),
+    )
+    target_extent = np.maximum(target_bounds[1] - target_bounds[0], np.finfo(float).eps)
+    fraction = float(np.prod(overlap) / np.prod(target_extent))
+    return fraction, source_bounds, target_bounds
+
+
+def _warn_if_low_overlap(
+    source_space: NeuroSpace,
+    target_space: NeuroSpace,
+    *,
+    threshold: float = _LOW_OVERLAP_WARNING_THRESHOLD,
+) -> None:
+    """Warn when less than ``threshold`` of the target world AABB overlaps.
+
+    The 5% default is deliberately conservative. Axis-aligned world bounding
+    boxes are a loose preflight check for obviously misplaced targets, not an
+    intersection test for rotated image volumes.
+    """
+    fraction, source_bounds, target_bounds = _target_overlap_fraction(
+        source_space, target_space
+    )
+    if not np.isfinite(fraction) or fraction >= threshold:
+        return
+
+    def _format_bounds(bounds: tuple[np.ndarray, np.ndarray]) -> str:
+        return " ".join(
+            f"[{low:.1f}, {high:.1f}]" for low, high in zip(bounds[0], bounds[1])
+        )
+
+    warnings.warn(
+        "The resample target covers little of the source image: their world "
+        f"bounding boxes overlap over {100.0 * fraction:.1f}% of the target, "
+        "so most of the output will be background. "
+        f"Source spans {_format_bounds(source_bounds)} and target spans "
+        f"{_format_bounds(target_bounds)}. Check the target affine or use "
+        "resample_to() with the image whose grid you want to match.",
+        UserWarning,
+        stacklevel=3,
+    )
 
 
 def _resample_method_name(
@@ -41,8 +106,10 @@ def _resample_method_name(
         f"target={hash_neurospace(target_space)})"
     )
 
-def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
-             interpolation: int = 3) -> DenseNeuroVol:
+
+def resample(
+    source: NeuroVol, target: Union[NeuroVol, NeuroSpace], interpolation: int = 3
+) -> DenseNeuroVol:
     """Resample an image to match the space of another image.
 
     This function resamples a source image to match the spatial properties
@@ -65,6 +132,12 @@ def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
     DenseNeuroVol
         The resampled source image with the same spatial properties as target
 
+    Warns
+    -----
+    UserWarning
+        If less than 5% of the target's axis-aligned world bounding box
+        overlaps the source's. Resampling still proceeds normally.
+
     Raises
     ------
     ImportError
@@ -82,8 +155,9 @@ def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
     >>> resampled = resample(source_vol, new_space)
     """
     if not HAS_NIBABEL:
-        raise ImportError("nibabel is required for resampling. "
-                         "Install with: pip install nibabel")
+        raise ImportError(
+            "nibabel is required for resampling. " "Install with: pip install nibabel"
+        )
 
     if interpolation not in [0, 1, 3]:
         raise ValueError("interpolation must be 0 (nearest), 1 (linear), or 3 (cubic)")
@@ -117,13 +191,15 @@ def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
             spacing=target.spacing,
             origin=target.origin,
             axes=source.space.axes,  # Preserve source axes orientation
-            trans=target.trans
+            trans=target.trans,
         )
     else:
         # Convert target NeuroVol to nibabel image
         target_data = target.data if hasattr(target, "data") else target.as_dense().data
         target_nifti = nib.Nifti1Image(target_data, target.space.trans)
         target_space = target.space
+
+    _warn_if_low_overlap(source.space, target_space)
 
     # Perform resampling
     resampled_nifti = resample_from_to(source_nifti, target_nifti, order=interpolation)
@@ -162,8 +238,10 @@ def resample(source: NeuroVol, target: Union[NeuroVol, NeuroSpace],
     )
     return out
 
-def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
-                 interpolation: int = 3) -> DenseNeuroVec:
+
+def resample_vec(
+    source: NeuroVec, target: Union[NeuroVec, NeuroSpace], interpolation: int = 3
+) -> DenseNeuroVec:
     """Resample a 4D NeuroVec to match the space of another image.
 
     Parameters
@@ -182,8 +260,9 @@ def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
 
     """
     if not HAS_NIBABEL:
-        raise ImportError("nibabel is required for resampling. "
-                         "Install with: pip install nibabel")
+        raise ImportError(
+            "nibabel is required for resampling. " "Install with: pip install nibabel"
+        )
 
     # Extract individual volumes and resample
     n_vols = source.shape[3]
@@ -214,7 +293,7 @@ def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
             spacing=target.spacing,
             origin=target.origin,
             axes=source.space.axes,  # Preserve source axes orientation
-            trans=target.trans if hasattr(target, 'trans') else None
+            trans=target.trans if hasattr(target, "trans") else None,
         )
     else:
         target_4d_space = target.space
@@ -235,10 +314,13 @@ def resample_vec(source: NeuroVec, target: Union[NeuroVec, NeuroSpace],
     )
     return out
 
-def resample_to(source: Union[NeuroVol, NeuroVec],
-                target: Union[NeuroVol, NeuroVec, NeuroSpace],
-                method: str = "linear",
-                engine: str = "nibabel") -> Union[DenseNeuroVol, DenseNeuroVec]:
+
+def resample_to(
+    source: Union[NeuroVol, NeuroVec],
+    target: Union[NeuroVol, NeuroVec, NeuroSpace],
+    method: str = "linear",
+    engine: str = "nibabel",
+) -> Union[DenseNeuroVol, DenseNeuroVec]:
     """Resample a volume or vector to a target using neuroim2-style names."""
     method_map = {"nearest": 0, "linear": 1, "cubic": 3}
     if method not in method_map:
@@ -250,24 +332,27 @@ def resample_to(source: Union[NeuroVol, NeuroVec],
         return resample_vec(source, target, interpolation=interpolation)
     return resample(source, target, interpolation=interpolation)
 
-def reorient(x: Union[NeuroSpace, NeuroVol], orient: Union[str, List[str]]) -> Union[NeuroSpace, NeuroVol]:
+
+def reorient(
+    x: Union[NeuroSpace, NeuroVol, NeuroVec], orient: Union[str, List[str]]
+) -> Union[NeuroSpace, NeuroVol, NeuroVec]:
     """Remap the grid-to-world coordinates mapping of an image.
 
     Parameters
     ----------
-    x : NeuroSpace or NeuroVol
+    x : NeuroSpace, NeuroVol, or NeuroVec
         The object to reorient
     orient : str or list of str
         The orientation code indicating the remapped axes.
         Can be a 3-letter string like "RAS" or list like ["R", "A", "S"]
-        Each position represents:
-        - First: "R" (Right) or "L" (Left)
-        - Second: "A" (Anterior) or "P" (Posterior)
-        - Third: "S" (Superior) or "I" (Inferior)
+        The letters must contain exactly one left/right, one anterior/posterior,
+        and one inferior/superior axis.  Their order is the desired voxel-axis
+        order, so both canonical codes such as ``"RAS"`` and permutations such
+        as ``"PIR"`` are valid.
 
     Returns
     -------
-    NeuroSpace or NeuroVol
+    NeuroSpace, NeuroVol, or NeuroVec
         A reoriented version of x
 
     Examples
@@ -278,7 +363,12 @@ def reorient(x: Union[NeuroSpace, NeuroVol], orient: Union[str, List[str]]) -> U
     >>> # Or using a list
     >>> space_ras = reorient(space, ["R", "A", "S"])
     """
-    # Parse orientation string
+    if not HAS_NIBABEL:
+        raise ImportError(
+            "nibabel is required for reorientation. Install with: pip install nibabel"
+        )
+
+    # Parse and validate the target orientation.
     if isinstance(orient, str):
         if len(orient) != 3:
             raise ValueError("Orientation string must be exactly 3 characters")
@@ -290,17 +380,12 @@ def reorient(x: Union[NeuroSpace, NeuroVol], orient: Union[str, List[str]]) -> U
     else:
         raise TypeError("orient must be a string or list")
 
-    # Validate orientation codes
-    valid_lr = ["L", "R"]
-    valid_ap = ["A", "P"]
-    valid_si = ["S", "I"]
-
-    if orient[0] not in valid_lr:
-        raise ValueError(f"First orientation must be L or R, got {orient[0]}")
-    if orient[1] not in valid_ap:
-        raise ValueError(f"Second orientation must be A or P, got {orient[1]}")
-    if orient[2] not in valid_si:
-        raise ValueError(f"Third orientation must be S or I, got {orient[2]}")
+    groups = ({"L", "R"}, {"A", "P"}, {"S", "I"})
+    if any(sum(code in group for code in orient) != 1 for group in groups):
+        raise ValueError(
+            "Orientation must contain exactly one of L/R, one of A/P, "
+            f"and one of S/I; got {''.join(orient)!r}"
+        )
 
     # Map orientation codes to axes
     axis_map = {
@@ -309,169 +394,71 @@ def reorient(x: Union[NeuroSpace, NeuroVol], orient: Union[str, List[str]]) -> U
         "A": ANT_POST,
         "P": POST_ANT,
         "S": SUP_INF,
-        "I": INF_SUP
+        "I": INF_SUP,
     }
 
     new_axes = [axis_map[o] for o in orient]
 
+    if not isinstance(x, (NeuroSpace, NeuroVol, NeuroVec)):
+        raise TypeError("x must be NeuroSpace, NeuroVol, or NeuroVec")
+
+    space = x if isinstance(x, NeuroSpace) else x.space
+    if space.ndim < 3:
+        raise ValueError("Reorientation requires at least three spatial dimensions")
+
+    start = nib.orientations.io_orientation(space.affine)
+    end = nib.orientations.axcodes2ornt(tuple(orient))
+    transform = nib.orientations.ornt_transform(start, end)
+    new_space = _reorient_space(space, new_axes, transform)
+
     if isinstance(x, NeuroSpace):
-        # For NeuroSpace, create new space with reoriented axes
-        return _reorient_space(x, new_axes)
-    elif isinstance(x, NeuroVol):
-        # For NeuroVol, reorient the underlying space and data
-        # Get current axes using axis attributes
-        axis_attrs = ['i', 'j', 'k']
-        old_axes = [getattr(x.space.axes, axis_attrs[i]) for i in range(min(3, x.space.ndim))]
+        return new_space
 
-        # Compute permutation and flips
-        perm_indices, flip_axes = _compute_reorientation(old_axes, new_axes)
-
-        # Apply permutation to data
-        data = np.transpose(x.data, perm_indices)
-
-        # Apply flips
-        for axis, should_flip in enumerate(flip_axes[:len(perm_indices)]):
-            if should_flip:
-                data = np.flip(data, axis=axis)
-
-        # Create new space with reoriented axes
-        new_space = _reorient_space(x.space, new_axes)
-
-        # Update dimensions in new space to match permuted data
-        new_dim = [data.shape[i] for i in range(len(data.shape))]
-        new_space = NeuroSpace(
-            dim=new_dim,
-            origin=new_space.origin,
-            spacing=new_space.spacing,
-            axes=new_space.axes,
-            trans=new_space.trans
-        )
-
-        return DenseNeuroVol(data, new_space)
+    if isinstance(x, (DenseNeuroVol, DenseNeuroVec)):
+        source_data = x.data
     else:
-        raise TypeError("x must be NeuroSpace or NeuroVol")
-
-def _get_permutation_matrix(axes) -> np.ndarray:
-    """Get permutation matrix from axis set.
-
-    Returns a matrix where columns are the direction vectors of each axis.
-    """
-    ndim = min(3, axes.ndim)  # Only handle spatial dimensions
-    perm_mat = np.zeros((3, ndim))
-
-    # Access axes as attributes
-    axis_attrs = ['i', 'j', 'k']
-    for idx in range(ndim):
-        axis = getattr(axes, axis_attrs[idx])
-        # Convert direction to a proper 3D vector
-        if isinstance(axis.direction, (list, tuple)):
-            direction = axis.direction
-        elif isinstance(axis.direction, (int, float)):
-            # Single value direction - expand to 3D vector
-            dir_vec = [0, 0, 0]
-            dir_vec[idx] = axis.direction
-            direction = dir_vec
-        else:
-            direction = [0, 0, 0]
-            direction[idx] = 1
-
-        perm_mat[:, idx] = direction
-
-    return perm_mat
-
-def _compute_reorientation(old_axes: List[NamedAxis], new_axes: List[NamedAxis]) -> Tuple[List[int], List[bool]]:
-    """Compute permutation indices and flip flags for reorientation.
-
-    Returns
-    -------
-    perm_indices : list of int
-        Permutation indices for np.transpose
-    flip_axes : list of bool
-        Whether to flip each axis after permutation
-    """
-    perm_indices = []
-    flip_axes = []
-
-    # For reorientation, we need to match axes by their anatomical direction
-    # not by name, since we're converting from generic axes to anatomical ones
-    for new_idx, new_ax in enumerate(new_axes[:3]):  # Only handle first 3 spatial axes
-        # Find which old axis best matches this new axis direction
-        # The new axis direction tells us which dimension it represents
-        new_dir = np.array(new_ax.direction)
-        abs_dir = np.abs(new_dir)
-
-        # Find which dimension has the largest component
-        dim_idx = np.argmax(abs_dir)
-
-        # This is the old axis we want to map from
-        perm_indices.append(dim_idx)
-
-        # Check if we need to flip (if the direction is negative)
-        # For standard axes, positive direction is assumed
-        flip_axes.append(new_dir[dim_idx] < 0)
-
-    # Add any remaining dimensions (time, etc.) unchanged
-    n_old = len(old_axes)
-    for i in range(3, n_old):
-        perm_indices.append(i)
-        flip_axes.append(False)
-
-    return perm_indices, flip_axes
-
-def _reorient_space(space: NeuroSpace, new_axes: List[NamedAxis]) -> NeuroSpace:
-    """Helper function to reorient a NeuroSpace."""
-
-    # Import AxisSet classes
-    from .axis import AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D
-
-    # Create appropriate AxisSet based on dimensionality
-    ndim = space.ndim
-    if ndim == 1:
-        axes_set = AxisSet1D(new_axes[0])
-    elif ndim == 2:
-        axes_set = AxisSet2D(new_axes[0], new_axes[1])
-    elif ndim == 3:
-        axes_set = AxisSet3D(new_axes[0], new_axes[1], new_axes[2])
-    elif ndim == 4:
-        # For 4D, we need to add the time axis
-        axes_set = AxisSet4D(new_axes[0], new_axes[1], new_axes[2], space.axes.l)
-    elif ndim == 5:
-        # For 5D, preserve last two axes
-        axes_set = AxisSet5D(new_axes[0], new_axes[1], new_axes[2],
-                            space.axes.l, space.axes.m)
-    else:
-        raise ValueError(f"Unsupported dimensionality: {ndim}")
-
-    # Compute new transformation matrix
-    # Get permutation matrices for old and new axes
-    old_perm = _get_permutation_matrix(space.axes)
-    new_perm = _get_permutation_matrix(axes_set)
-
-    # Update transformation matrix: new_trans = new_perm.T @ old_trans
-    # This accounts for the reorientation of axes
-    old_trans = space.trans
-    if old_trans is not None and old_trans.shape[0] >= ndim:
-        # Extract the relevant part of the transformation matrix
-        trans_sub = old_trans[:ndim, :]
-
-        # Apply the reorientation
-        new_trans_sub = new_perm.T @ old_perm @ trans_sub
-
-        # Reconstruct full transformation matrix
-        new_trans = np.eye(old_trans.shape[0])
-        new_trans[:ndim, :] = new_trans_sub
-        new_trans = new_trans[:old_trans.shape[0], :old_trans.shape[1]]
-
-        # Update origin based on new transformation
-        new_origin = new_trans[:ndim, -1] if new_trans.shape[1] > ndim else space.origin
-    else:
-        new_trans = space.trans
-        new_origin = space.origin
-
-    return NeuroSpace(
-        dim=space.dim,
-        origin=new_origin,
-        spacing=space.spacing,
-        axes=axes_set,
-        trans=new_trans
+        source_data = x.to_dense().data
+    data = nib.orientations.apply_orientation(source_data, transform)
+    if isinstance(x, NeuroVec):
+        out = DenseNeuroVec(data, new_space, label=getattr(x, "label", ""))
+        if hasattr(x, "provenance"):
+            out.provenance = x.provenance
+        return out
+    return DenseNeuroVol(
+        data,
+        new_space,
+        label=getattr(x, "label", ""),
+        provenance=getattr(x, "provenance", None),
     )
+
+
+def _reorient_space(space: NeuroSpace, new_axes, transform: np.ndarray) -> NeuroSpace:
+    """Apply a nibabel orientation transform to a spatial grid contract."""
+    from .axis import AxisSetND, axis_set
+
+    spatial_order = np.argsort(transform[:, 0].astype(int))
+    new_dim = tuple(int(space.dim[i]) for i in spatial_order) + tuple(
+        int(d) for d in space.dim[3:]
+    )
+
+    # ``inv_ornt_aff`` maps coordinates in the new array back to coordinates
+    # in the old array.  Right-multiplying the grid-to-world transform is
+    # therefore the exact change of voxel basis, including flip translations.
+    spatial_change = nib.orientations.inv_ornt_aff(
+        transform, tuple(int(d) for d in space.dim[:3])
+    )
+    if space.ndim == 3:
+        new_trans = space.affine @ spatial_change
+    else:
+        change = np.eye(space.ndim + 1)
+        change[:3, :3] = spatial_change[:3, :3]
+        change[:3, -1] = spatial_change[:3, 3]
+        new_trans = space.trans @ change
+
+    if isinstance(space.axes, AxisSetND):
+        old_axes = list(space.axes)
+    else:
+        old_axes = [getattr(space.axes, attr) for attr in "ijklm"[: space.ndim]]
+    axes_set = axis_set(space.ndim, list(new_axes) + old_axes[3:])
+
+    return NeuroSpace(dim=new_dim, axes=axes_set, trans=new_trans)

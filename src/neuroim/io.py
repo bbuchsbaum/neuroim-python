@@ -1,5 +1,4 @@
-"""I/O functions for neuroimaging data.
-"""
+"""I/O functions for neuroimaging data."""
 
 import nibabel as nib
 import numpy as np
@@ -7,7 +6,14 @@ import gzip
 from pathlib import Path
 from typing import Union, Optional, Dict, Any, Sequence
 
-from .neuro_vol import DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol, neurovol
+from .neuro_vol import (
+    DenseNeuroVol,
+    SparseNeuroVol,
+    LogicalNeuroVol,
+    neurovol,
+    _embed_receipt_extension,
+    _restore_nibabel_xforms,
+)
 from .neuro_vec import DenseNeuroVec, SparseNeuroVec, neurovec
 from .neuro_vec import neurovecseq
 from .neuro_space import NeuroSpace
@@ -133,6 +139,81 @@ def _resolve_write_format(format_name: str) -> str:
     return aliases.get(fmt, fmt)
 
 
+_NIFTI_DTYPE_MAP = {
+    "FLOAT32": np.float32,
+    "FLOAT": np.float32,
+    "FLOAT64": np.float64,
+    "DOUBLE": np.float64,
+    "BINARY": np.uint8,
+    "UBYTE": np.uint8,
+    "BYTE": np.uint8,
+    "SHORT": np.int16,
+    "INT16": np.int16,
+    "INT32": np.int32,
+    "INT": np.int32,
+    "INT64": np.int64,
+    "INT8": np.int8,
+    "UINT8": np.uint8,
+    "UINT16": np.uint16,
+    "UINT32": np.uint32,
+    "UINT64": np.uint64,
+}
+
+
+def _nifti_storage_data(data: np.ndarray, data_type: Optional[str]):
+    """Choose NIfTI storage dtype without prematurely quantizing values."""
+    values = np.asanyarray(data)
+    if data_type is None:
+        target = np.dtype(np.uint8 if values.dtype == np.dtype(bool) else values.dtype)
+        stored = values.astype(target) if values.dtype != target else values
+        return stored, target
+
+    dtype_key = data_type.upper()
+    if dtype_key not in _NIFTI_DTYPE_MAP:
+        raise ValueError(f"Unsupported NIfTI data_type: {data_type}")
+    target = np.dtype(_NIFTI_DTYPE_MAP[dtype_key])
+
+    if np.issubdtype(target, np.integer):
+        if not np.all(np.isfinite(values)):
+            raise ValueError("integer NIfTI output requires finite data values")
+        info = np.iinfo(target)
+        lo = np.min(values)
+        hi = np.max(values)
+        integral = np.all(np.equal(values, np.floor(values)))
+        if integral and lo >= info.min and hi <= info.max:
+            # Exact integral values need no slope/intercept and should not be
+            # routed through floating quantization.
+            return values.astype(target), target
+        # Keep the source values floating/in their wider integer dtype.  A
+        # target-typed header tells nibabel's array writer to derive the
+        # optimal slope/intercept instead of truncating with ndarray.astype.
+        return values, target
+
+    return values.astype(target), target
+
+
+def _nifti_image_for_write(obj, data: np.ndarray, data_type: Optional[str]):
+    """Build a metadata-preserving NIfTI image with safe storage scaling."""
+    stored, target_dtype = _nifti_storage_data(data, data_type)
+    source_header = getattr(obj, "_nibabel_header", None)
+    header = source_header.copy() if source_header is not None else nib.Nifti1Header()
+    try:
+        header.set_data_dtype(target_dtype)
+    except nib.spatialimages.HeaderDataError as exc:
+        raise ValueError(
+            f"dtype {target_dtype} is not representable in NIfTI-1"
+        ) from exc
+    # The container data are already in physical/scaled units.  Any source
+    # proxy scaling has therefore been consumed; allow nibabel to choose fresh
+    # scaling for this output rather than applying it a second time.
+    header.set_slope_inter(None, None)
+    image = nib.Nifti1Image(stored, obj.space.affine, header=header)
+    _restore_nibabel_xforms(image, obj)
+    _embed_receipt_extension(image, getattr(obj, "provenance", None))
+    image.header.set_zooms(tuple(float(z) for z in obj.spacing[: stored.ndim]))
+    return image
+
+
 def read_vol(filename: Union[str, Path], index: int = 0) -> DenseNeuroVol:
     """Read a 3D neuroimaging volume from file.
 
@@ -152,7 +233,7 @@ def read_vol(filename: Union[str, Path], index: int = 0) -> DenseNeuroVol:
     Notes
     -----
     Unlike R which uses 1-based indexing, Python uses 0-based indexing
-    for the volume index parameter.    """
+    for the volume index parameter."""
     descriptor = find_descriptor(filename)
     if _is_afni_descriptor(descriptor):
         meta = descriptor.read_meta_info(filename)
@@ -205,7 +286,8 @@ def write_vol(
         Output format (currently only "NIFTI" supported)
     data_type : str, optional
         Output data type (e.g., "FLOAT32", "INT16")
-        Defaults to "FLOAT" for NIfTI, inferred from input for AFNI    """
+        NIfTI preserves the input dtype by default. AFNI infers a compatible
+        storage type from the input."""
     format_key = _resolve_write_format(format)
 
     # Convert to dense if needed
@@ -215,50 +297,16 @@ def write_vol(
     else:
         data = vol.data
 
-    if data_type is None:
-        data_type = None if format_key in ("AFNI", "AFNI_GZ") else "FLOAT"
-
-    # Handle data type conversion
-    if data_type is not None:
-        dtype_map = {
-            "FLOAT32": np.float32,
-            "FLOAT": np.float32,
-            "FLOAT64": np.float64,
-            "DOUBLE": np.float64,
-            "BINARY": np.uint8,
-            "UBYTE": np.uint8,
-            "BYTE": np.uint8,
-            "SHORT": np.int16,
-            "INT16": np.int16,
-            "INT32": np.int32,
-            "INT": np.int32,
-            "INT8": np.int8,
-            "UINT8": np.uint8,
-            "UINT16": np.uint16,
-            "UINT32": np.uint32,
-        }
-        dtype_key = data_type.upper()
-        if dtype_key in dtype_map:
-            data = data.astype(dtype_map[dtype_key])
-        else:
-            raise ValueError(f"Unsupported NIfTI data_type: {data_type}")
-
     if format_key == "NIFTI":
-        # Route through ``to_nibabel`` so a provenance Receipt is embedded as
-        # a NIfTI extension and survives the file boundary (matching the
-        # documented ``to_nibabel`` contract).  Rebuild with the possibly
-        # dtype-cast ``data`` while carrying over the header (which holds the
-        # receipt extension and restored sform/qform).
-        base_img = vol.to_nibabel()
-        nifti_img = nib.Nifti1Image(data, base_img.affine, header=base_img.header)
-        nifti_img.set_data_dtype(data.dtype)
-        nifti_img.header.set_zooms(vol.spacing)
-
-        # Save
-        nib.save(nifti_img, str(filename))
+        nib.save(_nifti_image_for_write(vol, data, data_type), str(filename))
         return
 
     if format_key in ("AFNI", "AFNI_GZ"):
+        if data_type is not None:
+            dtype_key = data_type.upper()
+            if dtype_key not in _NIFTI_DTYPE_MAP:
+                raise ValueError(f"Unsupported AFNI data_type: {data_type}")
+            data = data.astype(_NIFTI_DTYPE_MAP[dtype_key])
         data_encoding = "gzip" if format_key == "AFNI_GZ" else "raw"
         spacing = tuple(float(x) for x in vol.spacing[:3])
         origin = tuple(float(x) for x in vol.origin[:3])
@@ -302,7 +350,7 @@ def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
     Returns
     -------
     dict
-        Header information including dimensions, spacing, origin, etc.    """
+        Header information including dimensions, spacing, origin, etc."""
     descriptor = find_descriptor(filename)
     if _is_afni_descriptor(descriptor):
         meta = descriptor.read_meta_info(filename)
@@ -403,7 +451,7 @@ def read_vol_list(filenames: list, index: int = 0) -> list:
     Returns
     -------
     list
-        List of DenseNeuroVol objects    """
+        List of DenseNeuroVol objects"""
     return [read_vol(f, index) for f in filenames]
 
 
@@ -430,7 +478,7 @@ def read_vec(
     Notes
     -----
     Unlike R which uses 1-based indexing, Python uses 0-based indexing
-    for the indices parameter.    """
+    for the indices parameter."""
     descriptor = find_descriptor(filename)
     if _is_afni_descriptor(descriptor):
         meta = descriptor.read_meta_info(filename)
@@ -516,7 +564,8 @@ def write_vec(
         Output format (currently only "NIFTI" supported)
     data_type : str, optional
         Output data type (e.g., "FLOAT32", "INT16")
-        Defaults to "FLOAT" for NIfTI, inferred from input for AFNI    """
+        NIfTI preserves the input dtype by default. AFNI infers a compatible
+        storage type from the input."""
     format_key = _resolve_write_format(format)
 
     # Convert to dense if needed
@@ -526,48 +575,16 @@ def write_vec(
     else:
         data = vec.data
 
-    if data_type is None:
-        data_type = None if format_key in ("AFNI", "AFNI_GZ") else "FLOAT"
-
-    # Handle data type conversion
-    if data_type is not None:
-        dtype_map = {
-            "FLOAT32": np.float32,
-            "FLOAT": np.float32,
-            "FLOAT64": np.float64,
-            "DOUBLE": np.float64,
-            "BINARY": np.uint8,
-            "UBYTE": np.uint8,
-            "BYTE": np.uint8,
-            "SHORT": np.int16,
-            "INT16": np.int16,
-            "INT32": np.int32,
-            "INT": np.int32,
-            "INT8": np.int8,
-            "UINT8": np.uint8,
-            "UINT16": np.uint16,
-            "UINT32": np.uint32,
-        }
-        dtype_key = data_type.upper()
-        if dtype_key in dtype_map:
-            data = data.astype(dtype_map[dtype_key])
-        else:
-            raise ValueError(f"Unsupported NIfTI data_type: {data_type}")
-
     if format_key == "NIFTI":
-        # Route through ``to_nibabel`` so a provenance Receipt is embedded as
-        # a NIfTI extension and survives the file boundary, consistent with
-        # ``write_vol``.
-        base_img = vec.to_nibabel()
-        nifti_img = nib.Nifti1Image(data, base_img.affine, header=base_img.header)
-        nifti_img.set_data_dtype(data.dtype)
-        nifti_img.header.set_zooms(vec.spacing)
-
-        # Save
-        nib.save(nifti_img, str(filename))
+        nib.save(_nifti_image_for_write(vec, data, data_type), str(filename))
         return
 
     if format_key in ("AFNI", "AFNI_GZ"):
+        if data_type is not None:
+            dtype_key = data_type.upper()
+            if dtype_key not in _NIFTI_DTYPE_MAP:
+                raise ValueError(f"Unsupported AFNI data_type: {data_type}")
+            data = data.astype(_NIFTI_DTYPE_MAP[dtype_key])
         data_encoding = "gzip" if format_key == "AFNI_GZ" else "raw"
         spacing = tuple(float(x) for x in vec.spacing[:3])
         origin = tuple(float(x) for x in vec.origin[:3])
@@ -764,7 +781,7 @@ def read_meta_info(filename: Union[str, Path]) -> FileMetaInfo:
     Returns
     -------
     FileMetaInfo
-        Meta information object (NIFTIMetaInfo or AFNIMetaInfo)    """
+        Meta information object (NIFTIMetaInfo or AFNIMetaInfo)"""
     # Find appropriate file format
     descriptor = find_descriptor(filename)
     if descriptor is None:
