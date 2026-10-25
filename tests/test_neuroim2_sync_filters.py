@@ -122,3 +122,36 @@ def test_bilateral_vec_fixed_range_scale_and_validation():
     np.testing.assert_allclose(out.data[..., 0], first.data)
     with pytest.raises(ValueError, match="range_scale"):
         bilateral_filter_vec(vec, range_scale=0)
+
+
+# --- sigma is in millimetres (neuroim2 contract) -----------------------------
+
+
+def _delivered_sd_mm(spacing, **kwargs):
+    shape = (41, 41, 41)
+    delta = np.zeros(shape)
+    delta[20, 20, 20] = 1.0
+    out = gaussian_blur(
+        DenseNeuroVol(delta, NeuroSpace(shape, spacing=spacing)), **kwargs
+    )
+    sds = []
+    for axis in range(3):
+        marginal = out.data.sum(axis=tuple(a for a in range(3) if a != axis))
+        grid = np.arange(marginal.size)
+        w = marginal / marginal.sum()
+        mean = (grid * w).sum()
+        sds.append(np.sqrt(((grid - mean) ** 2 * w).sum()) * spacing[axis])
+    return np.array(sds)
+
+
+@pytest.mark.parametrize("spacing", [(1.0, 1.0, 1.0), (2.0, 2.0, 3.5)])
+def test_sigma_is_millimetres(spacing):
+    np.testing.assert_allclose(_delivered_sd_mm(spacing, sigma=3.0), 3.0, rtol=0.02)
+    # The default is 2 mm (sub-voxel on 3.5 mm voxels, so sampling costs ~2%).
+    np.testing.assert_allclose(_delivered_sd_mm(spacing), 2.0, rtol=0.03)
+
+
+def test_sigma_and_fwhm_are_exclusive():
+    vol = DenseNeuroVol(np.zeros((5, 5, 5)), NeuroSpace((5, 5, 5)))
+    with pytest.raises(ValueError, match="not both"):
+        gaussian_blur(vol, sigma=2.0, fwhm_mm=6.0)

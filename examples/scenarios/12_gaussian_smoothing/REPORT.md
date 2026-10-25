@@ -25,11 +25,11 @@ same call name.
 
 **neuroim now wins the call-site shape for this workflow** and is the
 first scenario to ship with a verified mm-space contract.  The scenario
-test `test_legacy_voxel_sigma_is_anisotropic_in_mm_on_anisotropic_voxels`
-proves the bug class is real on the legacy scalar-sigma path (3 x 3 x 3.5
-mm fixture produces measurably anisotropic mm-space spread), and
-`test_fwhm_mm_path_is_isotropic_in_mm_on_anisotropic_voxels` proves the
-`fwhm_mm=` path closes it.
+test `test_sigma_is_millimetres_on_anisotropic_voxels` shows the scalar
+`sigma=` path is isotropic in mm on the 3 x 3 x 3.5 mm fixture (it used to
+be voxel-space and measurably anisotropic), and
+`test_fwhm_mm_path_is_isotropic_in_mm_on_anisotropic_voxels` shows the same
+for `fwhm_mm=`.
 
 ## PAINs
 
@@ -44,18 +44,15 @@ mask raises `ValueError("spatial contract mismatch ...")` immediately.
 `gaussian_blur(vol, fwhm_mm=6.0)` is the recommended path.  Internally
 converts FWHM-in-mm to per-axis voxel sigma via `vol.space.spacing` and
 calls `scipy.ndimage.gaussian_filter` with a per-axis sigma sequence and
-the scipy default kernel extent (`truncate=4`).  The legacy scalar
-`sigma=` parameter is retained for backward compatibility but is now
-documented as voxel-space; the parity hazard against R neuroim2 (whose
-C++ kernel at `~/code/neuroim2/src/indexFuns.cpp:174-193` interprets
-sigma in mm and applies spacing internally) is called out in the function
-docstring.
+the scipy default kernel extent (`truncate=4`).  The scalar `sigma=`
+parameter is now in millimetres too, matching R neuroim2, and is converted
+per axis the same way; `sigma` and `fwhm_mm` are mutually exclusive.
 
 ### PAIN-3 (P1 provenance) -- closed: output carries Receipt
 
 The returned `DenseNeuroVol` carries `.provenance` with
-`method_name == "gaussian_blur"`, `radius == fwhm_mm` (or the legacy
-sigma when `fwhm_mm` is not supplied), `input_space_hash` from the input
+`method_name == "gaussian_blur"`, `radius == fwhm_mm` (or sigma in mm
+when `fwhm_mm` is not supplied), `input_space_hash` from the input
 vol's space, and `mask_hash` from the mask payload when supplied.
 
 ### PAIN-4 (P2 surface) -- closed: `gaussian_blur` in `ni.__all__`
@@ -77,7 +74,7 @@ stat map for smoothing is the t=0 slice of the BOLD volume.
 `PYTHONPATH=src:tests:. python -m pytest tests/test_s12_gaussian_smoothing.py`:
 
 - **6 passed, 0 xfailed** -- numeric parity at FWHM = 6 mm; same-space
-  gate; the legacy voxel-sigma anisotropy demonstration; the `fwhm_mm=`
+  gate; mm isotropy of the scalar `sigma=` path; the `fwhm_mm=`
   isotropy fix; provenance Receipt; public namespace export.
 
 Broader regression slice (`test_s11`, `test_s12`, `test_public_api`,

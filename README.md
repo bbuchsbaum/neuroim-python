@@ -81,7 +81,7 @@ space = ni.NeuroSpace(dim=(91, 109, 91), spacing=(2, 2, 2))
 vol = ni.NeuroVol.from_array(data_3d, space)
 
 # Operations
-smoothed = ni.gaussian_blur(vol, sigma=2)
+smoothed = ni.gaussian_blur(vol, sigma=2)  # sigma in mm (or fwhm_mm=)
 mask = vol > vol.mean()
 masked_vol = vol[mask]
 ```
@@ -156,7 +156,7 @@ results_parallel = ni.searchlight(
 
 ```python
 # Gaussian smoothing
-smoothed = ni.gaussian_blur(vol, sigma=2)
+smoothed = ni.gaussian_blur(vol, sigma=2)  # sigma in mm (or fwhm_mm=)
 
 # Bilateral filter (edge-preserving)
 bilateral = ni.bilateral_filter(vol, spatial_sigma=2, range_sigma=0.5)

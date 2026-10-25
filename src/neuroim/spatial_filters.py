@@ -40,12 +40,34 @@ def _gaussian_support(window, truncate, shape) -> tuple[Optional[int], float]:
     return min(int(value), max(int(d) for d in shape[:3])), truncate_value
 
 
+_DEFAULT_SIGMA_MM = 2.0
+
+
 def _gaussian_sigma(space, sigma, fwhm_mm):
-    if fwhm_mm is None:
-        return _positive_finite_scalar(sigma, "sigma")
-    fwhm = _positive_finite_scalar(fwhm_mm, "fwhm_mm")
+    """Per-axis voxel sigma from a millimetre ``sigma`` or ``fwhm_mm``.
+
+    Both are physical widths, converted with the voxel spacing so the
+    smoothing is isotropic in millimetres on anisotropic grids (neuroim2
+    contract). Supplying both is ambiguous and refused.
+    """
+    if sigma is not None and fwhm_mm is not None:
+        raise ValueError("supply either sigma (mm) or fwhm_mm, not both")
+    if fwhm_mm is not None:
+        fwhm = _positive_finite_scalar(fwhm_mm, "fwhm_mm")
+        sigma_mm = fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+    else:
+        sigma_mm = _positive_finite_scalar(
+            _DEFAULT_SIGMA_MM if sigma is None else sigma, "sigma"
+        )
     spacing = np.asarray(space.spacing[:3], dtype=float)
-    return (fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))) / spacing
+    return sigma_mm / spacing
+
+
+def _sigma_record(sigma, fwhm_mm) -> float:
+    """Value recorded on the Receipt: the FWHM if given, else sigma in mm."""
+    if fwhm_mm is not None:
+        return float(fwhm_mm)
+    return float(_DEFAULT_SIGMA_MM if sigma is None else sigma)
 
 
 def _insulated_gaussian(data, mask_bool, sigma, truncate, radius):
@@ -70,7 +92,7 @@ def _insulated_gaussian(data, mask_bool, sigma, truncate, radius):
 def gaussian_blur(
     vol: NeuroVol,
     mask: Optional[LogicalNeuroVol] = None,
-    sigma: float = 2,
+    sigma: Optional[float] = None,
     window: Optional[int] = None,
     *,
     fwhm_mm: Optional[float] = None,
@@ -79,14 +101,11 @@ def gaussian_blur(
 ) -> DenseNeuroVol:
     """Apply a Gaussian blur to a volumetric image.
 
-    For fMRI workflows, prefer ``fwhm_mm=`` over the legacy ``sigma=``.  The
-    R neuroim2 ``gaussian_blur`` interprets sigma in millimetres and applies
-    per-axis voxel spacing inside its C++ kernel; the Python port historically
-    accepted sigma in *voxel* units and did not apply spacing, which silently
-    produced anisotropic-in-mm smoothing on anisotropic voxels.  Passing
-    ``fwhm_mm`` restores the mm-space contract: the value is converted to
-    per-axis voxel sigma via ``vol.space.spacing``, so smoothing is
-    isotropic in millimetres regardless of voxel anisotropy.
+    The kernel width is physical: ``sigma`` (standard deviation) and
+    ``fwhm_mm`` are both in millimetres and are converted to per-axis voxel
+    sigma via ``vol.space.spacing``, so smoothing is isotropic in millimetres
+    regardless of voxel anisotropy -- the neuroim2 contract.  (Releases before
+    0.3.0 interpreted ``sigma`` in voxels.)
 
     Parameters
     ----------
@@ -97,17 +116,16 @@ def gaussian_blur(
         supplied, ``verify.assert_same_space(vol, mask)`` is invoked first
         so a foreign-affine mask raises before any smoothing occurs.
     sigma : float, optional
-        Voxel-space sigma for the legacy scalar form.  Used only when
-        ``fwhm_mm`` is None.  Default is 2 voxels.
+        Gaussian standard deviation in millimetres. Default (None) is 2 mm.
+        Mutually exclusive with ``fwhm_mm``.
     window : int, optional
         Explicit kernel half-width in voxels. ``window=1`` is exactly a
         3x3x3 kernel. The default ``None`` derives support from the Gaussian
         width and ``truncate``, avoiding the under-smoothing caused by the old
         fixed default. Explicit values retain the legacy clipped-support path.
     fwhm_mm : float, optional (keyword only)
-        Full width at half maximum, in millimetres.  When supplied, this
-        takes precedence over ``sigma`` and is converted to per-axis voxel
-        sigma using ``vol.space.spacing``.
+        Full width at half maximum, in millimetres (FWHM = 2.355 * sigma).
+        Mutually exclusive with ``sigma``.
     truncate : float, optional (keyword only)
         Standard deviations retained when ``window`` is ``None``. Default 4,
         matching :func:`scipy.ndimage.gaussian_filter`.
@@ -184,7 +202,7 @@ def gaussian_blur(
         n_voxels=int(np.prod(vol.shape)) if mask is None else int(mask_payload.sum()),
         params=SpatialFilterParams(
             method_name="gaussian_blur",
-            radius=float(fwhm_mm) if fwhm_mm is not None else float(sigma),
+            radius=_sigma_record(sigma, fwhm_mm),
         ),
         upstream=vol,
     )
@@ -195,7 +213,7 @@ def _gaussian_blur_vec(
     vec: NeuroVec,
     *,
     mask: Optional[LogicalNeuroVol] = None,
-    sigma: float = 2,
+    sigma: Optional[float] = None,
     window: Optional[int] = None,
     fwhm_mm: Optional[float] = None,
     truncate: float = 4.0,
@@ -258,7 +276,7 @@ def _gaussian_blur_vec(
         n_voxels=n_voxels,
         params=SpatialFilterParams(
             method_name="gaussian_blur",
-            radius=float(fwhm_mm) if fwhm_mm is not None else float(sigma),
+            radius=_sigma_record(sigma, fwhm_mm),
         ),
         upstream=vec,
     )

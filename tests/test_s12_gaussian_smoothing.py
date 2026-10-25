@@ -10,10 +10,10 @@ Six assertions (all passing after PAIN-1/2/3/4 land):
    ``ValueError("spatial contract mismatch")`` from the
    ``gaussian_blur`` call site, not from a manual helper.
 
-3. **Anisotropy attack on the legacy voxel-sigma path** -- using
-   ``gaussian_blur(vol, sigma=2)`` on the 3 x 3 x 3.5 mm fixture produces
-   *anisotropic* mm-space smoothing, proving the unit pitfall is real
-   and motivating ``fwhm_mm=`` as the recommended path.
+3. **Anisotropy attack on the sigma path** -- ``gaussian_blur(vol,
+   sigma=2)`` on the 3 x 3 x 3.5 mm fixture is isotropic in millimetres:
+   ``sigma`` is in mm (the neuroim2 contract), so the old voxel-sigma
+   pitfall is closed.
 
 4. **PAIN-2 closed -- isotropic-mm-space smoothing via fwhm_mm** -- on the
    same anisotropic fixture, ``gaussian_blur(vol, fwhm_mm=6)`` produces
@@ -111,14 +111,10 @@ def _axis_spread_voxels(arr: np.ndarray, axis: int) -> float:
     return math.sqrt(var)
 
 
-def test_legacy_voxel_sigma_is_anisotropic_in_mm_on_anisotropic_voxels(fixture):
-    """PAIN-2 motivation: scalar voxel-sigma silently produces anisotropic
-    mm-space smoothing on a 3 x 3 x 3.5 mm fixture.
-
-    Smooth a centred delta with ``sigma=2`` voxels.  The output is
-    voxel-isotropic by construction, but the *mm-space* spread differs
-    along z because z's voxel size differs from x/y.  The ratio of the
-    z-spread to the x-spread should track the spacing ratio.
+def test_sigma_is_millimetres_on_anisotropic_voxels(fixture):
+    """``sigma`` is a physical width: smoothing a centred delta with
+    ``sigma=2`` mm on a 3 x 3 x 3.5 mm fixture spreads equally in mm along
+    every axis, so the voxel-space spread shrinks along the coarser z axis.
     """
     spacing = np.asarray(fixture.bold.space.spacing[:3], dtype=float)
     assert spacing[2] != spacing[0], (
@@ -130,21 +126,11 @@ def test_legacy_voxel_sigma_is_anisotropic_in_mm_on_anisotropic_voxels(fixture):
     delta[nx // 2, ny // 2, nz // 2] = 1.0
     vol = ni.DenseNeuroVol(delta, fixture.mask.space)
 
-    smoothed = np.asarray(rewrite.smooth_via_voxel_sigma(vol, 2.0).data)
+    smoothed = np.asarray(rewrite.smooth_via_sigma_mm(vol, 2.0).data)
 
-    spread_x_vox = _axis_spread_voxels(smoothed, 0)
-    spread_z_vox = _axis_spread_voxels(smoothed, 2)
-    # Voxel-isotropic, as expected for a scalar sigma.
-    np.testing.assert_allclose(spread_x_vox, spread_z_vox, rtol=0.05)
-
-    # mm-space spread differs by the voxel-size ratio: this is the bug.
-    spread_x_mm = spread_x_vox * spacing[0]
-    spread_z_mm = spread_z_vox * spacing[2]
-    expected_ratio = spacing[2] / spacing[0]
-    actual_ratio = spread_z_mm / spread_x_mm
-    np.testing.assert_allclose(actual_ratio, expected_ratio, rtol=0.05)
-    # Sanity: the two spreads really do disagree in mm.
-    assert not math.isclose(spread_x_mm, spread_z_mm, rel_tol=0.05)
+    spread_x_mm = _axis_spread_voxels(smoothed, 0) * spacing[0]
+    spread_z_mm = _axis_spread_voxels(smoothed, 2) * spacing[2]
+    np.testing.assert_allclose(spread_z_mm, spread_x_mm, rtol=0.05)
 
 
 def test_fwhm_mm_path_is_isotropic_in_mm_on_anisotropic_voxels(fixture):
