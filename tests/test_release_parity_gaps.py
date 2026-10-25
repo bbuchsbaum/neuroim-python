@@ -97,7 +97,7 @@ def test_registration_qc_plots_validate_grids_and_return_slice_panels():
     )
     try:
         assert len(axes) == 2
-        assert axes[0].get_title() == "z = 1"
+        assert axes[0].get_title() == "z = 1 mm"
         assert fig._suptitle.get_text() == "Checker"
     finally:
         plt.close(fig)

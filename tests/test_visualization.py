@@ -319,7 +319,7 @@ class TestPlotOverlay:
         )
         try:
             assert len(axes) == 1
-            assert axes[0].get_title() == "z = 1"
+            assert axes[0].get_title() == "z = 1 mm"
             assert len(axes[0].images) == 2
             rgba = np.asarray(axes[0].images[1].get_array())
             assert rgba.shape[-1] == 4

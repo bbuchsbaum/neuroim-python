@@ -362,7 +362,10 @@ class NeuroSpace:
         Returns
         -------
         ndarray
-            2 x ndim array with min bounds in first row, max in second row"""
+            2 x ndim array: world coordinates of the first voxel centre
+            (grid 0) in the first row and of the last voxel centre in the
+            second, as in neuroim2. For flipped or rotated affines these are
+            corners, not per-axis minima/maxima."""
         # Grid corners in voxel space
         min_grid = np.zeros(self.ndim)
         max_grid = self.dim - 1
