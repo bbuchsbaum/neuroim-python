@@ -109,8 +109,8 @@ class NeuroSpace:
         object.__setattr__(self, "origin", origin)
 
         # Validate spacing
-        if np.any(self.spacing <= 0):
-            raise InvalidSpaceError("Spacing values must be positive")
+        if np.any(~np.isfinite(self.spacing)) or np.any(self.spacing <= 0):
+            raise InvalidSpaceError("Spacing values must be positive and finite")
 
         # Handle transformation matrix
         if trans is None:

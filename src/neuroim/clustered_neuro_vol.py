@@ -37,11 +37,12 @@ class ClusteredNeuroVol(NeuroVol):
         """
         Create a mapping from cluster IDs to the set of 1D spatial indices belonging to that cluster.
         """
-        unique_clusters = np.unique(self.clusters)
-        return {
-            cluster: self._mask_indices[self.clusters == cluster].astype(int)
-            for cluster in unique_clusters
-        }
+        # One stable sort instead of a full scan per cluster (O(N log N), not
+        # O(K * N)); voxels keep their ascending spatial order within a cluster.
+        order = np.argsort(self.clusters, kind="stable")
+        labels, starts = np.unique(self.clusters[order], return_index=True)
+        groups = np.split(self._mask_indices[order].astype(int), starts[1:])
+        return dict(zip(labels, groups))
 
     def __getitem__(self, key):
         if isinstance(key, str):

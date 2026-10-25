@@ -508,7 +508,15 @@ def _roi_values(
 ) -> Tuple[np.ndarray, np.ndarray]:
     source_data = None
     if fill is None or nonzero:
-        source_data = np.asarray([_volume_value_at(bvol, coord) for coord in coords])
+        data3d = getattr(bvol, "data", None)
+        if isinstance(data3d, np.ndarray) and data3d.ndim == 3:
+            # One vectorised gather instead of a Python call per voxel.
+            idx = tuple(np.asarray(coords, dtype=np.intp).T)
+            source_data = data3d[idx] if len(coords) else data3d[:0, 0, 0]
+        else:
+            source_data = np.asarray(
+                [_volume_value_at(bvol, coord) for coord in coords]
+            )
 
     if nonzero:
         assert source_data is not None
@@ -751,7 +759,9 @@ def spherical_roi(
         Spherical ROI object
 
     """
-    centroid = _validate_centroid(bvol, centroid, integral=False)
+    # Centroids are truncated to a voxel, as in every other window builder
+    # (and neuroim2), so a fractional centre gives the same sphere as its voxel.
+    centroid = _validate_centroid(bvol, centroid, integral=True)
     radius = _validate_radius(radius)
 
     # Calculate bounding box for sphere in physical space using spacing
@@ -761,7 +771,9 @@ def spherical_roi(
         raise ValueError("radius is too small; must be at least one voxel dimension")
     if np.any(centroid < 0) or np.any(centroid >= shape):
         raise ValueError("centroid coordinates must be within volume bounds")
-    voxel_radius = np.ceil(radius / spacing).astype(int)
+    # Clamp before the integer cast: a huge radius would otherwise overflow
+    # int64 and silently produce an empty sphere.
+    voxel_radius = np.minimum(np.ceil(radius / spacing), shape).astype(int)
     lower = np.maximum(0, np.floor(centroid - voxel_radius).astype(int))
     upper = np.minimum(shape, np.ceil(centroid + voxel_radius + 1).astype(int))
 
@@ -898,7 +910,7 @@ def ellipsoid_roi(
     ROIVol
         Ellipsoid ROI object
     """
-    centroid = _validate_centroid(bvol, centroid, integral=False)
+    centroid = _validate_centroid(bvol, centroid, integral=True)
 
     radii = np.asarray(radii, dtype=float)
     if radii.shape != (3,):
