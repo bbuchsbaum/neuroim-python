@@ -299,3 +299,28 @@ def test_dense_vec_validates_list_input():
     sp = NeuroSpace((2, 2, 2, 2))
     with pytest.raises(ValueError):
         DenseNeuroVec(np.zeros((2, 2, 2, 1)).tolist(), sp)
+
+
+def test_time_slice_keeps_affine_and_tr():
+    sp = NeuroSpace((3, 4, 5), trans=LAS).add_dim(size=6)
+    sp = NeuroSpace(sp.dim, spacing=(2, 2, 2, 2.5), trans=sp.trans)
+    vec = DenseNeuroVec(np.random.default_rng(1).random((3, 4, 5, 6)), sp)
+    sliced = vec[..., 1:4]
+    np.testing.assert_allclose(sliced.space.affine, LAS)
+    assert sliced.space.spacing[3] == pytest.approx(2.5)
+    np.testing.assert_allclose(vec[..., 1:1].space.affine, LAS)
+
+
+def test_hypervec_derived_spaces_and_hdf5_keep_affine(tmp_path):
+    from neuroim.neuro_hypervec import (
+        DenseNeuroHyperVec,
+        read_neurohypervec,
+        write_neurohypervec,
+    )
+
+    sp5 = NeuroSpace((3, 4, 5, 2, 2), spacing=(2, 2, 2, 1, 1), trans=LAS)
+    hv = DenseNeuroHyperVec(np.random.default_rng(2).random((3, 4, 5, 2, 2)), sp5)
+    np.testing.assert_allclose(hv.mean_features().space.affine, LAS)
+    path = str(tmp_path / "hv.h5")
+    write_neurohypervec(hv, path)
+    np.testing.assert_allclose(read_neurohypervec(path).space.affine, LAS)

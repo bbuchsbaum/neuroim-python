@@ -647,6 +647,7 @@ class DenseNeuroVol(NeuroVol):
             (*self.shape, len(all_vols)),
             spacing=np.append(self.space.spacing, 1.0),
             origin=np.append(self.space.origin, 0.0),
+            trans=self.space.affine,
         )
         return DenseNeuroVec(stacked, vec_space)
 

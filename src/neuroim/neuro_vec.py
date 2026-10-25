@@ -26,12 +26,15 @@ def _readonly_array(value, *, dtype):
     return arr
 
 
-def _empty_time_slice_space(dim, spacing, origin, axes):
+def _empty_time_slice_space(dim, spacing, origin, axes, spatial_affine=None):
     """Build the private space needed for NumPy-valid empty time slices."""
     ndim = len(dim)
     trans = np.eye(ndim + 1)
     trans[:ndim, :ndim] = np.diag(spacing)
     trans[:ndim, ndim] = origin
+    if spatial_affine is not None:
+        trans[:3, :3] = spatial_affine[:3, :3]
+        trans[:3, ndim] = spatial_affine[:3, 3]
 
     space = object.__new__(NeuroSpace)
     object.__setattr__(space, "_frozen", False)
@@ -877,11 +880,13 @@ class DenseNeuroVec(NeuroVec):
                     spatial.axes.i, spatial.axes.j, spatial.axes.k, t_axis
                 )
                 new_dim = [int(d) for d in result.shape]
-                new_spacing = [float(s) for s in spatial.spacing] + [1.0]
+                # Keep the spatial affine (flips/rotations) and the TR.
+                tr = float(self.spacing[3]) if len(self.spacing) > 3 else 1.0
+                new_spacing = [float(s) for s in spatial.spacing] + [tr]
                 new_origin = [float(o) for o in spatial.origin] + [0.0]
                 if new_dim[3] == 0:
                     new_space = _empty_time_slice_space(
-                        new_dim, new_spacing, new_origin, axes_4d
+                        new_dim, new_spacing, new_origin, axes_4d, spatial.affine
                     )
                 else:
                     new_space = NeuroSpace(
@@ -889,6 +894,7 @@ class DenseNeuroVec(NeuroVec):
                         spacing=new_spacing,
                         origin=new_origin,
                         axes=axes_4d,
+                        trans=spatial.affine,
                     )
                 sliced = DenseNeuroVec(result, new_space)
 

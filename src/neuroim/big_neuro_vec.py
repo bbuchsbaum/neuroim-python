@@ -422,6 +422,7 @@ def big_neurovecseq(vols: list, mask: Optional[np.ndarray] = None) -> BigNeuroVe
         dim=list(vol_shape) + [n_vols],
         spacing=list(first_vol.space.spacing) + [1],
         origin=list(first_vol.space.origin) + [0],
+        trans=first_vol.space.affine,
     )
 
     # Create BigNeuroVec
