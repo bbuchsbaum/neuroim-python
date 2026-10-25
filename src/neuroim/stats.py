@@ -181,6 +181,7 @@ def split_clusters(
                 dim=x.space.dim[:3],
                 spacing=x.space.spacing[:3],
                 origin=x.space.origin[:3],
+                trans=x.space.affine,
             )
         )
         for lab in range(1, k + 1):
@@ -367,7 +368,10 @@ def split_reduce(
     # Create 3D space for output volume
     # For all NeuroVec types, time is last dimension, so spatial dims are first 3
     vol_space = NeuroSpace(
-        dim=x.space.dim[:3], spacing=x.space.spacing[:3], origin=x.space.origin[:3]
+        dim=x.space.dim[:3],
+        spacing=x.space.spacing[:3],
+        origin=x.space.origin[:3],
+        trans=x.space.affine,
     )
 
     # Initialize output array

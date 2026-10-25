@@ -218,19 +218,21 @@ class BigNeuroVec(NeuroVec):
 
     def sub_vector(self, indices: Union[slice, np.ndarray]) -> "BigNeuroVec":
         """Extract subset of volumes."""
+        # Volumes run along the last (time) axis of the (x, y, z, t) store.
         if isinstance(indices, slice):
-            # Direct slicing is more efficient than converting to array
-            subset_data = self._data[indices]
+            subset_data = np.asarray(self._data[..., indices])
         else:
             indices = np.atleast_1d(indices)
-            subset_data = self._data[indices]
+            subset_data = np.asarray(self._data[..., indices])
 
-        # Create new BigNeuroVec with subset data
-        subset_shape = subset_data.shape
         subset_vec = BigNeuroVec(
-            subset_data,
-            NeuroSpace(
-                dim=subset_shape, spacing=self.space.spacing, origin=self.space.origin
+            data=subset_data,
+            space=NeuroSpace(
+                dim=subset_data.shape,
+                spacing=self.space.spacing,
+                origin=self.space.origin,
+                axes=self.space.axes,
+                trans=self.space.trans,
             ),
         )
 
@@ -243,17 +245,13 @@ class BigNeuroVec(NeuroVec):
     def vols(self, indices: Optional[np.ndarray] = None) -> list:
         """Extract volumes as a list of NeuroVol objects."""
         if indices is None:
-            indices = range(self.shape[0])
+            indices = range(self.shape[3])
 
         vol_list = []
-        vol_space = NeuroSpace(
-            dim=self.shape[1:],
-            spacing=self.space.spacing[1:],
-            origin=self.space.origin[1:],
-        )
+        vol_space = self.space.drop_dim(3)
 
         for i in indices:
-            vol = DenseNeuroVol(self._data[i], vol_space)
+            vol = DenseNeuroVol(np.asarray(self._data[..., i]), vol_space)
             vol_list.append(vol)
 
         return vol_list

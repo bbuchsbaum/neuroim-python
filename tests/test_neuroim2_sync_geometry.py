@@ -260,3 +260,42 @@ def test_big_neuro_vec_matrix_and_sparse():
     dense = DenseNeuroVec(data, sp)
     np.testing.assert_allclose(big.as_matrix(), dense.as_matrix())
     np.testing.assert_allclose(big.to_sparse().to_dense().data, data)
+
+
+# --- derived spaces keep the full affine ------------------------------------
+
+
+def _las_vec(nt=3):
+    sp = NeuroSpace((3, 4, 5), trans=LAS).add_dim(size=nt)
+    data = np.random.default_rng(9).random((3, 4, 5, nt))
+    return DenseNeuroVec(data, sp)
+
+
+def test_volume_extraction_keeps_affine():
+    vec = _las_vec()
+    np.testing.assert_allclose(vec[..., 1].space.affine, LAS)
+    np.testing.assert_allclose(vec.vols(1).space.affine, LAS)
+
+
+def test_sub_vectors_keep_affine():
+    vec = _las_vec()
+    np.testing.assert_allclose(vec.subvolumes([0, 2]).space.affine, LAS)
+    sparse = vec.to_sparse(np.ones((3, 4, 5), dtype=bool))
+    np.testing.assert_allclose(sparse.mask.space.affine, LAS)
+    np.testing.assert_allclose(sparse.subvolumes([0, 2]).space.affine, LAS)
+
+
+def test_big_neuro_vec_volumes_are_time_slices():
+    vec = _las_vec(nt=4)
+    big = BigNeuroVec(data=vec.data, space=vec.space)
+    np.testing.assert_allclose(big.vols([2])[0].data, vec.data[..., 2])
+    np.testing.assert_allclose(big.vols([2])[0].space.affine, LAS)
+    sub = big.sub_vector([1, 3])
+    np.testing.assert_allclose(np.asarray(sub.data), vec.data[..., [1, 3]])
+    np.testing.assert_allclose(sub.space.affine, LAS)
+
+
+def test_dense_vec_validates_list_input():
+    sp = NeuroSpace((2, 2, 2, 2))
+    with pytest.raises(ValueError):
+        DenseNeuroVec(np.zeros((2, 2, 2, 1)).tolist(), sp)

@@ -680,6 +680,7 @@ def read_vec(
                 spacing=space.spacing[:3],
                 origin=space.origin[:3],
                 axes=space.axes.drop_dim(),
+                trans=space.affine,
             )
             mask = LogicalNeuroVol(mask, mask_space)
 

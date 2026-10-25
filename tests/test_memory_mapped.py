@@ -71,10 +71,11 @@ class TestBigNeuroVec:
         # Extract subset
         sub = vec.sub_vector([0, 2, 4])
         assert isinstance(sub, BigNeuroVec)
-        assert sub.shape[0] == 3
-        assert np.allclose(sub[0], self.data[0])
-        assert np.allclose(sub[1], self.data[2])
-        assert np.allclose(sub[2], self.data[4])
+        # Volumes are along the last (time) axis of the (x, y, z, t) store.
+        assert sub.shape == (10, 10, 10, 3)
+        assert np.allclose(sub[..., 0], self.data[..., 0])
+        assert np.allclose(sub[..., 1], self.data[..., 2])
+        assert np.allclose(sub[..., 2], self.data[..., 4])
         
         del vec
         del sub
@@ -86,8 +87,8 @@ class TestBigNeuroVec:
         vols = vec.vols([0, 2])
         assert len(vols) == 2
         assert all(isinstance(v, DenseNeuroVol) for v in vols)
-        assert np.allclose(vols[0].data, self.data[0])
-        assert np.allclose(vols[1].data, self.data[2])
+        assert np.allclose(vols[0].data, self.data[..., 0])
+        assert np.allclose(vols[1].data, self.data[..., 2])
         
         del vec
     

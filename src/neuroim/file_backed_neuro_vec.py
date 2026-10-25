@@ -268,6 +268,7 @@ class FileBackedNeuroVec(NeuroVec):
             spacing=self.space.spacing,
             origin=self.space.origin,
             axes=self.space.axes,
+            trans=self.space.trans,
         )
 
         return FileBackedNeuroVec(subset_files, subset_space, self.cache_size)

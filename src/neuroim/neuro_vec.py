@@ -790,7 +790,10 @@ class DenseNeuroVec(NeuroVec):
     def __init__(self, data, space: NeuroSpace, label: str = ""):
         super().__init__(space)
 
-        # Handle different input types
+        # Handle different input types; lists and other array-likes go through
+        # the same shape checks as ndarrays.
+        if not isinstance(data, np.ndarray):
+            data = np.asarray(data)
         if isinstance(data, np.ndarray):
             if data.ndim == 2:
                 # Matrix input (time x voxels or voxels x time)
@@ -818,8 +821,6 @@ class DenseNeuroVec(NeuroVec):
                     )
             else:
                 raise ValueError(f"Data must be 1D, 2D or 4D array, got {data.ndim}D")
-        else:
-            data = np.asarray(data)
 
         self.data = data
         self.label = label
@@ -853,7 +854,9 @@ class DenseNeuroVec(NeuroVec):
                     axes=(
                         drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None
                     ),
-                    trans=self.trans[:4, :4] if self.space.ndim <= 4 else None,
+                    # The 4x4 spatial affine; slicing the (ndim+1)^2 trans
+                    # would take the time column in place of the translation.
+                    trans=self.space.affine,
                 )
                 return DenseNeuroVol(result, vol_space)
             # PAIN-13: a pure time-axis selection (spatial dims unchanged) must
@@ -1068,6 +1071,7 @@ class DenseNeuroVec(NeuroVec):
             spacing=self.spacing,
             origin=self.origin,
             axes=self.space.axes,
+            trans=self.space.trans,
         )
 
         return DenseNeuroVec(sub_data, sub_space, self.label)
@@ -1085,7 +1089,9 @@ class DenseNeuroVec(NeuroVec):
         list of np.ndarray
             List of time series arrays, one per voxel.
         """
-        flat = self.data.reshape(-1, self.shape[3], order="F")
+        # Copy once so the returned series never alias ``self.data`` (a
+        # Fortran-ordered store reshapes to a view).
+        flat = np.array(self.data.reshape(-1, self.shape[3], order="F"))
         if subset is not None:
             return [flat[i] for i in subset]
         return [flat[i] for i in range(flat.shape[0])]
@@ -1318,6 +1324,7 @@ class SparseNeuroVec(NeuroVec):
                 spacing=self.spacing[:3],
                 origin=self.origin[:3],
                 axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
+                trans=self.space.affine,
             )
             return DenseNeuroVol(result, vol_space)
         return result
@@ -1438,6 +1445,7 @@ class SparseNeuroVec(NeuroVec):
             spacing=self.spacing,
             origin=self.origin,
             axes=self.space.axes,
+            trans=self.space.trans,
         )
 
         return SparseNeuroVec(
@@ -1624,6 +1632,7 @@ def neurovec(data, space: NeuroSpace = None, mask=None, label: str = "") -> Neur
                 spacing=space.spacing[:3],
                 origin=space.origin[:3],
                 axes=drop_axis(space.axes, 3) if space.ndim == 4 else None,
+                trans=space.affine,
             )
             mask = LogicalNeuroVol(mask, mask_space)
 
