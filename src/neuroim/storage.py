@@ -63,7 +63,7 @@ class NeuroVecStoreAdapter:
         if hasattr(self.vec, "as_matrix"):
             return self.vec.as_matrix()
         data = self.vec.data
-        return data.reshape((-1, data.shape[-1]), order="F").T
+        return data.reshape((-1, data.shape[-1]), order="F")
 
     def __getitem__(self, key: Any) -> Any:
         return self.vec[key]

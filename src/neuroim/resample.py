@@ -185,12 +185,12 @@ def resample(
         # Create a dummy nibabel image for the target space
         target_shape = tuple(int(d) for d in target.dim[:3])
         target_nifti = nib.Nifti1Image(np.zeros(target_shape), target.trans)
-        # Create a target space that preserves the source axes orientation
+        # Anatomical axes follow the target affine (the grid the data now
+        # lives on), not the source's axes.
         target_space = NeuroSpace(
             dim=target.dim,
             spacing=target.spacing,
             origin=target.origin,
-            axes=source.space.axes,  # Preserve source axes orientation
             trans=target.trans,
         )
     else:
@@ -285,16 +285,8 @@ def resample_vec(
     # Stack resampled volumes
     resampled_data = np.stack(resampled_vols, axis=-1)
 
-    # Create target 4D space that preserves source axes
     if isinstance(target, NeuroSpace):
-        # Create a 4D space that preserves the source axes orientation
-        target_4d_space = NeuroSpace(
-            dim=target.dim,
-            spacing=target.spacing,
-            origin=target.origin,
-            axes=source.space.axes,  # Preserve source axes orientation
-            trans=target.trans if hasattr(target, "trans") else None,
-        )
+        target_4d_space = target
     else:
         target_4d_space = target.space
 
@@ -388,13 +380,15 @@ def reorient(
         )
 
     # Map orientation codes to axes
+    # ``orient`` uses nibabel's "increases towards" letters (RAS: x runs to
+    # the Right), so "R" is the Left-to-Right axis.
     axis_map = {
-        "L": LEFT_RIGHT,
-        "R": RIGHT_LEFT,
-        "A": ANT_POST,
-        "P": POST_ANT,
-        "S": SUP_INF,
-        "I": INF_SUP,
+        "R": LEFT_RIGHT,
+        "L": RIGHT_LEFT,
+        "P": ANT_POST,
+        "A": POST_ANT,
+        "I": SUP_INF,
+        "S": INF_SUP,
     }
 
     new_axes = [axis_map[o] for o in orient]

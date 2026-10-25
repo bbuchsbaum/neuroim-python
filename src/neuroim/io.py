@@ -543,7 +543,7 @@ def read_vec(
         data_flat = data.reshape(-1, data.shape[3], order="F")
         sparse_data = data_flat[mask_indices, :].T
 
-    return SparseNeuroVec(sparse_data, space, mask)
+    return SparseNeuroVec(sparse_data, space, mask, orientation="time_x_voxels")
 
 
 def write_vec(

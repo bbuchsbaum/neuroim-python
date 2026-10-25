@@ -210,14 +210,9 @@ class ROIVol(ROICoords):
 
         """
         if real:
-            # Convert to real coordinates like R does
-            # R code: t(cbind(x@coords - 0.5, rep(1, nrow(x@coords))))
-            homog_coords = np.column_stack(
-                [self.coords - 0.5, np.ones(len(self.coords))]
-            )
-            # Apply transformation
-            real_coords = homog_coords @ self.space.trans.T
-            return real_coords[:, :3]
+            # Grid coords are 0-based voxel centres; map them straight
+            # through the affine (no half-voxel shift).
+            return self.space.grid_to_coord(self.coords)[:, :3]
         else:
             return self.coords
 

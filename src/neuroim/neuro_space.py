@@ -237,18 +237,18 @@ class NeuroSpace:
         if affine.shape != (4, 4):
             raise ValueError(f"affine must be 4x4, got {affine.shape}")
 
-        spacing = None
-        if header is not None and hasattr(header, "get_zooms"):
+        # Spatial spacing always comes from the affine actually used for the
+        # transform (sform or qform), never from pixdim: the two can disagree
+        # and only the affine places voxels in world space.
+        spatial_spacing = tuple(
+            float(s) for s in np.sqrt(np.sum(affine[:3, :3] ** 2, axis=0))
+        )
+        extra = tuple(1.0 for _ in dim[3:])
+        if header is not None and hasattr(header, "get_zooms") and len(dim) > 3:
             zooms = tuple(float(z) for z in header.get_zooms()[: len(dim)])
             if len(zooms) == len(dim):
-                spacing = zooms
-
-        if spacing is None:
-            spatial_spacing = np.sqrt(np.sum(affine[:3, :3] ** 2, axis=0))
-            if len(dim) > 3:
-                spacing = tuple(spatial_spacing) + tuple(1.0 for _ in dim[3:])
-            else:
-                spacing = tuple(spatial_spacing[: len(dim)])
+                extra = zooms[3:]
+        spacing = spatial_spacing[: len(dim)] + extra
 
         origin = tuple(affine[:3, 3]) + tuple(0.0 for _ in dim[3:])
         return cls(dim, spacing=spacing, origin=origin, trans=affine)
@@ -330,106 +330,21 @@ class NeuroSpace:
             # Default to LPI if no transformation matrix
             return find_anatomy_3d("LPI")
 
-        # Extract the 3x3 rotation/scale part of the transformation matrix
-        # Make a COPY to avoid modifying self.trans in-place
-        mat33 = self.trans[:3, :3].copy()
+        from nibabel.orientations import aff2axcodes
 
-        # Normalize each column (axis direction)
-        for i in range(3):
-            col = mat33[:, i]
-            norm = np.linalg.norm(col)
-            if norm > 0:
-                mat33[:, i] = col / norm
-
-        # Find the best matching anatomical orientation
-        best_score = -1
-        best_orient = "LPI"
-
-        # Check all possible anatomical orientations
-        orientations = [
-            "RAS",
-            "LAS",
-            "RPS",
-            "LPS",
-            "RAI",
-            "LAI",
-            "RPI",
-            "LPI",
-            "RSA",
-            "LSA",
-            "RSP",
-            "LSP",
-            "RIA",
-            "LIA",
-            "RIP",
-            "LIP",
-            "ARS",
-            "ALS",
-            "PRS",
-            "PLS",
-            "ARI",
-            "ALI",
-            "PRI",
-            "PLI",
-            "ASR",
-            "ASL",
-            "PSR",
-            "PSL",
-            "AIR",
-            "AIL",
-            "PIR",
-            "PIL",
-            "SRA",
-            "SLA",
-            "SRP",
-            "SLP",
-            "IRA",
-            "ILA",
-            "IRP",
-            "ILP",
-            "SAR",
-            "SAL",
-            "SPR",
-            "SPL",
-            "IAR",
-            "IAL",
-            "IPR",
-            "IPL",
-        ]
-
-        for orient in orientations:
-            try:
-                anat = find_anatomy_3d(orient)
-                # Get the permutation matrix for this orientation
-                anat_mat = np.zeros((3, 3))
-                axis_attrs = ["i", "j", "k"]
-                for i in range(3):
-                    axis = getattr(anat, axis_attrs[i])
-                    if isinstance(axis.direction, (list, tuple)):
-                        anat_mat[:, i] = axis.direction
-                    elif isinstance(axis.direction, (int, float)):
-                        # Single value direction - expand to 3D vector
-                        dir_vec = [0, 0, 0]
-                        dir_vec[i] = axis.direction
-                        anat_mat[:, i] = dir_vec
-                    else:
-                        anat_mat[:, i] = [0, 0, 0]
-                        anat_mat[i, i] = 1
-
-                # Compute similarity score (sum of absolute dot products)
-                score = 0
-                for i in range(3):
-                    for j in range(3):
-                        score += abs(np.dot(mat33[:, i], anat_mat[:, j]))
-
-                if score > best_score:
-                    best_score = score
-                    best_orient = orient
-            except:
-                # Skip invalid orientations
-                continue
-
-        return find_anatomy_3d(best_orient)
+        # nibabel codes name the direction each axis increases *towards*
+        # (RAS: x runs to the Right); neuroim axis codes name where it starts
+        # *from* (LPI: Left-to-Right), so flip each letter.
+        opposite = {"R": "L", "L": "R", "A": "P", "P": "A", "S": "I", "I": "S"}
+        spatial = np.eye(4)
+        spatial[:3, :3] = self.trans[:3, :3]
+        try:
+            codes = aff2axcodes(spatial)
+        except Exception:
+            return find_anatomy_3d("LPI")
+        if any(c is None for c in codes):
+            return find_anatomy_3d("LPI")
+        return find_anatomy_3d("".join(opposite[c] for c in codes))
 
     @property
     def ndim(self) -> int:
@@ -516,7 +431,9 @@ class NeuroSpace:
             transformed = homogeneous @ self.inverse.T
             return transformed[:, : self.ndim]
 
-        return (coords - self.origin) / self.spacing
+        # Full (ndim+1)x(ndim+1) affine so rotations and flips are honoured.
+        homogeneous = np.column_stack([coords, np.ones(len(coords))])
+        return (homogeneous @ self.inverse.T)[:, : self.ndim]
 
     def grid_to_coord(self, grid: np.ndarray) -> np.ndarray:
         """Convert grid indices to real-world coordinates.
@@ -553,7 +470,8 @@ class NeuroSpace:
             transformed = homogeneous @ self.trans.T
             return transformed[:, : self.ndim]
 
-        return grid * self.spacing + self.origin
+        homogeneous = np.column_stack([grid, np.ones(len(grid))])
+        return (homogeneous @ self.trans.T)[:, : self.ndim]
 
     def grid_to_world(self, coords: VoxelCoord) -> WorldCoord:
         """Convert voxel-grid coordinates to world coordinates.
@@ -582,8 +500,14 @@ class NeuroSpace:
         -------
         ndarray
             1D indices (0-based)"""
+        coords = np.atleast_2d(coords)
         grid = self.coord_to_grid(coords)
         grid_rounded = np.round(grid).astype(int)
+        if self.ndim > 3 and grid_rounded.shape[1] == 3:
+            # Spatial-only query on a 4-D+ space: index into the spatial grid.
+            return np.ravel_multi_index(
+                tuple(grid_rounded.T), tuple(int(d) for d in self.dim[:3]), order="F"
+            )
         return self.grid_to_index(grid_rounded)
 
     def index_to_coord(self, idx: Union[int, np.ndarray]) -> np.ndarray:

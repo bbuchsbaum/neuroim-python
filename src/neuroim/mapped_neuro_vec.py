@@ -132,6 +132,7 @@ class MappedNeuroVec(NeuroVec):
             data=mapped_data,
             space=source_sparse.space,
             mask=source_sparse.mask,
+            orientation="time_x_voxels",
         )
 
     def _arithmetic_op(self, other, op):

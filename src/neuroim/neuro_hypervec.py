@@ -406,10 +406,10 @@ class SparseNeuroHyperVec(NeuroHyperVec):
         # Initialize dense array
         dense_data = np.zeros(self.shape)
         
-        # Fill in sparse data
-        mask_coords = np.column_stack(np.where(self.mask.data))
-        for i, coord in enumerate(mask_coords):
-            dense_data[coord[0], coord[1], coord[2], :, :] = self.data[:, :, i].T
+        # Voxel columns are stored in Fortran linear-index order (_indices),
+        # so place them by that order, not by np.where's C order.
+        xi, yi, zi = np.unravel_index(self._indices, self.shape[:3], order="F")
+        dense_data[xi, yi, zi, :, :] = np.transpose(self.data, (2, 1, 0))
         
         return DenseNeuroHyperVec(dense_data, self.space, self.label)
     
@@ -458,8 +458,9 @@ class SparseNeuroHyperVec(NeuroHyperVec):
             origin=self.space.origin[:4]
         )
         
-        # Transpose to match SparseNeuroVec format (n_voxels, n_timepoints)
-        return SparseNeuroVec(mean_data.T, space_4d, self.mask, self.label)
+        return SparseNeuroVec(
+            mean_data, space_4d, self.mask, self.label, orientation="time_x_voxels"
+        )
     
     def select_features(self, indices: List[int]) -> 'SparseNeuroHyperVec':
         """Select subset of features."""
@@ -499,7 +500,9 @@ class SparseNeuroHyperVec(NeuroHyperVec):
             origin=self.space.origin[:4]
         )
         
-        return SparseNeuroVec(output_data, space_4d, self.mask, self.label)
+        return SparseNeuroVec(
+            output_data, space_4d, self.mask, self.label, orientation="voxels_x_time"
+        )
 
 
 def concat_features(hypervecs: List[NeuroHyperVec]) -> DenseNeuroHyperVec:

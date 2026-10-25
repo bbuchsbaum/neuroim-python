@@ -7,7 +7,6 @@ and downsampling neuroimaging volumes and vectors.
 import warnings
 
 import numpy as np
-from scipy import ndimage
 from typing import Union, Callable
 
 from .neuro_vol import NeuroVol, DenseNeuroVol
@@ -237,7 +236,7 @@ def _resolve_downsample_shape(
         if np.any(~np.isfinite(fac)) or np.any(fac <= 0):
             raise ValueError("factor must be positive")
         if np.all(fac <= 1):
-            out = np.floor(shape_arr * fac).astype(int)
+            out = np.maximum(np.round(shape_arr * fac), 1).astype(int)
         else:
             if not np.allclose(fac, np.round(fac)):
                 raise ValueError("factor values greater than 1 must be integer block sizes")
@@ -250,7 +249,9 @@ def _resolve_downsample_shape(
             raise ValueError("spacing must have length 3")
         if np.any(~np.isfinite(target_spacing)) or np.any(target_spacing <= 0):
             raise ValueError("spacing values must be positive")
-        out = np.floor(shape_arr * current_spacing / target_spacing).astype(int)
+        out = np.maximum(
+            np.round(shape_arr * current_spacing / target_spacing), 1
+        ).astype(int)
     else:
         out = np.asarray(outdim, dtype=int)
         if out.size != 3:
@@ -271,17 +272,36 @@ def _downsample_array(data: np.ndarray, out_shape: tuple[int, int, int]) -> np.n
     out = np.asarray(out_shape, dtype=int)
     block = in_shape / out
 
-    if np.allclose(block, np.round(block)):
-        block = np.round(block).astype(int)
-        trimmed = data[: out[0] * block[0], : out[1] * block[1], : out[2] * block[2], ...]
+    if np.all(in_shape % out == 0):
+        block = (in_shape // out).astype(int)
         trailing = data.shape[3:]
-        reshaped = trimmed.reshape(
+        reshaped = data.reshape(
             out[0], block[0], out[1], block[1], out[2], block[2], *trailing
         )
         return reshaped.mean(axis=(1, 3, 5))
 
-    zoom = tuple(out / in_shape) + (1.0,) * (data.ndim - 3)
-    return ndimage.zoom(data, zoom=zoom, order=1)
+    # Fractional box average: output voxel j averages the input extent
+    # [j * r, (j + 1) * r) in voxel-edge units (r = n_in / n_out), weighting
+    # each input voxel by its overlap.  That centres every output voxel exactly
+    # where ``_downsampled_space`` places it, so data and affine agree for
+    # non-integer ratios.  The weights are separable, so one axis at a time
+    # is exact.
+    result = np.asarray(data, dtype=float)
+    for axis in range(3):
+        n_in, n_out = int(in_shape[axis]), int(out[axis])
+        if n_in == n_out:
+            continue
+        ratio = n_in / n_out
+        lo = np.arange(n_out)[:, None] * ratio
+        edges = np.arange(n_in)[None, :]
+        overlap = np.clip(
+            np.minimum(lo + ratio, edges + 1) - np.maximum(lo, edges), 0.0, None
+        )
+        weights = overlap / ratio
+        result = np.moveaxis(
+            np.tensordot(weights, np.moveaxis(result, axis, 0), axes=(1, 0)), 0, axis
+        )
+    return result
 
 
 def downsample(

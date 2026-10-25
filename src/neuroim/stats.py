@@ -112,7 +112,12 @@ def split_blocks(
 
             # Create SparseNeuroVec for this block
             # SparseNeuroVec expects data as (n_timepoints, n_voxels), so transpose
-            block_vec = SparseNeuroVec(data=block_series.T, space=x.space, mask=mask)
+            block_vec = SparseNeuroVec(
+                data=block_series.T,
+                space=x.space,
+                mask=mask,
+                orientation="time_x_voxels",
+            )
             blocks.append(block_vec)
 
         else:  # NeuroVol
@@ -318,7 +323,9 @@ def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
                 axes=x.space.axes,
             )
 
-            level_vec = SparseNeuroVec(subset_data, new_space, x.mask)
+            level_vec = SparseNeuroVec(
+                subset_data, new_space, x.mask, orientation="time_x_voxels"
+            )
 
         result[level] = level_vec
 
@@ -518,7 +525,9 @@ def split_scale(
 
             scaled_data[level_indices, :] = level_data
 
-        return SparseNeuroVec(scaled_data, x.space, x.mask, x.label)
+        return SparseNeuroVec(
+            scaled_data, x.space, x.mask, x.label, orientation="time_x_voxels"
+        )
 
 def partition(
     x: NeuroVol, k: int, method: str = "kmeans", mask: Optional[LogicalNeuroVol] = None
