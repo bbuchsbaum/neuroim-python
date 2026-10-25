@@ -959,7 +959,9 @@ def patch_set(
     centroids : np.ndarray
         Matrix where each row is a 3D centroid coordinate (0-based)
     radius : float
-        Radius (or half-width) in voxel units
+        For ``"sphere"``, the radius in millimetres (as in
+        :func:`spherical_roi`). For ``"cube"``, the half-width in voxels,
+        which must be a non-negative integer (as in :func:`cube_roi`).
     shape : str
         Shape of each patch: ``"sphere"`` (default) or ``"cube"``
     fill : float or list, optional
@@ -996,7 +998,9 @@ def patch_set(
         if shape == "sphere":
             roi = spherical_roi(bvol, centroid, radius, fill=fill_val, nonzero=nonzero)
         else:
-            roi = cube_roi(bvol, centroid, int(radius), fill=fill_val, nonzero=nonzero)
+            # No int() here: a fractional or NaN half-width is rejected by
+            # cube_roi's validation instead of being silently truncated.
+            roi = cube_roi(bvol, centroid, radius, fill=fill_val, nonzero=nonzero)
         result.append(roi)
 
     return result

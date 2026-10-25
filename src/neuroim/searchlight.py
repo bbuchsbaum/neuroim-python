@@ -190,11 +190,13 @@ def searchlight_iterator(
         center_grid = centers[idx]
 
         # Create spherical ROI around this center
-        roi = spherical_roi(mask, center_grid, radius, fill=1.0, nonzero=nonzero)
+        roi = spherical_roi(mask, center_grid, radius, fill=None, nonzero=nonzero)
 
         # Create ROIVolWindow with parent tracking
         return ROIVolWindow(
-            data=roi.data,
+            # Mask values: 1 for in-mask members, 0 for out-of-mask ones when
+            # nonzero=False (as in neuroim2).
+            data=np.asarray(roi.data, dtype=float),
             space=roi.space,
             coords=roi.coords,
             parent_index=center_idx,
@@ -262,7 +264,7 @@ def searchlight_coords(
         center_grid = centers[idx]
 
         # Create spherical ROI around this center
-        roi = spherical_roi(mask, center_grid, radius, fill=1.0, nonzero=nonzero)
+        roi = spherical_roi(mask, center_grid, radius, fill=None, nonzero=nonzero)
 
         # Return just the coordinates as a matrix
         return roi.coords
@@ -340,7 +342,7 @@ def random_searchlight(
         center_idx = int(mask_indices[center_pos])
         center_grid = _center_grid_from_index(mask, center_idx)
 
-        roi = spherical_roi(mask, center_grid, radius, fill=1.0, nonzero=nonzero)
+        roi = spherical_roi(mask, center_grid, radius, fill=None, nonzero=nonzero)
         roi_lookup = lookup[mask.space.grid_to_index(roi.coords)]
         in_mask = roi_lookup >= 0
         available = np.zeros(len(roi_lookup), dtype=bool)
@@ -355,7 +357,7 @@ def random_searchlight(
 
         searchlights.append(
             ROIVolWindow(
-                data=np.ones(len(coords)),
+                data=np.asarray(roi.data, dtype=float)[kept],
                 space=roi.space,
                 coords=coords,
                 parent_index=center_idx,

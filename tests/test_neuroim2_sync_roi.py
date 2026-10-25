@@ -102,3 +102,35 @@ def test_conn_comp_bookkeeping_matches_definition():
         np.testing.assert_array_equal(vox, np.column_stack(np.where(lab == i)))
         assert np.all(res.size.data[lab == i] == (lab == i).sum())
     assert np.all(res.size.data[lab == 0] == 0)
+
+
+@pytest.mark.parametrize(
+    "vdim,radius", [((1, 1, 1), 1.0), ((2, 2, 2), 2.0), ((2, 2, 3), 4.5)]
+)
+def test_spherical_kernel_matches_spherical_roi(vdim, radius):
+    from neuroim.kernel import spherical_kernel
+
+    kernel = spherical_kernel(vdim, radius)
+    roi = spherical_roi(NeuroSpace((21, 21, 21), spacing=vdim), (10, 10, 10), radius)
+    expected = sorted(map(tuple, (np.asarray(roi.coords) - 10).tolist()))
+    assert sorted(map(tuple, np.asarray(kernel.voxels).tolist())) == expected
+
+
+def test_patch_set_cube_rejects_fractional_half_width():
+    from neuroim.roi import patch_set
+
+    sp = NeuroSpace((9, 9, 9))
+    with pytest.raises(ValueError):
+        patch_set(sp, [[4, 4, 4]], radius=2.7, shape="cube")
+    assert len(patch_set(sp, [[4, 4, 4]], radius=2, shape="cube")[0].coords) == 125
+
+
+def test_searchlight_window_values_come_from_mask():
+    m = np.zeros((3, 3, 3), dtype=bool)
+    m[1, 1, 1] = True
+    mask = LogicalNeuroVol(m, NeuroSpace(m.shape))
+    window = searchlight_iterator(mask, 1.0, nonzero=False)[0]
+    center = tuple(np.asarray(window.coords)[window.center_index])
+    values = dict(zip(map(tuple, np.asarray(window.coords).tolist()), window.data))
+    assert values.pop(center) == 1.0
+    assert all(v == 0.0 for v in values.values())

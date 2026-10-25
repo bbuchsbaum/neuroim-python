@@ -170,11 +170,10 @@ def spherical_kernel(
     grids = [np.arange(-hw, hw + 1) for hw in hwidth]
     voxel_ind = np.array(np.meshgrid(*grids, indexing="ij")).reshape(len(kdim), -1).T
 
-    # Convert to coordinates
-    cvoxel_ind = voxel_ind * vdim
-    coords = np.where(
-        cvoxel_ind == 0, 0, np.sign(cvoxel_ind) * (np.abs(cvoxel_ind) - 0.5)
-    )
+    # Voxel-centre offsets in mm. Membership uses true centre distances, the
+    # same rule as spherical_roi (the half-unit shrink used by
+    # gaussian_kernel would admit voxels whose centres lie outside the radius).
+    coords = voxel_ind * vdim
 
     # Calculate distances from center
     distances = np.sqrt(np.sum(coords**2, axis=1))
