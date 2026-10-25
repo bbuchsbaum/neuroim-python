@@ -48,6 +48,25 @@ def _gaussian_sigma(space, sigma, fwhm_mm):
     return (fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))) / spacing
 
 
+def _insulated_gaussian(data, mask_bool, sigma, truncate, radius):
+    """Smooth-in-mask Gaussian: in-mask neighbours only, renormalized.
+
+    Computes ``blur(x * m) / blur(m)`` with zero padding, so out-of-mask values
+    (including NaN/Inf) never reach in-mask outputs and edge voxels are not
+    pulled toward the exterior (neuroim2 ``normalize = TRUE``; cf. AFNI
+    3dBlurInMask). Only in-mask voxels of the result are meaningful.
+    """
+    weights = mask_bool.astype(float)
+    if data.ndim == 4:
+        weights = np.broadcast_to(weights[..., None], data.shape)
+    masked = np.where(weights > 0, data, 0.0)
+    kwargs = dict(sigma=sigma, truncate=truncate, radius=radius, mode="constant")
+    num = ndimage.gaussian_filter(masked, **kwargs)
+    den = ndimage.gaussian_filter(np.ascontiguousarray(weights), **kwargs)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return num / den
+
+
 def gaussian_blur(
     vol: NeuroVol,
     mask: Optional[LogicalNeuroVol] = None,
@@ -56,6 +75,7 @@ def gaussian_blur(
     *,
     fwhm_mm: Optional[float] = None,
     truncate: float = 4.0,
+    normalize: bool = True,
 ) -> DenseNeuroVol:
     """Apply a Gaussian blur to a volumetric image.
 
@@ -91,6 +111,15 @@ def gaussian_blur(
     truncate : float, optional (keyword only)
         Standard deviations retained when ``window`` is ``None``. Default 4,
         matching :func:`scipy.ndimage.gaussian_filter`.
+    normalize : bool, optional (keyword only)
+        How the mask boundary is handled when ``mask`` is given. ``True``
+        (default, as in neuroim2) insulates the blur to the mask: each
+        in-mask voxel is computed from in-mask neighbours only and the kernel
+        is renormalized by the in-mask weight, so out-of-mask values -- finite
+        or NaN/Inf -- never leak in and edges are not biased toward the
+        exterior. ``False`` keeps the legacy behaviour: the whole volume is
+        blurred and in-mask voxels are copied from it. Voxels outside the mask
+        keep their input values either way.
 
     Returns
     -------
@@ -113,6 +142,7 @@ def gaussian_blur(
             window=window,
             fwhm_mm=fwhm_mm,
             truncate=truncate,
+            normalize=normalize,
         )
     radius_used, truncate_used = _gaussian_support(window, truncate, vol.shape)
     sigma_used: Union[float, np.ndarray] = _gaussian_sigma(vol.space, sigma, fwhm_mm)
@@ -123,12 +153,21 @@ def gaussian_blur(
         assert_same_space(vol, mask)
 
     data = vol.data
-    blurred_data = ndimage.gaussian_filter(
-        data,
-        sigma=sigma_used,
-        truncate=truncate_used,
-        radius=radius_used,
-    )
+    if mask is not None and normalize:
+        blurred_data = _insulated_gaussian(
+            np.asarray(data, dtype=float),
+            np.asarray(mask.data, dtype=bool),
+            sigma_used,
+            truncate_used,
+            radius_used,
+        )
+    else:
+        blurred_data = ndimage.gaussian_filter(
+            data,
+            sigma=sigma_used,
+            truncate=truncate_used,
+            radius=radius_used,
+        )
     if mask is not None:
         output_data = data.copy()
         mask_indices = np.where(mask.data)
@@ -160,6 +199,7 @@ def _gaussian_blur_vec(
     window: Optional[int] = None,
     fwhm_mm: Optional[float] = None,
     truncate: float = 4.0,
+    normalize: bool = True,
 ) -> DenseNeuroVec:
     """Spatially Gaussian-blur each volume of a 4-D NeuroVec.
 
@@ -183,12 +223,21 @@ def _gaussian_blur_vec(
     spatial_sigma_values = np.broadcast_to(np.asarray(spatial_sigma, dtype=float), (3,))
     sigma_4d = tuple(spatial_sigma_values) + (0.0,)
     radius_4d = None if radius_used is None else (radius_used,) * 3 + (0,)
-    blurred = ndimage.gaussian_filter(
-        data,
-        sigma=sigma_4d,
-        truncate=truncate_used,
-        radius=radius_4d,
-    )
+    if mask is not None and normalize:
+        blurred = _insulated_gaussian(
+            data,
+            np.asarray(mask.data, dtype=bool),
+            sigma_4d,
+            truncate_used,
+            radius_4d,
+        )
+    else:
+        blurred = ndimage.gaussian_filter(
+            data,
+            sigma=sigma_4d,
+            truncate=truncate_used,
+            radius=radius_4d,
+        )
 
     if mask is not None:
         mask_bool = np.asarray(mask.data, dtype=bool)
@@ -285,12 +334,85 @@ def guided_filter(
     return DenseNeuroVol(output_data, vol.space)
 
 
+def _check_range_scale(range_scale) -> None:
+    if range_scale is not None and (not np.isfinite(range_scale) or range_scale <= 0):
+        raise ValueError("range_scale must be None or a positive finite value")
+
+
+def _bilateral_3d(
+    data: np.ndarray,
+    mask_arr: np.ndarray,
+    spatial_sigma: float,
+    intensity_sigma: float,
+    window: int,
+    spacing,
+    range_scale: Optional[float],
+) -> np.ndarray:
+    """Bilateral filter of one 3-D array, following neuroim2's kernel.
+
+    Spatial distances are in millimetres (``spacing``); only in-mask, finite
+    neighbours inside the volume contribute and the weights are renormalized.
+    The intensity bandwidth is ``intensity_sigma * range_scale``, where
+    ``range_scale`` defaults to the sample SD of the finite in-mask values.
+    """
+    data = np.asarray(data, dtype=float)
+    if range_scale is None:
+        finite = data[mask_arr]
+        finite = finite[np.isfinite(finite)]
+        intensity_sd = float(np.std(finite, ddof=1)) if finite.size > 1 else 0.0
+    else:
+        intensity_sd = float(range_scale)
+    intensity_denom = 2.0 * intensity_sigma**2 * intensity_sd**2
+    if not np.isfinite(intensity_denom) or intensity_denom < 1e-12:
+        intensity_denom = 1e-12
+    spatial_denom = 2.0 * spatial_sigma**2
+    spacing = np.asarray(spacing, dtype=float)[:3]
+
+    shape = data.shape
+    padded = np.pad(
+        np.where(mask_arr, data, np.nan),
+        window,
+        mode="constant",
+        constant_values=np.nan,
+    )
+    num = np.zeros(shape)
+    den = np.zeros(shape)
+    rng = range(-window, window + 1)
+    for dx in rng:
+        for dy in rng:
+            for dz in rng:
+                dist2 = (
+                    (dx * spacing[0]) ** 2
+                    + (dy * spacing[1]) ** 2
+                    + (dz * spacing[2]) ** 2
+                )
+                spatial_w = np.exp(-dist2 / spatial_denom)
+                neigh = padded[
+                    window + dx : window + dx + shape[0],
+                    window + dy : window + dy + shape[1],
+                    window + dz : window + dz + shape[2],
+                ]
+                valid = np.isfinite(neigh)
+                safe = np.where(valid, neigh, 0.0)
+                with np.errstate(invalid="ignore"):
+                    w = spatial_w * np.exp(-((safe - data) ** 2) / intensity_denom)
+                w = np.where(valid & np.isfinite(w), w, 0.0)
+                num += w * safe
+                den += w
+
+    out = data.copy()
+    update = mask_arr & np.isfinite(data) & (den > 0)
+    out[update] = num[update] / den[update]
+    return out
+
+
 def bilateral_filter(
     vol: NeuroVol,
     mask: Optional[LogicalNeuroVol] = None,
     spatial_sigma: float = 2,
     intensity_sigma: float = 1,
     window: int = 1,
+    range_scale: Optional[float] = None,
 ) -> DenseNeuroVol:
     """Apply bilateral filter to a volumetric image.
 
@@ -303,15 +425,26 @@ def bilateral_filter(
     vol : NeuroVol
         The image volume to be smoothed
     mask : LogicalNeuroVol, optional
-        Image mask defining the region where filtering is applied.
-        If not provided, the entire volume is considered.
+        Image mask defining the region where filtering is applied. Only
+        in-mask neighbours contribute; voxels outside the mask are returned
+        unchanged. If not provided, the entire volume is considered.
     spatial_sigma : float
-        Standard deviation of the spatial Gaussian kernel (default is 2)
+        Standard deviation of the spatial Gaussian kernel, in millimetres
+        (distances use the voxel spacing). Default is 2.
     intensity_sigma : float
-        Standard deviation of the intensity Gaussian kernel (default is 1)
+        Width of the intensity kernel in units of ``range_scale``
+        (default is 1).
     window : int
         Number of voxels around the center voxel to include on each side.
         For example, window=1 for a 3x3x3 kernel (default is 1)
+    range_scale : float, optional
+        Intensity scale of the range kernel; the effective bandwidth is
+        ``intensity_sigma * range_scale``. If None, it is estimated as the
+        standard deviation of this input's finite in-mask values, so equal
+        ``intensity_sigma`` values do not imply equal bandwidths across
+        subjects, contrasts or observed/null maps. For batch or group work,
+        choose one fixed ``range_scale`` (e.g. from a reference or pooled
+        in-mask distribution) and reuse it with the same ``intensity_sigma``.
 
     Returns
     -------
@@ -323,61 +456,23 @@ def bilateral_filter(
         raise ValueError("Window size must be at least 1")
     if spatial_sigma <= 0 or intensity_sigma <= 0:
         raise ValueError("Sigma values must be positive")
+    _check_range_scale(range_scale)
 
-    data = vol.data
-    if mask is not None:
-        mask_indices = np.where(mask.data)
-    else:
-        mask_indices = np.where(np.ones_like(data, dtype=bool))
-
-    # Create spatial and intensity kernels
-    spatial_kernel = np.exp(
-        -np.arange(-window, window + 1) ** 2 / (2 * spatial_sigma**2)
+    data = np.asarray(vol.data)
+    mask_arr = (
+        np.ones(data.shape, dtype=bool)
+        if mask is None
+        else np.asarray(mask.data, dtype=bool)
     )
-    spatial_kernel = (
-        spatial_kernel[:, np.newaxis, np.newaxis]
-        * spatial_kernel[np.newaxis, :, np.newaxis]
-        * spatial_kernel[np.newaxis, np.newaxis, :]
+    output_data = _bilateral_3d(
+        data,
+        mask_arr,
+        spatial_sigma,
+        intensity_sigma,
+        int(window),
+        vol.space.spacing[:3],
+        range_scale,
     )
-
-    def bilateral_at_point(point):
-        i, j, k = point
-        local_region = data[
-            max(0, i - window) : i + window + 1,
-            max(0, j - window) : j + window + 1,
-            max(0, k - window) : k + window + 1,
-        ]
-
-        intensity_diff = local_region - data[i, j, k]
-        intensity_kernel = np.exp(-(intensity_diff**2) / (2 * intensity_sigma**2))
-
-        kernel = (
-            spatial_kernel[
-                : local_region.shape[0],
-                : local_region.shape[1],
-                : local_region.shape[2],
-            ]
-            * intensity_kernel
-        )
-
-        weighted_sum = np.sum(local_region * kernel)
-        normalization = np.sum(kernel)
-
-        return weighted_sum / normalization
-
-    # Initialize output - only copy if we have a mask
-    if mask is not None:
-        output_data = data.copy()
-        for point in zip(*mask_indices):
-            output_data[point] = bilateral_at_point(point)
-    else:
-        # Process entire volume
-        output_data = np.empty_like(data)
-        for i in range(data.shape[0]):
-            for j in range(data.shape[1]):
-                for k in range(data.shape[2]):
-                    output_data[i, j, k] = bilateral_at_point((i, j, k))
-
     return DenseNeuroVol(output_data, vol.space)
 
 
@@ -387,6 +482,7 @@ def bilateral_filter_vec(
     spatial_sigma: float = 2,
     intensity_sigma: float = 1,
     window: int = 1,
+    range_scale: Optional[float] = None,
 ) -> DenseNeuroVec:
     """Apply bilateral filter to each volume of a NeuroVec.
 
@@ -400,11 +496,15 @@ def bilateral_filter_vec(
         Binary mask specifying the region of interest.
         If not provided, the whole volume is considered.
     spatial_sigma : float
-        Spatial sigma for the bilateral filter (default is 2)
+        Spatial sigma in millimetres (default is 2)
     intensity_sigma : float
-        Intensity sigma for the bilateral filter (default is 1)
+        Intensity sigma in units of ``range_scale`` (default is 1)
     window : int
         Size of the window for the bilateral filter (default is 1)
+    range_scale : float, optional
+        Fixed intensity scale for every volume. If None, each volume
+        estimates its own in-mask standard deviation (see
+        :func:`bilateral_filter`), so bandwidths differ across volumes.
 
     Returns
     -------
@@ -412,18 +512,31 @@ def bilateral_filter_vec(
         The filtered volumes
 
     """
-    # Extract individual volumes and filter
-    filtered_vols = []
-    for i in range(vec.shape[3]):
-        vol = vec.vols(i)
-        filtered_vol = bilateral_filter(
-            vol, mask, spatial_sigma, intensity_sigma, window
-        )
-        filtered_vols.append(filtered_vol)
+    if window < 1:
+        raise ValueError("Window size must be at least 1")
+    if spatial_sigma <= 0 or intensity_sigma <= 0:
+        raise ValueError("Sigma values must be positive")
+    _check_range_scale(range_scale)
 
-    # Stack filtered volumes
-    filtered_data = np.stack([vol.data for vol in filtered_vols], axis=-1)
-    return DenseNeuroVec(filtered_data, vec.space)
+    data = np.asarray(vec.to_dense().data if hasattr(vec, "to_dense") else vec.data)
+    mask_arr = (
+        np.ones(data.shape[:3], dtype=bool)
+        if mask is None
+        else np.asarray(mask.data, dtype=bool)
+    )
+    filtered = [
+        _bilateral_3d(
+            data[..., t],
+            mask_arr,
+            spatial_sigma,
+            intensity_sigma,
+            int(window),
+            vec.space.spacing[:3],
+            range_scale,
+        )
+        for t in range(data.shape[3])
+    ]
+    return DenseNeuroVec(np.stack(filtered, axis=-1), vec.space)
 
 
 def bilateral_filter_4d(
@@ -442,6 +555,12 @@ def bilateral_filter_4d(
     This mirrors neuroim2's ``bilateral_filter_4d`` contract: spatial
     neighbors are limited by ``spatial_window``, temporal neighbors by
     ``temporal_window``, and values outside the mask are left unchanged.
+
+    With ``range_scale=None`` one intensity scale is estimated from all finite
+    in-mask values across time, so equal ``intensity_sigma`` values do not
+    imply equal bandwidths across runs or subjects. For batch or group work,
+    reuse one fixed ``range_scale`` and the same ``intensity_sigma``; the
+    effective bandwidth is ``intensity_sigma * range_scale``.
     """
     if spatial_window < 1:
         raise ValueError("spatial_window must be >= 1")
