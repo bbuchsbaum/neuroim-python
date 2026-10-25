@@ -31,6 +31,14 @@ contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
 
 ### Changed
 
+- **`gaussian_blur(sigma=)` is in millimetres** (it was voxels), matching
+  neuroim2 and `fwhm_mm=`; the default is 2 mm and passing both `sigma`
+  and `fwhm_mm` raises. `gaussian_blur(vol, sigma=2)` on non-1 mm data now
+  smooths differently; to reproduce an old call, multiply the old
+  voxel sigma by the voxel size.
+- Bilateral filters take `spatial_sigma` in mm and an intensity bandwidth
+  of `intensity_sigma * range_scale`; masked `gaussian_blur` defaults to
+  `normalize=True`; `FileBackedNeuroVec.as_matrix` returns voxels x time.
 - `NeuroHyperVec` is now the class (was shadowed by a factory function
   of the same name); construct concrete types with
   `NeuroHyperVec.create(...)` or the `Dense`/`Sparse` classes directly.
@@ -108,6 +116,12 @@ contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
     non-finite spacing are handled. `random_searchlight` partitions the mask
     in linear time, and `clustered_searchlight(cvol=ClusteredNeuroVol)`
     works. `conn_comp` is vectorised and gives identical output.
+    `spherical_kernel` membership matches `spherical_roi`; `patch_set` no
+    longer truncates a cube half-width; searchlight windows carry mask
+    values (0 for out-of-mask members).
+  - *Affines everywhere.* Time slices keep the spatial affine and TR;
+    hyper-vector reductions, `NeuroVol.concat`, `dot_reduce`,
+    `simulate_fmri` and HDF5 hyper-vector files keep flips/rotations.
 - **Ergonomic pass (seed-connectivity workflow stress test).** Five
   friction points found while exercising a natural end-to-end pipeline
   through the public surface:
