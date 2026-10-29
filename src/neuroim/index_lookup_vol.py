@@ -6,6 +6,8 @@ and compact table indices for sparse neuroimaging volumes.
 Provides a compact lookup volume for sparse voxel-table indexing.
 """
 
+from typing import Dict, Union, cast
+
 import numpy as np
 
 from .neuro_space import NeuroSpace
@@ -60,6 +62,7 @@ class IndexLookupVol:
         # Build grid_idx -> table_idx lookup.
         # Use a dense array when the index range is manageable,
         # otherwise fall back to a dictionary.
+        self._lookup: Union[np.ndarray, Dict[int, int]]
         if vol_size <= 10_000_000:  # ~10M entries, ~80 MB for int64
             self._lookup = np.full(vol_size, -1, dtype=np.intp)
             self._lookup[indices] = np.arange(len(indices), dtype=np.intp)
@@ -92,7 +95,7 @@ class IndexLookupVol:
         """
         if self._use_dict:
             try:
-                return self._lookup[int(grid_idx)]
+                return cast(int, self._lookup[int(grid_idx)])
             except KeyError:
                 raise KeyError(f"Grid index {grid_idx} not found in lookup table")
         else:
@@ -141,12 +144,14 @@ class IndexLookupVol:
                     raise KeyError(f"Grid index {g} not found in lookup table")
             return result
         else:
-            result = self._lookup[indices]
-            bad = result == -1
+            # Dense lookup table (self._use_dict is False)
+            table = cast(np.ndarray, self._lookup)
+            found: np.ndarray = table[indices]
+            bad = found == -1
             if np.any(bad):
                 first_bad = indices[bad][0]
                 raise KeyError(f"Grid index {first_bad} not found in lookup table")
-            return result
+            return found
 
     def table_to_grid(self, indices: np.ndarray) -> np.ndarray:
         """Convert an array of table indices back to grid indices (reverse).
@@ -171,7 +176,7 @@ class IndexLookupVol:
             np.any(indices < 0) or np.any(indices >= len(self._grid_indices))
         ):
             raise IndexError(f"Table index out of range [0, {len(self._grid_indices)})")
-        return self._grid_indices[indices]
+        return cast(np.ndarray, self._grid_indices[indices])
 
     # ------------------------------------------------------------------
     # Dunder methods

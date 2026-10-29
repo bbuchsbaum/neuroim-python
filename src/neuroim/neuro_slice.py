@@ -48,8 +48,8 @@ class NeuroSlice:
         self.space = space
 
     @property
-    def shape(self) -> Tuple[int, int]:
-        """Shape of the 2D data."""
+    def shape(self) -> Tuple[int, ...]:
+        """Shape of the slice data (1-D or 2-D)."""
         return tuple(int(d) for d in self.data.shape)
 
     @property

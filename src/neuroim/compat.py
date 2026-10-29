@@ -8,7 +8,7 @@ without duplicating logic already implemented on the objects.
 
 from __future__ import annotations
 
-from typing import Any, Protocol, Union, runtime_checkable
+from typing import Any, Protocol, Union, cast, runtime_checkable
 
 import numpy as np
 
@@ -78,11 +78,11 @@ def ndim(x: Any) -> int:
 
 
 def spacing(x: Any) -> np.ndarray:
-    return _maybe_member(x, "spacing")
+    return cast(np.ndarray, _maybe_member(x, "spacing"))
 
 
 def origin(x: Any) -> np.ndarray:
-    return _maybe_member(x, "origin")
+    return cast(np.ndarray, _maybe_member(x, "origin"))
 
 
 def axes(x: Any) -> Any:
@@ -90,28 +90,28 @@ def axes(x: Any) -> Any:
 
 
 def trans(x: Any) -> np.ndarray:
-    return _maybe_member(x, "trans")
+    return cast(np.ndarray, _maybe_member(x, "trans"))
 
 
 def inverse_trans(x: Any) -> np.ndarray:
     sp = space(x) if not hasattr(x, "inverse") else x
-    return _member(sp, "inverse")
+    return cast(np.ndarray, _member(sp, "inverse"))
 
 
 def bounds(x: Any) -> np.ndarray:
-    return _member(x, "bounds")
+    return cast(np.ndarray, _member(x, "bounds"))
 
 
 def centroid(x: Any) -> np.ndarray:
-    return _member(x, "centroid")
+    return cast(np.ndarray, _member(x, "centroid"))
 
 
 def dim_of(x: Any, axis: Any) -> int:
-    return _member(x, "dim_of", axis)
+    return cast(int, _member(x, "dim_of", axis))
 
 
 def which_dim(x: Any, axis: Any) -> int:
-    return _member(x, "which_dim", axis)
+    return cast(int, _member(x, "which_dim", axis))
 
 
 def add_dim(x: Any, n: int) -> Any:
@@ -128,44 +128,44 @@ def drop_dim(x: Any, dimnum: int) -> Any:
 
 
 def coord_to_grid(x: Any, coords: np.ndarray) -> np.ndarray:
-    return _member(x, "coord_to_grid", coords)
+    return cast(np.ndarray, _member(x, "coord_to_grid", coords))
 
 
 def grid_to_coord(x: Any, grid: np.ndarray) -> np.ndarray:
-    return _member(x, "grid_to_coord", grid)
+    return cast(np.ndarray, _member(x, "grid_to_coord", grid))
 
 
 def coord_to_index(x: Any, coords: np.ndarray) -> np.ndarray:
-    return _member(x, "coord_to_index", coords)
+    return cast(np.ndarray, _member(x, "coord_to_index", coords))
 
 
 def index_to_coord(x: Any, idx: Any) -> np.ndarray:
-    return _member(x, "index_to_coord", idx)
+    return cast(np.ndarray, _member(x, "index_to_coord", idx))
 
 
 def grid_to_index(x: Any, grid: np.ndarray) -> np.ndarray:
-    return _member(x, "grid_to_index", grid)
+    return cast(np.ndarray, _member(x, "grid_to_index", grid))
 
 
 def grid_to_grid(x: Any, grid: np.ndarray, target_space: Any) -> np.ndarray:
-    return _member(x, "grid_to_grid", grid, target_space)
+    return cast(np.ndarray, _member(x, "grid_to_grid", grid, target_space))
 
 
 def index_to_grid(x: Any, idx: Any) -> np.ndarray:
-    return _member(x, "index_to_grid", idx)
+    return cast(np.ndarray, _member(x, "index_to_grid", idx))
 
 
 def values(x: Any) -> np.ndarray:
     if hasattr(x, "values"):
         value = getattr(x, "values")
-        return value() if callable(value) else value
+        return cast(np.ndarray, value() if callable(value) else value)
     if hasattr(x, "data"):
-        return x.data
+        return cast(np.ndarray, x.data)
     raise TypeError(f"{type(x).__name__!s} does not provide values")
 
 
 def coords(x: Any, *args: Any, **kwargs: Any) -> np.ndarray:
-    return _member(x, "coords", *args, **kwargs)
+    return cast(np.ndarray, _member(x, "coords", *args, **kwargs))
 
 
 def voxels(x: Any, *args: Any, **kwargs: Any) -> np.ndarray:
@@ -173,7 +173,7 @@ def voxels(x: Any, *args: Any, **kwargs: Any) -> np.ndarray:
 
 
 def indices(x: Any) -> np.ndarray:
-    return _member(x, "indices")
+    return cast(np.ndarray, _member(x, "indices"))
 
 
 def mask(x: Any) -> Any:
@@ -198,7 +198,7 @@ def as_mask(x: Any, indices: Any = None) -> Any:
 
 def as_matrix(x: Any) -> np.ndarray:
     if hasattr(x, "as_matrix"):
-        return x.as_matrix()
+        return cast(np.ndarray, x.as_matrix())
     return np.asarray(x)
 
 
@@ -212,8 +212,8 @@ def as_array(x: Any) -> np.ndarray:
 
 def series(x: Any, i: Any, *args: Any) -> np.ndarray:
     if args:
-        return _member(x, "series", i, *args)
-    return _member(x, "series", i)
+        return cast(np.ndarray, _member(x, "series", i, *args))
+    return cast(np.ndarray, _member(x, "series", i))
 
 
 def series_roi(x: Any, roi: Any) -> np.ndarray:
@@ -241,7 +241,7 @@ def temporal_access(x: Any, i: Any) -> np.ndarray:
     data = values(x)
     if data.ndim == 4:
         mat = data.reshape(-1, data.shape[3], order="F").T
-        return mat[np.atleast_1d(i), :]
+        return cast(np.ndarray, mat[np.atleast_1d(i), :])
     if data.ndim == 2:
         return data[np.atleast_1d(i), :]
     raise TypeError("temporal_access expects a NeuroVec-like object")
@@ -283,23 +283,23 @@ def data_file_matches(x: Any, file_name: Any) -> bool:
 
 
 def header_file(x: Any, file_name: Any) -> str:
-    return _member(x, "header_file", file_name)
+    return cast(str, _member(x, "header_file", file_name))
 
 
 def data_file(x: Any, file_name: Any) -> str:
-    return _member(x, "data_file", file_name)
+    return cast(str, _member(x, "data_file", file_name))
 
 
 def strip_extension(x: Any, file_name: Any) -> str:
-    return _member(x, "strip_extension", file_name)
+    return cast(str, _member(x, "strip_extension", file_name))
 
 
 def read_elements(x: Any, num_elements: int) -> np.ndarray:
-    return _member(x, "read_elements", num_elements)
+    return cast(np.ndarray, _member(x, "read_elements", num_elements))
 
 
 def read_columns(x: Any, column_indices: Any) -> np.ndarray:
-    return _member(x, "read_columns", column_indices)
+    return cast(np.ndarray, _member(x, "read_columns", column_indices))
 
 
 def write_elements(x: Any, els: Any) -> Any:
@@ -556,7 +556,7 @@ def _afni_gradual_clip_array(arr: Any, mfrac: float = 0.5) -> np.ndarray:
     xw0, yw0, zw0 = 1 - xw1, 1 - yw1, 1 - zw1
 
     def outer3(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
-        return x[:, None, None] * y[None, :, None] * z[None, None, :]
+        return cast(np.ndarray, x[:, None, None] * y[None, :, None] * z[None, None, :])
 
     return (
         c000 * outer3(xw0, yw0, zw0)
@@ -594,14 +594,15 @@ def _largest_component_mask(mask: np.ndarray, connect: str) -> np.ndarray:
         return np.zeros(mask.shape, dtype=bool)
     counts = np.bincount(labels.ravel())
     counts[0] = 0
-    return labels == int(np.argmax(counts))
+    return cast(np.ndarray, labels == int(np.argmax(counts)))
 
 
 def _fill_holes_mask(mask: np.ndarray) -> np.ndarray:
     from scipy import ndimage
 
-    return ndimage.binary_fill_holes(
-        mask, structure=_connectivity_structure("6-connect")
+    return cast(
+        np.ndarray,
+        ndimage.binary_fill_holes(mask, structure=_connectivity_structure("6-connect")),
     )
 
 
@@ -611,7 +612,7 @@ def _neighbor_count_18(mask: np.ndarray) -> np.ndarray:
     offsets = np.indices((3, 3, 3)).reshape(3, -1).T - 1
     shell = np.sum(np.abs(offsets), axis=1)
     kernel = ((shell > 0) & (shell <= 2)).reshape((3, 3, 3)).astype(int)
-    return ndimage.convolve(mask.astype(int), kernel, mode="nearest")
+    return cast(np.ndarray, ndimage.convolve(mask.astype(int), kernel, mode="nearest"))
 
 
 def _peel_restore_mask(
@@ -637,7 +638,7 @@ def _peel_restore_mask(
         to_restore = (marks >= pp) & ~out & (counts > bth)
         out[to_restore] = True
 
-    return out
+    return cast(np.ndarray, out)
 
 
 def _automask_array(
@@ -663,7 +664,7 @@ def _automask_array(
     )
     mask = arr >= threshold
     if not np.any(mask):
-        return mask
+        return cast(np.ndarray, mask)
 
     mask = _largest_component_mask(mask, connect=connect)
     if int(peels) > 0 and np.any(mask):

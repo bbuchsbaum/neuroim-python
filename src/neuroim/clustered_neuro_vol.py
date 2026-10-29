@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict
+from typing import Any, Dict, Optional, cast
 from .neuro_vol import NeuroVol, LogicalNeuroVol, SparseNeuroVol, DenseNeuroVol
 
 
@@ -8,11 +8,14 @@ class ClusteredNeuroVol(NeuroVol):
     A class representing a clustered volumetric neuroimaging data.
     """
 
+    # Set by VolumetricAtlas.to_clustered_vol; readers use getattr(..., None)
+    atlas_provenance: Optional[Any]
+
     def __init__(
         self,
         mask: LogicalNeuroVol,
         clusters: np.ndarray,
-        label_map: Dict[str, int] = None,
+        label_map: Optional[Dict[str, int]] = None,
     ):
         """
         Initialize a ClusteredNeuroVol.
@@ -101,9 +104,11 @@ class ClusteredNeuroVol(NeuroVol):
             if data_array.shape != self.shape:
                 raise ValueError("Data array must match clustered volume shape")
 
-        return data_array.ravel(order="F")[self.cluster_map[cluster_id]]
+        return cast(
+            np.ndarray, data_array.ravel(order="F")[self.cluster_map[cluster_id]]
+        )
 
-    def to_sparse(self) -> SparseNeuroVol:
+    def to_sparse(self) -> SparseNeuroVol:  # type: ignore[override]  # no mask arg
         """
         Convert the clustered volume to a SparseNeuroVol.
 
@@ -159,11 +164,11 @@ class ClusteredNeuroVol(NeuroVol):
         return result
 
     @property
-    def values(self) -> np.ndarray:
+    def values(self) -> np.ndarray:  # type: ignore[override]  # property (API)
         """Get the cluster label values."""
         return self.clusters
 
-    def as_sparse(self) -> SparseNeuroVol:
+    def as_sparse(self) -> SparseNeuroVol:  # type: ignore[override]  # no mask arg
         """Convert to SparseNeuroVol."""
         return self.to_sparse()
 
@@ -198,7 +203,9 @@ class ClusteredNeuroVol(NeuroVol):
 
 
 def clustered_neuro_vol(
-    mask: LogicalNeuroVol, clusters: np.ndarray, label_map: Dict[str, int] = None
+    mask: LogicalNeuroVol,
+    clusters: np.ndarray,
+    label_map: Optional[Dict[str, int]] = None,
 ) -> ClusteredNeuroVol:
     """
     Factory function to create a ClusteredNeuroVol instance.

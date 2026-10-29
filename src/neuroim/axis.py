@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -239,12 +239,13 @@ class AxisSet5D(AxisSet):
 
 
 def axis_set(
-    ndim: int, axes: List[Union[str, NamedAxis]] = None
+    ndim: int, axes: Optional[Sequence[Union[str, NamedAxis]]] = None
 ) -> Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND]:
     if axes is None:
-        axes = ["x", "y", "z", "t", "v"][:ndim]
+        default: List[Union[str, NamedAxis]] = list(("x", "y", "z", "t", "v")[:ndim])
         if ndim > 5:
-            axes.extend([f"d{i}" for i in range(6, ndim + 1)])
+            default.extend([f"d{i}" for i in range(6, ndim + 1)])
+        axes = default
 
     if len(axes) != ndim:
         raise ValueError(f"Number of axes ({len(axes)}) must match ndim ({ndim})")
@@ -267,19 +268,16 @@ def axis_set(
         return AxisSetND(named_axes)
 
 
-def axis_names(
-    x: Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND],
-) -> List[str]:
+def axis_names(x: AxisSet) -> List[str]:
     if isinstance(x, AxisSetND):
         return [ax.axis for ax in x.axes]
     return [getattr(x, attr).axis for attr in "ijklm"[: x.ndim]]
 
 
-def axis_directions(
-    x: Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND],
-) -> List[int]:
+def axis_directions(x: AxisSet) -> List[np.ndarray]:
+    # NamedAxis.__post_init__ stores every direction as a read-only ndarray
     if isinstance(x, AxisSetND):
-        return [ax.direction for ax in x.axes]
+        return [cast(np.ndarray, ax.direction) for ax in x.axes]
     return [getattr(x, attr).direction for attr in "ijklm"[: x.ndim]]
 
 

@@ -7,7 +7,7 @@ header information.
 Metadata containers for neuroimaging image headers and descriptors.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, cast
 import numpy as np
 
 from .axis import AxisSet, AxisSet3D
@@ -66,7 +66,7 @@ class MetaInfo:
     def nvols(self) -> int:
         """Number of volumes (for 4D data)."""
         if self.ndim >= 4:
-            return self.dims[3]
+            return cast(int, self.dims[3])
         return 1
 
 
@@ -180,10 +180,8 @@ class FileMetaInfo(MetaInfo):
             "UINT64": np.uint64,
         }
 
-        base_dtype = dtype_map.get(self.data_type.upper(), np.float32)
         # Create numpy dtype instance first
-        if not isinstance(base_dtype, np.dtype):
-            base_dtype = np.dtype(base_dtype)
+        base_dtype = np.dtype(dtype_map.get(self.data_type.upper(), np.float32))
         # Add byte order
         return np.dtype(f"{self.byte_order}{base_dtype.str[1:]}")
 
@@ -207,12 +205,12 @@ class NIFTIMetaInfo(FileMetaInfo):
     @property
     def qform_code(self) -> int:
         """Get qform code from NIfTI header."""
-        return self.nifti_header.get("qform_code", 0)
+        return cast(int, self.nifti_header.get("qform_code", 0))
 
     @property
     def sform_code(self) -> int:
         """Get sform code from NIfTI header."""
-        return self.nifti_header.get("sform_code", 0)
+        return cast(int, self.nifti_header.get("sform_code", 0))
 
     @property
     def descrip(self) -> str:

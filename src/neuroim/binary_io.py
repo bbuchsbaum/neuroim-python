@@ -96,6 +96,7 @@ class BinaryReader:
     ):
 
         # Handle file path input
+        self.input: BinaryIO
         if isinstance(input_connection, (str, Path)):
             self.input = open(input_connection, "rb")
             self._owns_file = True
@@ -206,6 +207,7 @@ class BinaryWriter:
     ):
 
         # Handle file path input
+        self.output: BinaryIO
         if isinstance(output_connection, (str, Path)):
             self.output = open(output_connection, "wb")
             self._owns_file = True

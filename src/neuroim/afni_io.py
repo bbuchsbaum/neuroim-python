@@ -53,6 +53,7 @@ def _parse_element(block: List[str]) -> Dict[str, Any]:
     count = int(block[2].split("=", 1)[1].strip())
     content_lines = block[3:]
 
+    content: Union[List[int], List[float], List[str]]
     if atype == "integer-attribute":
         content = _parse_int_attribute(content_lines)
     elif atype == "float-attribute":
