@@ -238,7 +238,8 @@ class TestCgbNuisance:
         """When data equals confound, residuals should be near zero."""
         space = _make_space_3d(3, 3, 3)
         confound_vals = np.arange(27, dtype=float)
-        data_3d = confound_vals.reshape(3, 3, 3)
+        # Confound rows follow the linear (Fortran) voxel order
+        data_3d = confound_vals.reshape(3, 3, 3, order="F")
         vol = DenseNeuroVol(data_3d, space)
         graph = cgb_make_graph(space)
         confounds = confound_vals[:, np.newaxis]

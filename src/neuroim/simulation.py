@@ -97,19 +97,19 @@ def simulate_fmri(
 
     # Convolve stimulus with HRF
     convolved = np.convolve(stimulus, hrf)[:n_timepoints]
-    # Normalise to unit range then scale
-    if convolved.max() - convolved.min() > 0:
-        convolved = (convolved - convolved.min()) / (convolved.max() - convolved.min())
+    # Scale to unit peak; rest periods stay at zero (no baseline shift)
+    peak = np.abs(convolved).max()
+    if peak > 0:
+        convolved = convolved / peak
     convolved = convolved * signal_sd
 
     # Place spherical activation regions
-    margin = 2
+    # Keep centres off the edges when the grid is large enough to allow it
+    margins = [min(2, (d - 1) // 2) for d in dims]
     max_radius = min(dims) // 4
     for _ in range(n_regions):
         # Random centre within the volume
-        cx = rng.integers(margin, dims[0] - margin)
-        cy = rng.integers(margin, dims[1] - margin)
-        cz = rng.integers(margin, dims[2] - margin)
+        cx, cy, cz = (int(rng.integers(m, d - m)) for m, d in zip(margins, dims))
         radius = rng.integers(1, max(2, max_radius))
 
         # Build a spherical mask
