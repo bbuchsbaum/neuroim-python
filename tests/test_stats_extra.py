@@ -5,7 +5,6 @@ from neuroim import (
     NeuroSpace,
     DenseNeuroVol,
     DenseNeuroVec,
-    SparseNeuroVol,
     LogicalNeuroVol,
     ClusteredNeuroVol,
     split_blocks,
@@ -116,12 +115,13 @@ class TestSplitReduceEdgeCases:
 
         factor = np.array([1, 1, 1, 2, 2, 2])
 
-        # Test with sum function (sum of groups: 6 and 15, mean: 10.5)
+        # Sum within each level: 6 and 15 at voxel (1,1,1), 0 elsewhere
         result = split_reduce(sparse_vec, factor, np.sum)
 
-        assert isinstance(result, SparseNeuroVol)
-        # Mean of sums: (6 + 15) / 2 = 10.5
-        assert np.isclose(result.data[0], 10.5)
+        assert result.shape == (2, 27)
+        vox = 1 + 3 * 1 + 9 * 1  # linear (Fortran) index of (1, 1, 1)
+        np.testing.assert_array_equal(result[:, vox], [6, 15])
+        assert np.count_nonzero(result) == 2
 
     def test_split_reduce_empty_result(self):
         """Test split_reduce when result would be empty."""
@@ -138,8 +138,8 @@ class TestSplitReduceEdgeCases:
 
         result = split_reduce(sparse_vec, factor, np.mean)
 
-        assert isinstance(result, DenseNeuroVol)
-        assert np.all(result.data == 0)
+        assert result.shape == (2, 27)
+        assert np.all(result == 0)
 
 
 class TestSplitScaleEdgeCases:

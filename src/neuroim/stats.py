@@ -7,15 +7,12 @@ Statistical helpers for neuroimaging volumes and vector series.
 """
 
 import numpy as np
-from typing import TYPE_CHECKING, List, Dict, Callable, Optional, Union, cast
+from typing import Any, List, Dict, Callable, Optional, Union, cast
 from .neuro_vol import NeuroVol, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec, _scale_along
 from .neuro_space import NeuroSpace
 from .roi import ROIVec, ROIVol
 from .clustered_neuro_vol import ClusteredNeuroVol
-
-if TYPE_CHECKING:
-    from .neuro_vec import SparseNeuroVec
 
 
 def split_blocks(
@@ -225,191 +222,218 @@ def split_clusters(
     return rois
 
 
-def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
-    """Split a NeuroVec by factor levels and fill a new NeuroVec.
+def _factor_levels(fac: np.ndarray) -> np.ndarray:
+    """Sorted distinct levels of a factor (the row order of split results)."""
+    return np.unique(fac)
 
-    Splits the input NeuroVec according to levels of a factor, creating
-    a new NeuroVec for each level containing only the volumes from that level.
+
+def split_volumes(x: NeuroVec, fac: np.ndarray) -> Dict[Any, NeuroVec]:
+    """Split a NeuroVec into sub-vectors by a per-volume factor.
 
     Parameters
     ----------
     x : NeuroVec
-        The 4D data to split
+        The 4D data to split (any backend).
     fac : np.ndarray
-        Factor array with length equal to number of volumes
+        Factor with one entry per volume.
 
     Returns
     -------
     dict
-        Dictionary mapping factor levels to NeuroVec objects
-
+        Maps each factor level to a NeuroVec holding that level's volumes,
+        in their original order.
     """
-    # Determine number of volumes (time dimension)
-    # For all NeuroVec types, time is last dimension (x, y, z, time)
+    fac = np.asarray(fac)
     n_volumes = x.shape[3]
-
     if len(fac) != n_volumes:
         raise ValueError(
             f"Length of factor ({len(fac)}) must equal number of volumes ({n_volumes})"
         )
 
-    levels = np.unique(fac)
-    result: Dict[int, NeuroVec] = {}
-
-    for level in levels:
-        # Get indices for this level
-        level_mask = fac == level
-        level_indices = np.where(level_mask)[0]
-        n_volumes = len(level_indices)
-
-        # Extract subset of volumes
+    result: Dict[Any, NeuroVec] = {}
+    for level in _factor_levels(fac):
+        level_indices = np.where(fac == level)[0]
+        new_space = NeuroSpace(
+            dim=list(x.space.dim[:3]) + [len(level_indices)],
+            spacing=x.space.spacing,
+            origin=x.space.origin,
+            trans=x.space.trans,
+            axes=x.space.axes,
+        )
         if isinstance(x, DenseNeuroVec):
             # Time is the last axis of the (x, y, z, t) array
-            subset_data = x.data[..., level_indices]
-
-            new_dim = list(x.space.dim[:3]) + [n_volumes]
-            new_space = NeuroSpace(
-                dim=new_dim,
-                spacing=x.space.spacing,
-                origin=x.space.origin,
-                trans=x.space.trans,
-                axes=x.space.axes,
-            )
-
-            level_vec: NeuroVec = DenseNeuroVec(subset_data, new_space)
-        else:
-            # For sparse, need to handle carefully
+            level_vec: NeuroVec = DenseNeuroVec(x.data[..., level_indices], new_space)
+        elif _is_sparse_vec(x):
             from .neuro_vec import SparseNeuroVec
 
-            # Extract subset of time points
-            # SparseNeuroVec data is (time, voxels), so index first dimension
-            subset_data = x.data[level_indices, :]
-
-            # Create new space with updated time dimension
-            new_dim = list(x.space.dim[:3]) + [n_volumes]
-            new_space = NeuroSpace(
-                dim=new_dim,
-                spacing=x.space.spacing,
-                origin=x.space.origin,
-                trans=x.space.trans,
-                axes=x.space.axes,
-            )
-
+            sparse_x = cast(SparseNeuroVec, x)
+            # SparseNeuroVec data is (time, voxels)
             level_vec = SparseNeuroVec(
-                subset_data,
+                sparse_x.data[level_indices, :],
                 new_space,
-                cast(SparseNeuroVec, x).mask,
+                sparse_x.mask,
                 orientation="time_x_voxels",
             )
-
+        else:
+            # Big, file-backed and mapped vectors read only the volumes needed
+            level_vec = x.sub_vector(level_indices)
         result[level] = level_vec
 
     return result
 
 
-def split_reduce(
-    x: NeuroVec, fac: np.ndarray, FUN: Callable[[np.ndarray], float]
-) -> NeuroVol:
-    """Reduce a NeuroVec by applying a function across factor levels.
+def _is_sparse_vec(x: NeuroVec) -> bool:
+    from .neuro_vec import SparseNeuroVec
 
-    Splits the NeuroVec by factor levels and applies a reduction function
-    to each voxel's time series within each level, returning a volume
-    where each voxel contains the reduced value.
+    return isinstance(x, SparseNeuroVec)
+
+
+def split_fill(
+    x: Union[NeuroVol, NeuroVec],
+    fac: np.ndarray,
+    FUN: Optional[Callable[[np.ndarray], Any]] = None,
+) -> Any:
+    """Replace each group of voxels with a summary of that group.
+
+    As neuroim2's ``split_fill``: the voxels of ``x`` are split into
+    disjoint sets by ``fac``, ``FUN`` is applied to each set's values, and a
+    volume of the same shape is returned with every voxel replaced by its
+    set's result. ``FUN`` may return a scalar (broadcast over the set) or an
+    array with one value per voxel in the set.
+
+    Parameters
+    ----------
+    x : NeuroVol
+        The volume to summarise.
+    fac : np.ndarray
+        Factor with one entry per voxel, either flat in the package's
+        linear (Fortran) voxel order or with the volume's 3-D shape.
+    FUN : callable
+        Applied to each set's 1-D array of values.
+
+    Returns
+    -------
+    DenseNeuroVol
+        Volume in ``x``'s space holding the filled values.
+
+    Notes
+    -----
+    Calling ``split_fill(vec, fac)`` on a NeuroVec with a per-volume factor
+    is deprecated; use :func:`split_volumes`, which it forwards to.
+    """
+    if isinstance(x, NeuroVec):
+        import warnings
+
+        warnings.warn(
+            "split_fill(NeuroVec, fac) is deprecated; it splits volumes by a "
+            "per-volume factor, which is now split_volumes(). split_fill() "
+            "follows neuroim2 and fills the voxels of a NeuroVol.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return split_volumes(x, fac)
+
+    if FUN is None:
+        raise TypeError("split_fill() requires FUN for a NeuroVol")
+
+    shape = tuple(int(d) for d in x.shape[:3])
+    fac = np.asarray(fac)
+    if fac.shape == shape:
+        fac = fac.ravel(order="F")
+    n_voxels = int(np.prod(shape))
+    if fac.ndim != 1 or len(fac) != n_voxels:
+        raise ValueError(
+            f"fac must have one entry per voxel ({n_voxels}), got shape {fac.shape}"
+        )
+
+    values = np.asarray(x.as_dense().data).ravel(order="F")
+    groups = [(np.where(fac == level)[0], level) for level in _factor_levels(fac)]
+    results = []
+    for idx, level in groups:
+        res = np.asarray(FUN(values[idx]))
+        if res.size == len(idx):
+            results.append(res.ravel())
+        elif res.size == 1:
+            results.append(np.full(len(idx), res.item()))
+        else:
+            raise ValueError(
+                f"FUN returned {res.size} values for level {level!r}; expected "
+                f"1 or {len(idx)} (the number of voxels in the level)"
+            )
+
+    out = np.zeros(
+        n_voxels, dtype=np.result_type(*results) if results else values.dtype
+    )
+    for (idx, _), res in zip(groups, results):
+        out[idx] = res
+    return DenseNeuroVol(out.reshape(shape, order="F"), x.space)
+
+
+def split_reduce(
+    x: NeuroVec,
+    fac: np.ndarray,
+    FUN: Optional[Callable[[np.ndarray], Any]] = None,
+) -> np.ndarray:
+    """Summarise a NeuroVec within the levels of a factor.
+
+    As neuroim2's ``split_reduce``, ``fac`` may have one entry per volume or
+    one entry per voxel:
+
+    - **Per volume:** for each level, ``FUN`` is applied to every voxel's
+      values at that level's time points. The result is a
+      ``(n_levels, n_voxels)`` array, with voxels in linear (Fortran) order.
+    - **Per voxel:** for each level, ``FUN`` is applied across that level's
+      voxels at every time point. The result is a ``(n_levels, n_time)``
+      array, e.g. the mean time series of each parcel.
+
+    When the volume and voxel counts are equal, ``fac`` is taken as per
+    voxel, as in neuroim2.
 
     Parameters
     ----------
     x : NeuroVec
-        The 4D data to reduce
+        The 4D data (any backend; non-dense backends are loaded into memory).
     fac : np.ndarray
-        Factor array with length equal to number of volumes
-    FUN : callable
-        Function to apply to each voxel's values within a level
+        Factor, per volume or per voxel. A per-voxel factor may also have the
+        volume's 3-D shape.
+    FUN : callable, optional
+        Reduces a 1-D array to a scalar. Defaults to the mean.
 
     Returns
     -------
-    NeuroVol
-        Volume containing reduced values
-
+    np.ndarray
+        One row per level, in sorted level order (``np.unique(fac)``).
     """
-    # Determine number of volumes (time dimension)
-    # For all NeuroVec types, time is last dimension (x, y, z, time)
-    n_volumes = x.shape[3]
-
-    if len(fac) != n_volumes:
+    shape = tuple(int(d) for d in x.shape[:3])
+    n_voxels = int(np.prod(shape))
+    n_volumes = int(x.shape[3])
+    fac = np.asarray(fac)
+    if fac.shape == shape:
+        fac = fac.ravel(order="F")
+    if fac.ndim != 1 or len(fac) not in (n_voxels, n_volumes):
         raise ValueError(
-            f"Length of factor ({len(fac)}) must equal number of volumes ({n_volumes})"
+            "length of fac must equal the number of voxels "
+            f"({n_voxels}) or the number of volumes ({n_volumes})"
         )
 
-    # Create 3D space for output volume
-    # For all NeuroVec types, time is last dimension, so spatial dims are first 3
-    vol_space = NeuroSpace(
-        dim=x.space.dim[:3],
-        spacing=x.space.spacing[:3],
-        origin=x.space.origin[:3],
-        trans=x.space.affine,
-    )
+    # voxels x time, voxels in linear (Fortran) order
+    data_4d = x.data if isinstance(x, DenseNeuroVec) else x.to_dense().data
+    mat = np.asarray(data_4d).reshape(n_voxels, n_volumes, order="F")
 
-    # Initialize output array
-    out_data = np.zeros(x.shape[:3])
+    def reduce(block: np.ndarray, axis: int) -> np.ndarray:
+        if FUN is None:
+            return cast(np.ndarray, block.mean(axis=axis))
+        return np.apply_along_axis(FUN, axis, block)
 
-    # For each voxel
-    if isinstance(x, DenseNeuroVec):
-        # Reshape data to proper 4D shape
-        data_4d = x.data.reshape(x.shape)
-
-        # Vectorized processing of all voxels
-        # Reshape to (n_voxels, n_timepoints)
-        n_voxels = np.prod(x.shape[:3])
-        n_time = x.shape[3]
-        data_2d = data_4d.reshape(n_voxels, n_time, order="F")
-
-        # Process all voxels at once
-        unique_levels = np.unique(fac)
-        for vox_idx in range(n_voxels):
-            voxel_series = data_2d[vox_idx, :]
-
-            # Group by factor and apply function
-            reduced_values = []
-            for level in unique_levels:
-                level_mask = fac == level
-                level_values = voxel_series[level_mask]
-                if len(level_values) > 0:
-                    reduced_values.append(FUN(level_values))
-
-            # Store mean of reduced values
-            if reduced_values:
-                # Convert voxel index back to 3D coordinates
-                coords = np.unravel_index(vox_idx, out_data.shape, order="F")
-                out_data[coords] = np.mean(reduced_values)
-    else:
-        # Handle sparse case
-        # For sparse, process each stored voxel
-        out_indices = []
-        out_values = []
-
-        # SparseNeuroVec data is (time, voxels)
-        for vox_idx in range(x.data.shape[1]):
-            voxel_series = x.data[:, vox_idx]
-
-            # Group by factor and apply function
-            reduced_values = []
-            for level in np.unique(fac):
-                level_mask = fac == level
-                level_values = voxel_series[level_mask]
-                if len(level_values) > 0:
-                    reduced_values.append(FUN(level_values))
-
-            # Store mean of reduced values
-            if reduced_values:
-                out_indices.append(cast("SparseNeuroVec", x)._lookup[vox_idx])
-                out_values.append(np.mean(reduced_values))
-
-        if out_indices:
-            return SparseNeuroVol(out_values, vol_space, out_indices)
+    by_voxel = len(fac) == n_voxels
+    rows = []
+    for level in _factor_levels(fac):
+        idx = np.where(fac == level)[0]
+        if by_voxel:
+            rows.append(reduce(mat[idx, :], axis=0))
         else:
-            return DenseNeuroVol(np.zeros(vol_space.dim), vol_space)
-
-    return DenseNeuroVol(out_data, vol_space)
+            rows.append(reduce(mat[:, idx], axis=1))
+    return np.vstack(rows)
 
 
 def split_scale(
@@ -470,8 +494,10 @@ def split_scale(
         # Reshape back to 4D
         scaled_4d = data_2d.reshape(x.shape, order="F")
         return DenseNeuroVec(scaled_4d, x.space)
+    elif not _is_sparse_vec(x):
+        # Big, file-backed and mapped vectors: scale a dense copy
+        return split_scale(x.to_dense(), fac, center=center, scale=scale)
     else:
-        # Handle sparse case
         from .neuro_vec import SparseNeuroVec
 
         # SparseNeuroVec data is (time, voxels) - float copy, scaled in place

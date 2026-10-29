@@ -189,11 +189,13 @@ def resample(
     source_nifti = nib.Nifti1Image(source_data, source.space.affine)
 
     # Only the target's grid (shape and affine) matters, never its values.
+    # A 4-D target (e.g. a functional run) contributes its spatial grid.
     grid = target if isinstance(target, NeuroSpace) else target.space
+    if grid.ndim == 4:
+        grid = grid.drop_dim(3)
     if grid.ndim != 3:
         raise ValueError(
-            f"resample() needs a 3-D target grid, got a {grid.ndim}-D space; "
-            "use resample_vec/resample_to for 4-D data"
+            f"resample() needs a 3-D or 4-D target, got a {grid.ndim}-D space"
         )
     target_shape = tuple(int(d) for d in grid.dim[:3])
     target_nifti = nib.Nifti1Image(np.zeros(target_shape, dtype=np.uint8), grid.affine)

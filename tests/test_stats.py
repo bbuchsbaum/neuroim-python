@@ -13,6 +13,7 @@ from neuroim import (
     split_blocks,
     split_clusters,
     split_fill,
+    split_volumes,
     split_reduce,
     split_scale,
     partition,
@@ -130,8 +131,8 @@ class TestSplitClusters:
             split_clusters(wrong_vol, self.cluster_vol)
 
 
-class TestSplitFill:
-    """Test split_fill function."""
+class TestSplitVolumes:
+    """Test split_volumes (and the deprecated split_fill(NeuroVec) form)."""
 
     def setup_method(self):
         """Set up test data."""
@@ -142,18 +143,17 @@ class TestSplitFill:
         # Create factor with 3 levels
         self.factor = np.array([1, 1, 1, 2, 2, 2, 3, 3, 3, 3])
 
-    def test_split_fill_basic(self):
-        """Test basic split_fill operation."""
-        result = split_fill(self.vec, self.factor)
+    def test_split_volumes_basic(self):
+        """Test basic split_volumes operation."""
+        result = split_volumes(self.vec, self.factor)
 
         assert len(result) == 3  # Three levels
         assert set(result.keys()) == {1, 2, 3}
 
-        # Check each split
         # Time is the last axis
-        assert result[1].shape[3] == 3  # 3 volumes
-        assert result[2].shape[3] == 3  # 3 volumes
-        assert result[3].shape[3] == 4  # 4 volumes
+        assert result[1].shape[3] == 3
+        assert result[2].shape[3] == 3
+        assert result[3].shape[3] == 4
 
         # All should have same spatial dimensions, and the level's volumes
         for level, vec in result.items():
@@ -162,12 +162,17 @@ class TestSplitFill:
                 vec.data, self.vec.data[..., self.factor == level]
             )
 
-    def test_split_fill_error(self):
+    def test_split_fill_on_vector_is_deprecated_alias(self):
+        with pytest.warns(DeprecationWarning, match="split_volumes"):
+            result = split_fill(self.vec, self.factor)
+        assert set(result.keys()) == {1, 2, 3}
+
+    def test_split_volumes_error(self):
         """Test error conditions."""
         wrong_factor = np.array([1, 2])  # Wrong length
 
         with pytest.raises(ValueError, match="number of volumes"):
-            split_fill(self.vec, wrong_factor)
+            split_volumes(self.vec, wrong_factor)
 
 
 class TestSplitReduce:
@@ -188,22 +193,20 @@ class TestSplitReduce:
         self.factor = np.array([1, 1, 1, 2, 2, 2])
 
     def test_split_reduce_mean(self):
-        """Test split_reduce with mean function."""
+        """One row per level, one column per voxel."""
         result = split_reduce(self.vec, self.factor, np.mean)
 
-        assert isinstance(result, DenseNeuroVol)
-        assert result.shape == (5, 5, 5)
-
-        # Check the reduced value at (0,0,0)
-        # Should be mean of means: (1.0 + 2.0) / 2 = 1.5
-        assert result.data[0, 0, 0] == 1.5
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (2, 125)
+        # Voxel (0,0,0) is linear index 0
+        np.testing.assert_array_equal(result[:, 0], [1.0, 2.0])
+        assert np.all(result[:, 1:] == 0)
 
     def test_split_reduce_max(self):
         """Test split_reduce with max function."""
         result = split_reduce(self.vec, self.factor, np.max)
 
-        # Should be mean of maxes: (1.0 + 2.0) / 2 = 1.5
-        assert result.data[0, 0, 0] == 1.5
+        np.testing.assert_array_equal(result[:, 0], [1.0, 2.0])
 
     def test_split_reduce_error(self):
         """Test error conditions."""
