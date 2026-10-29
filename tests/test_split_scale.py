@@ -9,7 +9,6 @@ import pytest
 import numpy as np
 from neuroim import (
     NeuroSpace,
-    DenseNeuroVol,
     DenseNeuroVec,
     SparseNeuroVec,
     LogicalNeuroVol,
@@ -46,48 +45,29 @@ class TestSplitScale:
         return vec, fac
 
     def test_split_reduce_basic(self, create_test_data):
-        """Test split_reduce with basic sum function."""
+        """split_reduce returns one row per level, one column per voxel (R)."""
         vec, fac = create_test_data
 
-        # Define sum function
         def custom_sum(x):
             return np.sum(x)
 
-        # Apply split_reduce
         result = split_reduce(vec, fac, custom_sum)
 
-        # Check result type
-        assert isinstance(result, DenseNeuroVol)
-        assert result.shape == (1, 1, 3)
-
-        # Expected values from R test:
-        # For voxel 0: group 1 has [1,2], group 2 has [3,4]
-        #   sum(1,2)=3, sum(3,4)=7, mean=5
-        # For voxel 1: group 1 has [5,6], group 2 has [7,8]
-        #   sum(5,6)=11, sum(7,8)=15, mean=13
-        # For voxel 2: group 1 has [9,10], group 2 has [11,12]
-        #   sum(9,10)=19, sum(11,12)=23, mean=21
-
-        expected = np.array([[[5, 13, 21]]])
-        np.testing.assert_array_almost_equal(result.data, expected)
+        # R: split_reduce(mat, factor(c(1, 1, 2, 2)), sum) on matrix(1:12, 4)
+        assert isinstance(result, np.ndarray)
+        expected = np.array([[3, 11, 19], [7, 15, 23]])
+        np.testing.assert_array_almost_equal(result, expected)
 
     def test_split_reduce_with_mean(self, create_test_data):
-        """Test split_reduce with mean function."""
+        """Test split_reduce with mean function (also the default)."""
         vec, fac = create_test_data
 
-        # Apply split_reduce with mean
-        result = split_reduce(vec, fac, np.mean)
-
-        # Expected values:
-        # For voxel 0: mean([1,2])=1.5, mean([3,4])=3.5, overall mean=2.5
-        # For voxel 1: mean([5,6])=5.5, mean([7,8])=7.5, overall mean=6.5
-        # For voxel 2: mean([9,10])=9.5, mean([11,12])=11.5, overall mean=10.5
-
-        expected = np.array([[[2.5, 6.5, 10.5]]])
-        np.testing.assert_array_almost_equal(result.data, expected)
+        expected = np.array([[1.5, 5.5, 9.5], [3.5, 7.5, 11.5]])
+        np.testing.assert_array_almost_equal(split_reduce(vec, fac, np.mean), expected)
+        np.testing.assert_array_almost_equal(split_reduce(vec, fac), expected)
 
     def test_split_reduce_uses_fortran_voxel_order(self):
-        """split_reduce should map voxel indices with Fortran indexing."""
+        """split_reduce columns follow the linear (Fortran) voxel order."""
         space = NeuroSpace((2, 2, 2, 2), spacing=(1, 1, 1, 1))
         data = np.arange(np.prod(space.dim), dtype=float).reshape(space.dim, order="F")
         vec = DenseNeuroVec(data, space)
@@ -95,14 +75,8 @@ class TestSplitScale:
         factor = np.array([0, 1])
         result = split_reduce(vec, factor, np.mean)
 
-        expected = np.zeros(space.dim[:3])
         data_2d = data.reshape(-1, space.dim[-1], order="F")
-        for vox_idx in range(data_2d.shape[0]):
-            coords = np.array(np.unravel_index(vox_idx, space.dim[:3], order="F"))
-            expected[tuple(coords)] = np.mean(data_2d[vox_idx])
-
-        assert result.shape == tuple(space.dim[:3])
-        np.testing.assert_array_equal(result.data, expected)
+        np.testing.assert_array_equal(result, data_2d.T)
 
     def test_split_scale_basic(self, create_test_data):
         """Test split_scale with center and scale."""
@@ -179,8 +153,8 @@ class TestSplitScale:
         # Apply split_reduce with std function
         result = split_reduce(vec, fac, np.std)
 
-        assert result.shape == (10, 10, 10)
-        assert not np.any(np.isnan(result.data))
+        assert result.shape == (4, 1000)
+        assert not np.any(np.isnan(result))
 
     def test_split_scale_larger_data(self):
         """Test split_scale with larger data."""
@@ -213,8 +187,9 @@ class TestSplitScale:
         vec, fac = create_test_data
 
         # Wrong factor length
-        wrong_fac = np.array([1, 2, 3])  # Too short
-        with pytest.raises(ValueError, match="Length of factor"):
+        # Neither one entry per volume (4) nor one per voxel (3)
+        wrong_fac = np.array([1, 2, 3, 4, 5])
+        with pytest.raises(ValueError, match="number of volumes"):
             split_reduce(vec, wrong_fac, np.sum)
 
     def test_split_scale_error_handling(self, create_test_data):
@@ -239,11 +214,12 @@ class TestSplitScale:
         vec = SparseNeuroVec(sparse_data, space_4d, indices)
         fac = np.array([1, 1, 2, 2])
 
-        # Apply split_reduce
+        # Same result as the dense equivalent, over all voxels
         result = split_reduce(vec, fac, np.mean)
+        dense = split_reduce(vec.to_dense(), fac, np.mean)
 
-        # Should return a sparse volume
-        assert hasattr(result, "data") or hasattr(result, "_data")
+        assert result.shape == (2, 1000)
+        np.testing.assert_allclose(result, dense)
 
     def test_split_scale_constant_values(self):
         """Test split_scale with constant values (edge case)."""

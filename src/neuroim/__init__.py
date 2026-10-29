@@ -245,6 +245,7 @@ from .stats import (
     split_blocks,
     split_clusters,
     split_fill,
+    split_volumes,
     split_reduce,
     split_scale,
     partition,

@@ -31,6 +31,15 @@ contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
 
 ### Changed
 
+- **`split_reduce` follows neuroim2.** It returns a `(n_levels, n_voxels)`
+  array (one row per level, voxels in linear order) for a per-volume
+  factor, and a `(n_levels, n_time)` array of level time series for a
+  per-voxel factor; `FUN` defaults to the mean. It previously returned a
+  volume holding the mean of the per-level results.
+- **`split_fill` follows neuroim2**: `split_fill(vol, fac, FUN)` replaces
+  each set of voxels with `FUN`'s result (a scalar or one value per voxel).
+  Splitting a NeuroVec into per-level sub-vectors is now `split_volumes()`;
+  `split_fill(vec, fac)` still does that, with a `DeprecationWarning`.
 - **`gaussian_blur(sigma=)` is in millimetres** (it was voxels), matching
   neuroim2 and `fwhm_mm=`; the default is 2 mm and passing both `sigma`
   and `fwhm_mm` raises. `gaussian_blur(vol, sigma=2)` on non-1 mm data now
@@ -84,6 +93,11 @@ contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
 
 ### Fixed
 
+- `split_volumes`, `split_reduce` and `split_scale` work on `BigNeuroVec`,
+  `FileBackedNeuroVec` and `MappedNeuroVec` (they raised or returned wrong
+  values outside the dense and sparse backends).
+- `resample()` / `resample_to()` of a volume onto a 4-D target (a vector
+  or 4-D space) uses the target's spatial grid instead of raising.
 - **neuroim2 sync (Aug–Oct 2026 fixes).** Defects that neuroim2 fixed, or
   that an audit against it found here, are corrected. Several change
   results:

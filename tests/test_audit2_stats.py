@@ -15,7 +15,7 @@ from neuroim.stats import (
     partition,
     split_blocks,
     split_clusters,
-    split_fill,
+    split_volumes,
     split_scale,
 )
 
@@ -35,10 +35,10 @@ def test_split_scale_integer_input_is_not_truncated():
     np.testing.assert_allclose(out.data[0, 0, 0, :3], expected)
 
 
-def test_split_fill_selects_time_points():
+def test_split_volumes_selects_time_points():
     vec = _vec()
     fac = np.array([1, 2, 1, 2, 2, 1])
-    out = split_fill(vec, fac)
+    out = split_volumes(vec, fac)
     np.testing.assert_array_equal(out[1].data, vec.data[..., fac == 1])
     assert out[2].shape == (8, 3, 2, 3)
 
