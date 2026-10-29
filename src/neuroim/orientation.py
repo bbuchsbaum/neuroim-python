@@ -126,7 +126,12 @@ def orientation_transform(start_ornt: np.ndarray, end_ornt: np.ndarray) -> np.nd
 
 def axcodes(x, labels: Optional[Sequence[Tuple[str, str]]] = None) -> Tuple[str, ...]:
     """Return axis codes for a NeuroSpace-like object, affine, or orientation array."""
-    arr = np.asarray(getattr(x, "trans", x), dtype=float)
+    if hasattr(x, "affine"):
+        arr = np.asarray(x.affine, dtype=float)  # 4x4 spatial, any ndim
+    elif hasattr(x, "space"):
+        arr = np.asarray(x.space.affine, dtype=float)
+    else:
+        arr = np.asarray(x, dtype=float)
     if arr.ndim == 2 and arr.shape[1] == 2:
         return orientation_to_axcodes(arr, labels=labels)
     return affine_to_axcodes(arr, labels=labels)
@@ -339,8 +344,12 @@ def vox2out_vox(affine: np.ndarray, shape: Sequence[int]) -> Tuple[np.ndarray, S
     ornt = nibo.io_orientation(affine)
     # Compute the reoriented shape
     shape = tuple(int(s) for s in shape)
-    new_shape = tuple(shape[int(ornt[i, 0])] for i in range(len(ornt)))
-    return ornt, new_shape
+    # ornt row i says where INPUT axis i goes in the output (nibabel
+    # convention), so input extent i lands at output position ornt[i, 0].
+    new_shape = [0] * len(ornt)
+    for i in range(len(ornt)):
+        new_shape[int(ornt[i, 0])] = shape[i]
+    return ornt, tuple(new_shape)
 
 
 def perm_mat(ornt: np.ndarray) -> np.ndarray:
