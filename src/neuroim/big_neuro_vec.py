@@ -9,13 +9,21 @@ Lazy 4D vector container for datasets that are too large to keep fully in memory
 import numpy as np
 import tempfile
 import os
-from typing import TYPE_CHECKING, Optional, Union, Tuple
+from typing import IO, TYPE_CHECKING, Literal, Optional, Union, Tuple
+
+from numpy.typing import DTypeLike
 from .neuro_vec import NeuroVec
 from .neuro_space import NeuroSpace
 from .neuro_vol import DenseNeuroVol
 
 if TYPE_CHECKING:
     from .neuro_vec import DenseNeuroVec, SparseNeuroVec
+
+
+# Modes accepted by np.memmap
+_MemmapMode = Literal[
+    "r", "c", "r+", "w+", "readonly", "copyonwrite", "readwrite", "write"
+]
 
 
 class BigNeuroVec(NeuroVec):
@@ -45,9 +53,9 @@ class BigNeuroVec(NeuroVec):
         data: Optional[Union[np.ndarray, np.memmap, str]] = None,
         space: Optional[NeuroSpace] = None,
         filename: Optional[str] = None,
-        mode: str = "r+",
+        mode: _MemmapMode = "r+",
         shape: Optional[Tuple[int, ...]] = None,
-        dtype: np.dtype = np.float32,
+        dtype: DTypeLike = np.float32,
     ):
         """Initialize BigNeuroVec.
 
@@ -76,6 +84,7 @@ class BigNeuroVec(NeuroVec):
                 )
 
             # Handle filename
+            self._temp_file: Optional[IO[bytes]]
             if filename is None:
                 # Create temporary file
                 self._temp_file = tempfile.NamedTemporaryFile(
@@ -214,6 +223,7 @@ class BigNeuroVec(NeuroVec):
                     ):
                         result[:, i] = self._data[coord[0], coord[1], coord[2], :]
                 return result
+            raise ValueError("Invalid input for series extraction")
         elif isinstance(x, int):
             # Single linear index - convert to 3D coordinates
             coords = np.unravel_index(x, self.shape[:3], order="F")
@@ -221,7 +231,7 @@ class BigNeuroVec(NeuroVec):
         else:
             raise ValueError("Invalid input for series extraction")
 
-    def sub_vector(self, indices: Union[slice, np.ndarray]) -> "BigNeuroVec":
+    def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "BigNeuroVec":
         """Extract subset of volumes."""
         # Volumes run along the last (time) axis of the (x, y, z, t) store.
         if isinstance(indices, slice):
@@ -249,13 +259,12 @@ class BigNeuroVec(NeuroVec):
 
     def vols(self, indices: Optional[np.ndarray] = None) -> list:
         """Extract volumes as a list of NeuroVol objects."""
-        if indices is None:
-            indices = range(self.shape[3])
+        selection = range(self.shape[3]) if indices is None else indices
 
         vol_list = []
         vol_space = self.space.drop_dim(3)
 
-        for i in indices:
+        for i in selection:
             vol = DenseNeuroVol(np.asarray(self._data[..., i]), vol_space)
             vol_list.append(vol)
 

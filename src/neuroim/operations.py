@@ -7,7 +7,7 @@ and downsampling neuroimaging volumes and vectors.
 import warnings
 
 import numpy as np
-from typing import Union, Callable
+from typing import Callable, List, Tuple, Union, cast
 
 from .neuro_vol import NeuroVol, DenseNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec, _scale_along
@@ -17,7 +17,7 @@ from .verify import assert_same_space
 from .exceptions import SpaceMismatchError
 
 
-def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
+def concat(*vecs: NeuroVec) -> DenseNeuroVec:
     """Concatenate NeuroVec objects along the time dimension.
 
     Parameters
@@ -75,10 +75,11 @@ def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
     # Provenance threading (ME-9): attach a Receipt that composes any
     # upstream Receipts on the inputs.  When inputs lack provenance, fall
     # back to a fresh "concat" Receipt anchored on the first input's space.
-    from .results import ConcatParams, receipt_for
+    from .results import ConcatParams, Receipt, receipt_for
 
-    upstream_receipts = [getattr(v, "provenance", None) for v in vecs]
-    upstream_receipts = [r for r in upstream_receipts if r is not None]
+    upstream_receipts: List[Receipt] = [
+        r for r in (getattr(v, "provenance", None) for v in vecs) if r is not None
+    ]
     base = receipt_for(
         concat_space,
         mask=None,
@@ -103,7 +104,7 @@ def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
     return out
 
 
-def scale_series(vec: NeuroVecLike, method: str = "zscore") -> DenseNeuroVec:
+def scale_series(vec: NeuroVec, method: str = "zscore") -> DenseNeuroVec:
     """Per-voxel time-series normalization.
 
     Parameters
@@ -290,7 +291,7 @@ def _resolve_downsample_shape(
         raise ValueError(
             "downsample output dimensions must not exceed input dimensions"
         )
-    return tuple(int(x) for x in out)
+    return cast(Tuple[int, int, int], tuple(int(x) for x in out))
 
 
 def _downsample_array(data: np.ndarray, out_shape: tuple[int, int, int]) -> np.ndarray:

@@ -7,14 +7,17 @@ searchlight implementations.
 """
 
 import numpy as np
-from typing import Iterator, Union, List, Optional
+from typing import TYPE_CHECKING, Iterator, Union, List, Optional, cast
 from joblib import Parallel, delayed
 from .neuro_vol import NeuroVol, LogicalNeuroVol
 from .roi import ROIVolWindow, ROIVol, spherical_roi
 from .utils import LazyList
 
+if TYPE_CHECKING:
+    from .protocols import MaskLike
 
-def _as_logical_mask(mask: Union[NeuroVol, LogicalNeuroVol]) -> LogicalNeuroVol:
+
+def _as_logical_mask(mask: Union[NeuroVol, "MaskLike"]) -> LogicalNeuroVol:
     """Convert numeric masks while treating NaN/Inf as ineligible."""
     if isinstance(mask, LogicalNeuroVol):
         return mask
@@ -128,7 +131,7 @@ def _mask_indices(mask: LogicalNeuroVol, nonzero_only: bool) -> np.ndarray:
     Uses Fortran-order indexing to match NeuroSpace mapping.
     """
     if nonzero_only:
-        return np.where(mask.data.ravel(order="F"))[0]
+        return cast(np.ndarray, np.where(mask.data.ravel(order="F"))[0])
     return np.arange(np.prod(mask.data.shape), dtype=int)
 
 
@@ -206,8 +209,11 @@ def searchlight_iterator(
         # Eagerly compute all searchlights
         if cores > 1:
             # Use parallel processing
-            return Parallel(n_jobs=cores, prefer="threads")(
-                delayed(generate_searchlight)(i) for i in range(len(indices))
+            return cast(
+                List[ROIVolWindow],
+                Parallel(n_jobs=cores, prefer="threads")(
+                    delayed(generate_searchlight)(i) for i in range(len(indices))
+                ),
             )
         else:
             # Single-threaded processing

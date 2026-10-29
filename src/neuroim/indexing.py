@@ -6,7 +6,7 @@ representations and NeuroVec objects.
 """
 
 import numpy as np
-from typing import Tuple, Union
+from typing import Tuple, Union, cast
 
 from .neuro_vol import NeuroVol, DenseNeuroVol, _linear_indices
 from .neuro_vec import NeuroVec, DenseNeuroVec
@@ -51,10 +51,10 @@ def linear_access(
         )
         # (n_timepoints, n_indices); a scalar index gives one series
         out = dense.reshape(n_spatial, -1, order="F")[indices].T
-        return out[:, 0] if scalar else out
+        return cast(np.ndarray, out[:, 0] if scalar else out)
     else:
         flat = vol_or_vec.as_dense().data.ravel(order="F")
-        return flat[indices][0] if scalar else flat[indices]
+        return cast(np.ndarray, flat[indices][0] if scalar else flat[indices])
 
 
 def matricized_access(
@@ -90,7 +90,7 @@ def matricized_access(
     else:
         mat = vec.as_dense().data.reshape(-1, vec.shape[3], order="F").T
 
-    return mat[np.ix_(row_indices, col_indices)]
+    return cast(np.ndarray, mat[np.ix_(row_indices, col_indices)])
 
 
 def from_matvec(mat: np.ndarray, space: NeuroSpace) -> DenseNeuroVec:

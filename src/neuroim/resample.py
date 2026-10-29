@@ -7,7 +7,7 @@ volumes and vectors to match different spatial configurations.
 import warnings
 
 import numpy as np
-from typing import Union, List
+from typing import TYPE_CHECKING, Union, List
 
 # Try to import nibabel for resampling support
 try:
@@ -23,6 +23,9 @@ from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_space import NeuroSpace
 from .axis import LEFT_RIGHT, RIGHT_LEFT, ANT_POST, POST_ANT, INF_SUP, SUP_INF
 from .results import ResampleParams, hash_neurospace, receipt_for
+
+if TYPE_CHECKING:
+    from .clustered_neuro_vol import ClusteredNeuroVol
 
 _LOW_OVERLAP_WARNING_THRESHOLD = 0.05
 
@@ -107,8 +110,10 @@ def _resample_method_name(
 
 
 def resample(
-    source: NeuroVol, target: Union[NeuroVol, NeuroSpace], interpolation: int = 3
-) -> DenseNeuroVol:
+    source: NeuroVol,
+    target: Union[NeuroVol, NeuroVec, NeuroSpace],
+    interpolation: int = 3,
+) -> Union[DenseNeuroVol, "ClusteredNeuroVol"]:
     """Resample an image to match the space of another image.
 
     This function resamples a source image to match the spatial properties
@@ -164,8 +169,7 @@ def resample(
     from .clustered_neuro_vol import ClusteredNeuroVol
     from .neuro_vol import LogicalNeuroVol
 
-    preserve_clusters = isinstance(source, ClusteredNeuroVol)
-    if preserve_clusters and interpolation != 0:
+    if isinstance(source, ClusteredNeuroVol) and interpolation != 0:
         warnings.warn(
             "ClusteredNeuroVol resampling uses nearest-neighbor interpolation",
             UserWarning,
@@ -175,7 +179,7 @@ def resample(
 
     # Dense source values for every voxel (a SparseNeuroVol's .data holds only
     # its non-zeros; nibabel cannot store bool), as neuroim2's as.array().
-    if preserve_clusters:
+    if isinstance(source, ClusteredNeuroVol):
         source_data = source.as_dense().data.astype(np.int32)
     else:
         dense = source.as_dense() if hasattr(source, "as_dense") else source
@@ -205,12 +209,12 @@ def resample(
     resampled_nifti = resample_from_to(source_nifti, target_nifti, order=interpolation)
 
     resampled_data = resampled_nifti.get_fdata()
-    if preserve_clusters:
+    if isinstance(source, ClusteredNeuroVol):
         labels = np.rint(resampled_data).astype(source.clusters.dtype)
         mask = labels != 0
         surviving = labels.ravel(order="F")[mask.ravel(order="F")]
         present = set(np.unique(surviving).tolist())
-        out = ClusteredNeuroVol(
+        clustered = ClusteredNeuroVol(
             LogicalNeuroVol(mask, target_space),
             surviving,
             # Drop names of clusters that vanished at the new resolution.
@@ -218,7 +222,7 @@ def resample(
                 name: cid for name, cid in source.label_map.items() if cid in present
             },
         )
-        out.provenance = receipt_for(
+        clustered.provenance = receipt_for(
             target_space,
             n_voxels=int(np.prod(tuple(int(d) for d in target_space.dim[:3]))),
             params=ResampleParams(
@@ -228,7 +232,7 @@ def resample(
                 interpolation=int(interpolation),
             ),
         )
-        return out
+        return clustered
 
     # float64, as neuroim2 (float32 cannot hold integer labels above 2**24)
     out = DenseNeuroVol(resampled_data, target_space)
@@ -246,7 +250,9 @@ def resample(
 
 
 def resample_vec(
-    source: NeuroVec, target: Union[NeuroVec, NeuroSpace], interpolation: int = 3
+    source: NeuroVec,
+    target: Union[NeuroVol, NeuroVec, NeuroSpace],
+    interpolation: int = 3,
 ) -> DenseNeuroVec:
     """Resample a 4D NeuroVec to match the space of another image.
 
@@ -323,7 +329,7 @@ def resample_to(
     target: Union[NeuroVol, NeuroVec, NeuroSpace],
     method: str = "nearest",
     engine: str = "nibabel",
-) -> Union[DenseNeuroVol, DenseNeuroVec]:
+) -> Union[DenseNeuroVol, "ClusteredNeuroVol", DenseNeuroVec]:
     """Resample a volume or vector to a target using neuroim2-style names.
 
     ``method`` defaults to ``"nearest"``, as in neuroim2, so label maps and

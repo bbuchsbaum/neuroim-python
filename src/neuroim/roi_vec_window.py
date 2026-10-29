@@ -7,6 +7,8 @@ vector-valued (4D) data.
 Windowed ROI containers for vector-valued spatial data.
 """
 
+from typing import cast
+
 import numpy as np
 
 from .neuro_space import NeuroSpace
@@ -79,7 +81,8 @@ class ROIVecWindow:
     @property
     def parent_grid(self) -> np.ndarray:
         """Parent voxel grid coordinate for this window."""
-        return self.space.index_to_grid(np.array([self.parent_index], dtype=int))[0]
+        grid = self.space.index_to_grid(np.array([self.parent_index], dtype=int))
+        return cast(np.ndarray, grid[0])
 
     # ------------------------------------------------------------------
     # Public API
@@ -117,12 +120,12 @@ class ROIVecWindow:
     @property
     def num_voxels(self) -> int:
         """Number of voxels in the window."""
-        return self.coords.shape[0]
+        return cast(int, self.coords.shape[0])
 
     @property
     def num_timepoints(self) -> int:
         """Number of time points in the data."""
-        return self.data.shape[0]
+        return cast(int, self.data.shape[0])
 
     # ------------------------------------------------------------------
     # Dunder methods

@@ -9,7 +9,7 @@ and object boundaries.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Optional, Sequence, Tuple, Union
+from typing import Iterable, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -130,7 +130,7 @@ def map_to_colors(
         rgba[..., 3] *= np.clip(np.nan_to_num(amap, nan=0.0), 0.0, 1.0)
 
     rgba[..., 3] = np.where(np.isfinite(arr), rgba[..., 3], 0.0)
-    return rgba
+    return cast(np.ndarray, rgba)
 
 
 def _as_3d_array(vol) -> np.ndarray:
@@ -264,12 +264,12 @@ def _space_grid_to_coord(space, grid: np.ndarray) -> np.ndarray:
             homo = np.zeros((grid.shape[0], 4), dtype=float)
             homo[:, : space.ndim] = grid[:, : space.ndim]
             homo[:, 3] = 1.0
-            return (homo @ trans.T)[:, : space.ndim]
+            return cast(np.ndarray, (homo @ trans.T)[:, : space.ndim])
         raise
 
 
 def _slice_raw(data: np.ndarray, axis: int, index: int) -> np.ndarray:
-    selector = [slice(None)] * 3
+    selector: List[Union[slice, int]] = [slice(None)] * 3
     selector[axis] = int(index)
     return np.asarray(data[tuple(selector)])
 
@@ -323,7 +323,7 @@ def _orient_matrix(
             col_idx = np.searchsorted(xvals, coords[:, 0])
             row_idx = np.searchsorted(yvals, coords[:, 1])
             out[row_idx, col_idx] = values.ravel(order="F")
-            if out_alpha is not None:
+            if out_alpha is not None and alpha_map is not None:
                 out_alpha[row_idx, col_idx] = alpha_map.ravel(order="F")
         else:
             out = values.T
@@ -349,7 +349,7 @@ def _spatial_orientation(space) -> np.ndarray:
             "volume affine must map its three voxel axes to distinct "
             "anatomical directions"
         )
-    return orientation
+    return cast(np.ndarray, orientation)
 
 
 def _display_from_native_matrix(
@@ -376,11 +376,15 @@ def _display_from_native_matrix(
             raise ValueError("alpha_map must have the same shape as slice data")
 
     orientation = _spatial_orientation(space)
-    native_axes = tuple(i for i in range(3) if i != axis)
+    native_axes = cast(Tuple[int, int], tuple(i for i in range(3) if i != axis))
     anatomical_axes = orientation[list(native_axes), 0].astype(int)
-    input_order = tuple(int(i) for i in np.argsort(anatomical_axes))
+    input_order = cast(
+        Tuple[int, int], tuple(int(i) for i in np.argsort(anatomical_axes))
+    )
     directions = orientation[np.asarray(native_axes, dtype=int)[list(input_order)], 1]
-    flipped = tuple(bool(direction < 0) for direction in directions)
+    flipped = cast(
+        Tuple[bool, bool], tuple(bool(direction < 0) for direction in directions)
+    )
 
     canonical = np.transpose(values, input_order)
     canonical_alpha = (
@@ -392,10 +396,12 @@ def _display_from_native_matrix(
             if canonical_alpha is not None:
                 canonical_alpha = np.flip(canonical_alpha, axis=display_axis)
 
-    display_dim = tuple(int(d) for d in canonical.shape)
+    display_dim = cast(Tuple[int, int], tuple(int(d) for d in canonical.shape))
     native_spacing = np.linalg.norm(np.asarray(space.affine)[:3, :3], axis=0)
     retained_spacing = native_spacing[list(native_axes)]
-    display_spacing = tuple(float(retained_spacing[i]) for i in input_order)
+    display_spacing = cast(
+        Tuple[float, float], tuple(float(retained_spacing[i]) for i in input_order)
+    )
     xvals = np.arange(display_dim[0], dtype=float) * display_spacing[0]
     yvals = np.arange(display_dim[1], dtype=float) * display_spacing[1]
     xmin, xmax = _raster_extent_from_centers(xvals)
@@ -459,7 +465,7 @@ def _slice_grid_to_display(
     for axis, should_flip in enumerate(display.flipped):
         if should_flip:
             shown[axis] = display.display_dim[axis] - 1 - shown[axis]
-    return shown * np.asarray(display.display_spacing)
+    return cast(np.ndarray, shown * np.asarray(display.display_spacing))
 
 
 def _anatomical_specs(vol, coord: Sequence[int]) -> list[Tuple[int, int]]:
@@ -575,7 +581,7 @@ def _scalar_threshold(threshold) -> float:
     if threshold is None:
         return 0.0
     if np.isscalar(threshold):
-        return float(threshold)
+        return float(cast(float, threshold))
     return 0.0
 
 
@@ -646,7 +652,9 @@ def _overlay_scale(
     return (float(lim[0]), float(lim[1])), float(cap), bool(signed), bool(symmetric)
 
 
-def _values_for_slices(vol, *, axis: int, indices: Sequence[int]) -> np.ndarray:
+def _values_for_slices(
+    vol, *, axis: int, indices: Union[Sequence[int], np.ndarray]
+) -> np.ndarray:
     arr = _as_3d_array(vol)
     return np.concatenate([_slice_raw(arr, axis, int(idx)).ravel() for idx in indices])
 
@@ -656,9 +664,12 @@ def _threshold_mask(values: np.ndarray, threshold) -> np.ndarray:
     if threshold is None:
         return ~np.isfinite(arr)
     if np.isscalar(threshold):
-        return (~np.isfinite(arr)) | (np.abs(arr) < float(threshold))
+        return cast(
+            np.ndarray,
+            (~np.isfinite(arr)) | (np.abs(arr) < float(cast(float, threshold))),
+        )
     lo, hi = np.asarray(threshold, dtype=float)
-    return (~np.isfinite(arr)) | ((arr > lo) & (arr < hi))
+    return cast(np.ndarray, (~np.isfinite(arr)) | ((arr > lo) & (arr < hi)))
 
 
 def _soft_alpha_params(mags, threshold=0.0, cap=None, gamma=None):
@@ -713,7 +724,7 @@ def _alpha_for_overlay(
         0.0
         if threshold is None
         else (
-            float(threshold)
+            float(cast(float, threshold))
             if np.isscalar(threshold)
             else float(max(abs(t) for t in threshold))
         )
@@ -899,7 +910,7 @@ def _ortho_width_ratios(displays) -> list:
 def _coord_to_voxel(vol, coords, coord_space: str) -> Tuple[int, int, int]:
     data = _as_3d_array(vol)
     if coords is None:
-        return tuple(int(s // 2) for s in data.shape[:3])
+        return cast(Tuple[int, int, int], tuple(int(s // 2) for s in data.shape[:3]))
     coord_space = coord_space.lower()
     arr = np.asarray(coords, dtype=float)
     if arr.shape != (3,):
@@ -914,7 +925,7 @@ def _coord_to_voxel(vol, coords, coord_space: str) -> Tuple[int, int, int]:
     idx = tuple(int(i) for i in np.round(arr))
     if any(i < 0 or i >= data.shape[axis] for axis, i in enumerate(idx)):
         raise ValueError("coords must be inside the volume")
-    return idx
+    return cast(Tuple[int, int, int], idx)
 
 
 def plot_neuro_vol(
@@ -1508,4 +1519,5 @@ def _plot_method(self, **kwargs):
     return plot_neuro_vol(self, **kwargs)
 
 
-NeuroVol.plot = _plot_method
+# Attached at import time; NeuroVol does not declare ``plot`` itself.
+setattr(NeuroVol, "plot", _plot_method)

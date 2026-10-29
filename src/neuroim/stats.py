@@ -7,12 +7,15 @@ Statistical helpers for neuroimaging volumes and vector series.
 """
 
 import numpy as np
-from typing import List, Dict, Callable, Optional, Union
+from typing import TYPE_CHECKING, List, Dict, Callable, Optional, Union, cast
 from .neuro_vol import NeuroVol, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec, _scale_along
 from .neuro_space import NeuroSpace
 from .roi import ROIVec, ROIVol
 from .clustered_neuro_vol import ClusteredNeuroVol
+
+if TYPE_CHECKING:
+    from .neuro_vec import SparseNeuroVec
 
 
 def split_blocks(
@@ -71,7 +74,7 @@ def split_blocks(
         raise ValueError("indices and block_ids must have same length")
 
     unique_blocks = np.unique(block_ids)
-    blocks = []
+    blocks: List[Union[NeuroVol, NeuroVec]] = []
 
     for block_id in unique_blocks:
         # Get indices for this block
@@ -251,7 +254,7 @@ def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
         )
 
     levels = np.unique(fac)
-    result = {}
+    result: Dict[int, NeuroVec] = {}
 
     for level in levels:
         # Get indices for this level
@@ -273,7 +276,7 @@ def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
                 axes=x.space.axes,
             )
 
-            level_vec = DenseNeuroVec(subset_data, new_space)
+            level_vec: NeuroVec = DenseNeuroVec(subset_data, new_space)
         else:
             # For sparse, need to handle carefully
             from .neuro_vec import SparseNeuroVec
@@ -293,7 +296,10 @@ def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
             )
 
             level_vec = SparseNeuroVec(
-                subset_data, new_space, x.mask, orientation="time_x_voxels"
+                subset_data,
+                new_space,
+                cast(SparseNeuroVec, x).mask,
+                orientation="time_x_voxels",
             )
 
         result[level] = level_vec
@@ -395,7 +401,7 @@ def split_reduce(
 
             # Store mean of reduced values
             if reduced_values:
-                out_indices.append(x._lookup[vox_idx])
+                out_indices.append(cast("SparseNeuroVec", x)._lookup[vox_idx])
                 out_values.append(np.mean(reduced_values))
 
         if out_indices:
@@ -482,8 +488,13 @@ def split_scale(
 
             scaled_data[level_indices, :] = level_data
 
+        sparse_x = cast(SparseNeuroVec, x)
         return SparseNeuroVec(
-            scaled_data, x.space, x.mask, x.label, orientation="time_x_voxels"
+            scaled_data,
+            x.space,
+            sparse_x.mask,
+            sparse_x.label,
+            orientation="time_x_voxels",
         )
 
 

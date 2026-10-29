@@ -9,7 +9,7 @@ File-format descriptors used by neuroim image I/O.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union, Any, List
+from typing import TYPE_CHECKING, Optional, Union, Any, List, cast
 import re
 import numpy as np
 
@@ -240,9 +240,10 @@ class NIFTIFormat(FileFormat):
 
         header_file = self.header_file(file_name)
 
-        # Use nibabel to read the header
-        img = nib.load(header_file)
-        header = img.header
+        # Use nibabel to read the header (NIfTI-1 or NIfTI-2; Nifti2Image
+        # subclasses Nifti1Image)
+        img = cast(nib.Nifti1Image, nib.load(header_file))
+        header = cast(nib.Nifti1Header, img.header)
 
         # Extract slope and intercept from dataobj if available
         slope = 1.0
@@ -289,7 +290,7 @@ class AFNIFormat(FileFormat):
         from .meta_info import AFNIMetaInfo
 
         header_file = self.header_file(file_name)
-        afni_header = read_afni_header(header_file)
+        afni_header: dict[str, Any] = read_afni_header(header_file)
         afni_header["file_name"] = header_file
 
         from .afni_io import AFNI_BRICK_DTYPES, afni_affine

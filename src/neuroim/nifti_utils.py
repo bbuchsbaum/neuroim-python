@@ -6,7 +6,7 @@ representations.
 """
 
 import numpy as np
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union, Optional, cast
 from .neuro_vol import NeuroVol
 
 # NIfTI data type codes
@@ -357,9 +357,10 @@ def as_nifti_header(
 
     # Get quaternion from transformation matrix
     quat_info = matrix_to_quatern(affine)
-    header["quatern_b"] = quat_info["quaternion"][0]
-    header["quatern_c"] = quat_info["quaternion"][1]
-    header["quatern_d"] = quat_info["quaternion"][2]
+    quaternion = cast(List[float], quat_info["quaternion"])
+    header["quatern_b"] = quaternion[0]
+    header["quatern_c"] = quaternion[1]
+    header["quatern_d"] = quaternion[2]
     header["pixdim"][0] = quat_info["qfac"]  # Store qfac in pixdim[0]
 
     # Set offsets from transformation matrix

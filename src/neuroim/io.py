@@ -4,7 +4,7 @@ import nibabel as nib
 import numpy as np
 import gzip
 from pathlib import Path
-from typing import Union, Optional, Dict, Any, Sequence
+from typing import Union, Optional, Dict, Any, Sequence, TypeGuard, cast
 
 from .neuro_vol import (
     DenseNeuroVol,
@@ -17,12 +17,13 @@ from .neuro_vol import (
 from .neuro_vec import DenseNeuroVec, SparseNeuroVec
 from .neuro_vec import neurovecseq
 from .neuro_space import NeuroSpace
+from .axis import AxisSet4D, drop_axis
 from .file_format import find_descriptor, FileFormat
 from .meta_info import FileMetaInfo, AFNIMetaInfo
 from .afni_io import write_afni_pair
 
 
-def _is_afni_descriptor(desc: Optional[FileFormat]) -> bool:
+def _is_afni_descriptor(desc: Optional[FileFormat]) -> TypeGuard[FileFormat]:
     return desc is not None and desc.file_format.upper() == "AFNI"
 
 
@@ -351,7 +352,7 @@ def read_vol(filename: Union[str, Path], index: int = 0) -> DenseNeuroVol:
     else:
         # Load with nibabel; values come from dataobj (scaling applied once,
         # stored dtype kept when unscaled).
-        img = nib.load(str(filename))
+        img = cast(nib.Nifti1Image, nib.load(str(filename)))
         _refuse_unsupported_nifti_dtype(img)
         if len(img.shape) == 3 and index == 0:
             return DenseNeuroVol.from_nibabel(img)
@@ -498,8 +499,8 @@ def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
             "afni_header": meta.afni_header,
         }
 
-    img = nib.load(str(filename))
-    header = img.header
+    img = cast(nib.Nifti1Image, nib.load(str(filename)))
+    header = cast(nib.Nifti1Header, img.header)
 
     # Handle description field
     descrip = header.get("descrip", b"")
@@ -609,7 +610,7 @@ def read_vec(
         space = _neurospace_from_afni_meta(meta)
     else:
         # Load with nibabel
-        img = nib.load(str(filename))
+        img = cast(nib.Nifti1Image, nib.load(str(filename)))
         data, time_spacing = _nifti_vec_payload(img)
 
     if (
@@ -642,7 +643,7 @@ def read_vec(
         space = _nifti_space(img, data.shape, time_spacing)
     elif space.ndim == 3:
         # AFNI: the TR comes from TAXIS_FLOATS
-        space = _afni_time_space(meta, space, data.shape[3])
+        space = _afni_time_space(cast(AFNIMetaInfo, meta), space, data.shape[3])
     # Update to 4D
     if space.ndim == 3:
         space = space.add_dim(n=1, size=data.shape[3])
@@ -660,7 +661,8 @@ def read_vec(
                 space.dim[:3],
                 spacing=space.spacing[:3],
                 origin=space.origin[:3],
-                axes=space.axes.drop_dim(),
+                # Spatial axes of the 4-D space (drop the time axis)
+                axes=drop_axis(cast(AxisSet4D, space.axes), 3),
                 trans=space.affine,
             )
             mask = LogicalNeuroVol(mask, mask_space)
@@ -788,7 +790,9 @@ def read_image(
             file_path = file_path[0]
 
         resolved_index = 0 if index is _READ_IMAGE_INDEX_NOT_SET else index
-        return read_vol(file_path, index=resolved_index)
+        return read_vol(
+            cast(Union[str, Path], file_path), index=cast(int, resolved_index)
+        )
 
     if isinstance(file_path, (list, tuple)):
         if len(file_path) == 0:
@@ -805,6 +809,8 @@ def read_image(
         vecs = [read_vec(fp, indices=indices, mask=mask) for fp in file_path]
         return neurovecseq(vecs) if len(vecs) > 1 else vecs[0]
 
+    # Lists and tuples were dispatched above; one path remains.
+    file_path = cast(Union[str, Path], file_path)
     has_indices = indices is not None
     if type == "vec" and index is not _READ_IMAGE_INDEX_NOT_SET and not has_indices:
         indices = index
@@ -821,10 +827,11 @@ def read_image(
                 indices = index
             return read_vec(file_path, indices=indices, mask=mask)
         return read_vol(
-            file_path, index=0 if index is _READ_IMAGE_INDEX_NOT_SET else index
+            file_path,
+            index=0 if index is _READ_IMAGE_INDEX_NOT_SET else cast(int, index),
         )
 
-    img = nib.load(str(file_path))
+    img = cast(nib.Nifti1Image, nib.load(str(file_path)))
     shape = img.shape
     ndim = len(shape)
     has_vec_dim = ndim > 3 and any(dim > 1 for dim in shape[3:])
@@ -835,7 +842,8 @@ def read_image(
         return read_vec(file_path, indices=indices, mask=mask)
     if ndim == 3 or (ndim > 3 and not has_vec_dim):
         return read_vol(
-            file_path, index=0 if index is _READ_IMAGE_INDEX_NOT_SET else index
+            file_path,
+            index=0 if index is _READ_IMAGE_INDEX_NOT_SET else cast(int, index),
         )
     else:
         raise ValueError(
@@ -859,7 +867,9 @@ def read_volume(
     (default 0). A 3-D file is read directly. This is reader dispatch, not
     a rank gate.
     """
-    return read_image(file_path, type="vol", index=index, mask=mask)
+    return cast(
+        DenseNeuroVol, read_image(file_path, type="vol", index=index, mask=mask)
+    )
 
 
 def read_series(
@@ -876,7 +886,10 @@ def read_series(
     promoted to singleton-time 4-D, shape ``(..., 1)``; a 4-D file is read
     as-is. This is reader dispatch, not a rank gate.
     """
-    return read_image(file_path, type="vec", indices=indices, mask=mask)
+    return cast(
+        "DenseNeuroVec",
+        read_image(file_path, type="vec", indices=indices, mask=mask),
+    )
 
 
 def load_data(source):

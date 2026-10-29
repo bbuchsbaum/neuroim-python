@@ -6,7 +6,7 @@ Represents 4D data using cluster assignments and shared time series.
 
 import numpy as np
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from .neuro_space import NeuroSpace
 from .clustered_neuro_vol import ClusteredNeuroVol
@@ -188,7 +188,7 @@ class ClusteredNeuroVec:
         This factory mirrors :meth:`neuroim.NeuroVec.parcel_means` for users
         who discover the clustered container first.
         """
-        return vec.parcel_means(cvol, label=label)
+        return cast("ClusteredNeuroVec", vec.parcel_means(cvol, label=label))
 
     # ------------------------------------------------------------------
     # Accessors
@@ -377,17 +377,17 @@ class ClusteredNeuroVec:
     @property
     def n_time(self) -> int:
         """Number of time points."""
-        return self.ts.shape[0]
+        return cast(int, self.ts.shape[0])
 
     @property
     def n_clusters(self) -> int:
         """Number of clusters."""
-        return self.ts.shape[1]
+        return cast(int, self.ts.shape[1])
 
     @property
     def cluster_ids(self) -> np.ndarray:
         """Sorted array of unique cluster IDs."""
-        return self._cluster_ids.copy()
+        return cast(np.ndarray, self._cluster_ids.copy())
 
     @property
     def space(self) -> NeuroSpace:

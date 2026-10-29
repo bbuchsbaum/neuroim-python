@@ -1,7 +1,7 @@
 """Spatially aware containers for 3D neuroimaging volumes."""
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, cast
 from typing import TYPE_CHECKING, Union, Tuple, Optional, List, Dict
 import numbers
 
@@ -73,6 +73,12 @@ class NeuroVol(ABC):
     space : NeuroSpace
         The spatial metadata for the volume
     """
+
+    if TYPE_CHECKING:
+        # Every concrete volume provides ``data`` (an attribute or a property)
+
+        @property
+        def data(self) -> np.ndarray: ...
 
     def __init__(self, space: NeuroSpace):
         if not isinstance(space, NeuroSpace):
@@ -407,15 +413,15 @@ class NeuroVol(ABC):
         """Sum of all values."""
         values = self.values()
         if na_rm:
-            return np.nansum(values)
-        return np.sum(values)
+            return cast(float, np.nansum(values))
+        return cast(float, np.sum(values))
 
     def mean(self, na_rm: bool = False) -> float:
         """Mean of all values."""
         values = self.values()
         if na_rm:
-            return np.nanmean(values)
-        return np.mean(values)
+            return cast(float, np.nanmean(values))
+        return cast(float, np.mean(values))
 
     # Compatibility aliases retained as deprecated shims (see neuroim.compat for
     # migration policy).
@@ -427,8 +433,8 @@ class NeuroVol(ABC):
         """Minimum value."""
         values = self.values()
         if na_rm:
-            return np.nanmin(values)
-        return np.min(values)
+            return cast(float, np.nanmin(values))
+        return cast(float, np.min(values))
 
     def which_min(self):
         """Return linear index of minimum value (F-order indexing).
@@ -441,8 +447,8 @@ class NeuroVol(ABC):
         """Maximum value."""
         values = self.values()
         if na_rm:
-            return np.nanmax(values)
-        return np.max(values)
+            return cast(float, np.nanmax(values))
+        return cast(float, np.max(values))
 
     def which_max(self):
         """Return linear index of maximum value (F-order indexing).
@@ -487,6 +493,8 @@ class DenseNeuroVol(NeuroVol):
         Volume label
     indices : array-like, optional
         If provided, only these indices will be filled with data"""
+
+    data: np.ndarray
 
     def __init__(
         self,
@@ -781,14 +789,14 @@ class SparseNeuroVol(NeuroVol):
         self.label = label
 
     @property
-    def indices(self) -> np.ndarray:
+    def indices(self) -> np.ndarray:  # type: ignore[override]  # property (API)
         """Get indices of non-zero values."""
-        return self.sparse_data.indices
+        return cast(np.ndarray, self.sparse_data.indices)
 
     @property
     def data(self) -> np.ndarray:
         """Get non-zero values."""
-        return self.sparse_data.data
+        return cast(np.ndarray, self.sparse_data.data)
 
     def __getitem__(self, key):
         """Extract values; keys resolve exactly as for DenseNeuroVol."""
@@ -826,7 +834,7 @@ class SparseNeuroVol(NeuroVol):
 
     def values(self) -> np.ndarray:
         """Get all values (including zeros)."""
-        return self.sparse_data.toarray().ravel()
+        return cast(np.ndarray, self.sparse_data.toarray().ravel())
 
     def as_dense(self) -> DenseNeuroVol:
         """Convert to dense representation."""
@@ -862,7 +870,7 @@ class SparseNeuroVol(NeuroVol):
     @property
     def nnz(self) -> int:
         """Number of non-zero elements."""
-        return self.sparse_data.nnz
+        return cast(int, self.sparse_data.nnz)
 
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
@@ -960,7 +968,7 @@ class LogicalNeuroVol(DenseNeuroVol):
         return LogicalNeuroVol(~self.data, self.space)
 
     @property
-    def sum(self) -> int:
+    def sum(self) -> int:  # type: ignore[override]  # property
         """Number of True voxels."""
         return int(np.sum(self.data))
 
@@ -1028,7 +1036,7 @@ def _attach_nibabel_metadata(obj, img) -> None:
     # nibabel moves scl_slope/scl_inter onto the data proxy and NaNs them in
     # the loaded header, so record them for writers that re-encode exactly.
     dataobj = getattr(img, "dataobj", None)
-    if hasattr(dataobj, "slope") and hasattr(dataobj, "inter"):
+    if dataobj is not None and hasattr(dataobj, "slope") and hasattr(dataobj, "inter"):
         obj._nibabel_slope_inter = (float(dataobj.slope), float(dataobj.inter))
     receipt = _extract_receipt_extension(img)
     if receipt is not None:

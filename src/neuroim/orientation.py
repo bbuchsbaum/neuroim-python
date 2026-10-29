@@ -6,7 +6,7 @@ a clean neuroim API.
 """
 
 import numpy as np
-from typing import Tuple, Optional, Sequence, Union
+from typing import Any, Dict, Tuple, Optional, Sequence, Union, cast
 
 import nibabel.orientations as nibo
 
@@ -44,7 +44,7 @@ def affine_to_orientation(
            [2., 1.]])
     """
     affine = np.asarray(affine, dtype=float)
-    return nibo.io_orientation(affine, tol=tol)
+    return cast(np.ndarray, nibo.io_orientation(affine, tol=tol))
 
 
 def affine_to_axcodes(
@@ -76,7 +76,7 @@ def affine_to_axcodes(
     ('R', 'A', 'S')
     """
     affine = np.asarray(affine, dtype=float)
-    kwargs = {}
+    kwargs: Dict[str, Any] = {}
     if labels is not None:
         kwargs["labels"] = labels
     if tol is not None:
@@ -109,17 +109,17 @@ def axcodes_to_orientation(
            [1., 1.],
            [2., 1.]])
     """
-    kwargs = {}
+    kwargs: Dict[str, Any] = {}
     if labels is not None:
         kwargs["labels"] = labels
-    return nibo.axcodes2ornt(axcodes, **kwargs)
+    return cast(np.ndarray, nibo.axcodes2ornt(axcodes, **kwargs))
 
 
 def orientation_to_axcodes(
     ornt: np.ndarray, labels: Optional[Sequence[Tuple[str, str]]] = None
 ) -> Tuple[str, ...]:
     """Convert an orientation array to axis codes."""
-    kwargs = {}
+    kwargs: Dict[str, Any] = {}
     if labels is not None:
         kwargs["labels"] = labels
     return tuple(nibo.ornt2axcodes(np.asarray(ornt), **kwargs))
@@ -127,7 +127,9 @@ def orientation_to_axcodes(
 
 def orientation_transform(start_ornt: np.ndarray, end_ornt: np.ndarray) -> np.ndarray:
     """Return the orientation transform from one orientation to another."""
-    return nibo.ornt_transform(np.asarray(start_ornt), np.asarray(end_ornt))
+    return cast(
+        np.ndarray, nibo.ornt_transform(np.asarray(start_ornt), np.asarray(end_ornt))
+    )
 
 
 def axcodes(x, labels: Optional[Sequence[Tuple[str, str]]] = None) -> Tuple[str, ...]:
@@ -170,7 +172,7 @@ def apply_orientation(data: np.ndarray, ornt: np.ndarray) -> np.ndarray:
     >>> out.shape
     (2, 3, 4)
     """
-    return nibo.apply_orientation(data, ornt)
+    return cast(np.ndarray, nibo.apply_orientation(data, ornt))
 
 
 def apply_affine(aff: np.ndarray, pts: np.ndarray, inplace: bool = False) -> np.ndarray:
@@ -200,9 +202,9 @@ def apply_affine(aff: np.ndarray, pts: np.ndarray, inplace: bool = False) -> np.
 
     linear = aff[:nd_out, :nd_in]
     offset = aff[:nd_out, -1]
-    out = pts_mat @ linear.T + offset
+    out: np.ndarray = pts_mat @ linear.T + offset
     if vector_input:
-        return out[0]
+        return cast(np.ndarray, out[0])
     return out.reshape(pts.shape[:-1] + (nd_out,))
 
 
@@ -211,27 +213,27 @@ def append_diag(
 ) -> np.ndarray:
     """Append diagonal axes to a homogeneous affine."""
     aff = np.asarray(aff, dtype=float)
-    steps = np.asarray(steps, dtype=float)
+    steps_arr = np.asarray(steps, dtype=float)
     if aff.ndim != 2 or aff.shape[0] < 2 or aff.shape[1] < 2:
         raise ValueError("aff must be a 2D homogeneous affine matrix")
-    if steps.ndim != 1 or steps.size == 0 or not np.all(np.isfinite(steps)):
+    if steps_arr.ndim != 1 or steps_arr.size == 0 or not np.all(np.isfinite(steps_arr)):
         raise ValueError("steps must contain at least one finite numeric value")
     if starts is None:
-        starts_arr = np.zeros_like(steps)
+        starts_arr = np.zeros_like(steps_arr)
     else:
         starts_arr = np.asarray(starts, dtype=float)
-        if starts_arr.shape != steps.shape or not np.all(np.isfinite(starts_arr)):
+        if starts_arr.shape != steps_arr.shape or not np.all(np.isfinite(starts_arr)):
             raise ValueError(
                 "starts must be None or have the same finite length as steps"
             )
 
     old_out = aff.shape[0] - 1
     old_in = aff.shape[1] - 1
-    n_steps = steps.size
+    n_steps = steps_arr.size
     out = np.zeros((old_out + n_steps + 1, old_in + n_steps + 1), dtype=float)
     out[:old_out, :old_in] = aff[:old_out, :old_in]
     out[:old_out, -1] = aff[:old_out, -1]
-    for i, step in enumerate(steps):
+    for i, step in enumerate(steps_arr):
         out[old_out + i, old_in + i] = step
     out[old_out : old_out + n_steps, -1] = starts_arr
     out[-1, -1] = 1.0
@@ -276,7 +278,7 @@ def orientation_inverse_affine(ornt: np.ndarray, shape: Sequence[int]) -> np.nda
            [0., 0., 1., 0.],
            [0., 0., 0., 1.]])
     """
-    return nibo.inv_ornt_aff(ornt, shape)
+    return cast(np.ndarray, nibo.inv_ornt_aff(ornt, shape))
 
 
 def obliquity(affine: np.ndarray) -> float:
@@ -436,8 +438,8 @@ def rescale_affine(
     array([1., 1., 1.])
     """
     affine = np.asarray(affine, dtype=float).copy()
-    shape = np.asarray(shape[:3], dtype=float)
-    zooms = np.asarray(zooms[:3], dtype=float)
+    shape_arr = np.asarray(shape[:3], dtype=float)
+    zooms_arr = np.asarray(zooms[:3], dtype=float)
 
     # Current voxel sizes from the affine
     old_zooms = np.sqrt(np.sum(affine[:3, :3] ** 2, axis=0))
@@ -445,18 +447,18 @@ def rescale_affine(
 
     if new_shape is None:
         # Compute new shape to preserve FOV
-        fov = shape * old_zooms
-        new_shape_arr = np.ceil(fov / zooms).astype(int)
+        fov = shape_arr * old_zooms
+        new_shape_arr = np.ceil(fov / zooms_arr).astype(int)
     else:
         new_shape_arr = np.asarray(new_shape[:3], dtype=float)
 
     # Scale the rotation/direction part
-    scale = zooms / old_zooms
-    new_affine = affine.copy()
+    scale = zooms_arr / old_zooms
+    new_affine: np.ndarray = affine.copy()
     new_affine[:3, :3] = affine[:3, :3] * scale[np.newaxis, :]
 
     # Adjust origin so the center of the FOV stays the same
-    old_center = affine[:3, :3] @ ((shape - 1) / 2.0) + affine[:3, 3]
+    old_center = affine[:3, :3] @ ((shape_arr - 1) / 2.0) + affine[:3, 3]
     new_origin = old_center - new_affine[:3, :3] @ ((new_shape_arr - 1) / 2.0)
     new_affine[:3, 3] = new_origin
 

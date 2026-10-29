@@ -5,7 +5,7 @@ Spatial filtering functions for typed neuroimaging volumes.
 
 import numpy as np
 from scipy import ndimage
-from typing import Union, Optional
+from typing import Union, Optional, cast
 from .neuro_vol import NeuroVol, DenseNeuroVol, LogicalNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec
 
@@ -198,7 +198,9 @@ def gaussian_blur(
     receipt = receipt_for(
         vol,
         mask=mask_payload,
-        n_voxels=int(np.prod(vol.shape)) if mask is None else int(mask_payload.sum()),
+        n_voxels=(
+            int(np.prod(vol.shape)) if mask_payload is None else int(mask_payload.sum())
+        ),
         params=SpatialFilterParams(
             method_name="gaussian_blur",
             radius=_sigma_record(sigma, fwhm_mm),
@@ -420,7 +422,7 @@ def _bilateral_3d(
     out = data.copy()
     update = mask_arr & np.isfinite(data) & (den > 0)
     out[update] = num[update] / den[update]
-    return out
+    return cast(np.ndarray, out)
 
 
 def bilateral_filter(
@@ -702,4 +704,4 @@ def box_blur(vol: NeuroVol, mask_indices: tuple, radius: int) -> np.ndarray:
     blurred = ndimage.convolve(data, kernel, mode="constant", cval=0.0)
 
     # Return values at mask indices
-    return blurred[mask_indices]
+    return cast(np.ndarray, blurred[mask_indices])

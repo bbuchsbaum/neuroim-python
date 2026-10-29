@@ -6,7 +6,7 @@ Includes ROI, ROICoords, ROIVol, ROIVec, and ROIVolWindow.
 import warnings
 
 import numpy as np
-from typing import Union, Tuple, Optional, List
+from typing import Union, Tuple, Optional, List, cast
 from abc import ABC
 from .neuro_space import NeuroSpace
 from .protocols import MaskLike, NeuroVolLike
@@ -77,7 +77,7 @@ class ROICoords(ROI):
 
     def __len__(self) -> int:
         """Number of coordinates in the ROI."""
-        return self.coords.shape[0]
+        return cast(int, self.coords.shape[0])
 
     def __getitem__(self, i):
         """Extract subset of coordinates."""
@@ -299,7 +299,10 @@ class ROIVolWindow(ROIVol):
     @property
     def parent_grid(self) -> np.ndarray:
         """Parent voxel grid coordinate for this window."""
-        return self.space.index_to_grid(np.array([self.parent_index], dtype=int))[0]
+        return cast(
+            np.ndarray,
+            self.space.index_to_grid(np.array([self.parent_index], dtype=int))[0],
+        )
 
     def __repr__(self):
         """String representation."""
@@ -416,8 +419,8 @@ def _volume_shape(bvol: _VolumeInput) -> Tuple[int, int, int]:
     if isinstance(bvol, NeuroSpace):
         if len(bvol.dim) != 3:
             raise ValueError(f"bvol space must be 3D, got {len(bvol.dim)}D")
-        return tuple(int(d) for d in bvol.dim)
-    return tuple(int(d) for d in _volume_data(bvol).shape)
+        return cast(Tuple[int, int, int], tuple(int(d) for d in bvol.dim))
+    return cast(Tuple[int, int, int], tuple(int(d) for d in _volume_data(bvol).shape))
 
 
 def _volume_spacing(bvol: _VolumeInput) -> np.ndarray:
@@ -469,7 +472,7 @@ def _validate_centroid(
     return result.astype(int) if integral else result
 
 
-def _validate_surround(surround: Union[int, List, np.ndarray]) -> np.ndarray:
+def _validate_surround(surround: Union[float, List, np.ndarray]) -> np.ndarray:
     try:
         result = np.asarray(surround, dtype=float)
     except (TypeError, ValueError) as exc:
@@ -682,7 +685,7 @@ def square_roi(
 def cuboid_roi(
     bvol: _VolumeInput,
     centroid: Union[List, np.ndarray],
-    surround: Union[int, List, np.ndarray],
+    surround: Union[float, List, np.ndarray],
     fill: Optional[float] = None,
     nonzero: bool = False,
 ) -> ROIVol:
@@ -830,6 +833,7 @@ def spherical_roi_set(
         raise ValueError("centroids must have 3 columns")
 
     # Handle fill values
+    fill_values: List[Optional[float]]
     if fill is not None:
         if np.isscalar(fill):
             fill_values = [fill] * len(centroids)
@@ -852,7 +856,7 @@ def spherical_roi_set(
 def cube_roi(
     bvol: _VolumeInput,
     centroid: Union[List, np.ndarray],
-    width: int,
+    width: float,
     fill: Optional[float] = None,
     nonzero: bool = False,
 ) -> ROIVol:
@@ -982,6 +986,7 @@ def patch_set(
         raise ValueError(f"shape must be 'sphere' or 'cube', got '{shape}'")
 
     # Normalise fill values
+    fill_values: List[Optional[float]]
     if fill is not None:
         if np.isscalar(fill):
             fill_values = [fill] * len(centroids)
