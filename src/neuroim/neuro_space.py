@@ -805,8 +805,9 @@ class NeuroSpace:
                 tuple(float(o) for o in self.origin),
                 tuple(float(s) for s in self.spacing),
                 self.trans.shape,
-                self.trans.dtype.str,
-                self.trans.tobytes(),
+                # Python floats hash -0.0 and 0.0 alike, matching __eq__
+                # (tobytes() did not, so equal spaces could hash apart).
+                tuple(float(v) for v in self.trans.ravel()),
             )
         )
 

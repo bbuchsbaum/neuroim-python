@@ -174,30 +174,31 @@ def resample(
         )
         interpolation = 0
 
-    # Convert source NeuroVol to nibabel image
+    # Dense source values for every voxel (a SparseNeuroVol's .data holds only
+    # its non-zeros; nibabel cannot store bool), as neuroim2's as.array().
     if preserve_clusters:
         source_data = source.as_dense().data.astype(np.int32)
     else:
-        source_data = source.data if hasattr(source, "data") else source.as_dense().data
-    source_nifti = nib.Nifti1Image(source_data, source.space.trans)
+        dense = source.as_dense() if hasattr(source, "as_dense") else source
+        source_data = np.asarray(dense.data)
+        if source_data.dtype == bool:
+            source_data = source_data.astype(np.float64)
+    source_nifti = nib.Nifti1Image(source_data, source.space.affine)
 
-    if isinstance(target, NeuroSpace):
-        # Create a dummy nibabel image for the target space
-        target_shape = tuple(int(d) for d in target.dim[:3])
-        target_nifti = nib.Nifti1Image(np.zeros(target_shape), target.trans)
-        # Anatomical axes follow the target affine (the grid the data now
-        # lives on), not the source's axes.
-        target_space = NeuroSpace(
-            dim=target.dim,
-            spacing=target.spacing,
-            origin=target.origin,
-            trans=target.trans,
+    # Only the target's grid (shape and affine) matters, never its values.
+    grid = target if isinstance(target, NeuroSpace) else target.space
+    if grid.ndim != 3:
+        raise ValueError(
+            f"resample() needs a 3-D target grid, got a {grid.ndim}-D space; "
+            "use resample_vec/resample_to for 4-D data"
         )
-    else:
-        # Convert target NeuroVol to nibabel image
-        target_data = target.data if hasattr(target, "data") else target.as_dense().data
-        target_nifti = nib.Nifti1Image(target_data, target.space.trans)
-        target_space = target.space
+    target_shape = tuple(int(d) for d in grid.dim[:3])
+    target_nifti = nib.Nifti1Image(np.zeros(target_shape, dtype=np.uint8), grid.affine)
+    # Anatomical axes follow the target affine (the grid the data now lives
+    # on), not the source's axes.
+    target_space = NeuroSpace(
+        dim=grid.dim, spacing=grid.spacing, origin=grid.origin, trans=grid.trans
+    )
 
     _warn_if_low_overlap(source.space, target_space)
 
@@ -208,10 +209,15 @@ def resample(
     if preserve_clusters:
         labels = np.rint(resampled_data).astype(source.clusters.dtype)
         mask = labels != 0
+        surviving = labels.ravel(order="F")[mask.ravel(order="F")]
+        present = set(np.unique(surviving).tolist())
         out = ClusteredNeuroVol(
             LogicalNeuroVol(mask, target_space),
-            labels.ravel(order="F")[mask.ravel(order="F")],
-            label_map=dict(source.label_map),
+            surviving,
+            # Drop names of clusters that vanished at the new resolution.
+            label_map={
+                name: cid for name, cid in source.label_map.items() if cid in present
+            },
         )
         out.provenance = receipt_for(
             target_space,
@@ -225,7 +231,8 @@ def resample(
         )
         return out
 
-    out = DenseNeuroVol(resampled_data.astype(np.float32), target_space)
+    # float64, as neuroim2 (float32 cannot hold integer labels above 2**24)
+    out = DenseNeuroVol(resampled_data, target_space)
     out.provenance = receipt_for(
         target_space,
         n_voxels=int(np.prod(tuple(int(d) for d in target_space.dim[:3]))),
@@ -268,13 +275,15 @@ def resample_vec(
     n_vols = source.shape[3]
     resampled_vols = []
 
-    # Get target 3D space by dropping the last dimension (time/4th dimension)
-    if isinstance(target, NeuroSpace):
-        if target.ndim != 4:
-            raise ValueError("Target NeuroSpace must be 4D for NeuroVec resampling")
-        target_3d_space = target.drop_dim(3)  # Drop the 4th dimension
+    # Only the target's spatial grid matters: a 3-D or 4-D space, a volume,
+    # or a vector with any number of volumes.
+    grid = target if isinstance(target, NeuroSpace) else target.space
+    if grid.ndim == 3:
+        target_3d_space = grid
+    elif grid.ndim == 4:
+        target_3d_space = grid.drop_dim(3)
     else:
-        target_3d_space = target.space.drop_dim(3)  # Drop the 4th dimension
+        raise ValueError(f"target must be 3-D or 4-D, got {grid.ndim}-D")
 
     # Resample each volume
     for i in range(n_vols):
@@ -285,10 +294,13 @@ def resample_vec(
     # Stack resampled volumes
     resampled_data = np.stack(resampled_vols, axis=-1)
 
-    if isinstance(target, NeuroSpace):
-        target_4d_space = target
-    else:
-        target_4d_space = target.space
+    # Target spatial grid, the source's time axis (volume count and TR).
+    tr = float(source.space.spacing[3]) if source.space.ndim > 3 else 1.0
+    target_4d_space = NeuroSpace(
+        dim=tuple(int(d) for d in target_3d_space.dim[:3]) + (n_vols,),
+        spacing=tuple(float(s) for s in target_3d_space.spacing[:3]) + (tr,),
+        trans=target_3d_space.affine,
+    )
 
     out = DenseNeuroVec(resampled_data, target_4d_space)
     out.provenance = receipt_for(
@@ -310,10 +322,14 @@ def resample_vec(
 def resample_to(
     source: Union[NeuroVol, NeuroVec],
     target: Union[NeuroVol, NeuroVec, NeuroSpace],
-    method: str = "linear",
+    method: str = "nearest",
     engine: str = "nibabel",
 ) -> Union[DenseNeuroVol, DenseNeuroVec]:
-    """Resample a volume or vector to a target using neuroim2-style names."""
+    """Resample a volume or vector to a target using neuroim2-style names.
+
+    ``method`` defaults to ``"nearest"``, as in neuroim2, so label maps and
+    masks keep their values; pass ``"linear"`` or ``"cubic"`` for images.
+    """
     method_map = {"nearest": 0, "linear": 1, "cubic": 3}
     if method not in method_map:
         raise ValueError("method must be one of 'nearest', 'linear', or 'cubic'")

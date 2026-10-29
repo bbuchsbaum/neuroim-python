@@ -291,16 +291,16 @@ class AFNIFormat(FileFormat):
         afni_header = read_afni_header(header_file)
         afni_header["file_name"] = header_file
 
-        ijk_to_dicom = afni_header.get("IJK_TO_DICOM", {}).get("content")
-        try:
-            ijk_to_dicom_values = np.asarray(ijk_to_dicom, dtype=float)
-        except (TypeError, ValueError):
-            raise ValueError("Invalid IJK_TO_DICOM transformation in AFNI header")
+        from .afni_io import AFNI_BRICK_DTYPES, afni_affine
 
-        if ijk_to_dicom_values.size < 12 or not np.all(
-            np.isfinite(ijk_to_dicom_values[:12])
-        ):
-            raise ValueError("Invalid IJK_TO_DICOM transformation in AFNI header")
+        try:
+            # Validates the geometry (IJK_TO_DICOM_REAL / IJK_TO_DICOM /
+            # ORIENT_SPECIFIC+DELTA+ORIGIN) and gives the RAS affine.
+            affine = afni_affine(afni_header)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Invalid IJK_TO_DICOM transformation in AFNI header: {exc}"
+            ) from exc
 
         if "DATASET_DIMENSIONS" not in afni_header:
             raise ValueError("Missing DATASET_DIMENSIONS in AFNI header")
@@ -329,15 +329,18 @@ class AFNIFormat(FileFormat):
         if not brick_type_raw:
             raise ValueError("Missing BRICK_TYPES in AFNI header")
         try:
-            brick_type = int(brick_type_raw[0])
+            brick_types = [int(t) for t in brick_type_raw]
         except (TypeError, ValueError):
             raise ValueError("Invalid BRICK_TYPES in AFNI header")
-        data_type_map = {0: "UINT8", 1: "INT16", 3: "FLOAT32"}
-        bpe_map = {0: 1, 1: 2, 3: 4}
-        if brick_type not in data_type_map:
-            raise ValueError(f"Unsupported BRICK_TYPE in AFNI header: {brick_type}")
+        data_type_map = {
+            0: "UINT8", 1: "INT16", 2: "INT32", 3: "FLOAT32", 4: "FLOAT64"
+        }
+        unsupported = sorted(set(brick_types) - set(AFNI_BRICK_DTYPES))
+        if unsupported:
+            raise ValueError(f"Unsupported BRICK_TYPE in AFNI header: {unsupported[0]}")
+        brick_type = brick_types[0]
         data_type = data_type_map[brick_type]
-        bytes_per_element = bpe_map[brick_type]
+        bytes_per_element = np.dtype(AFNI_BRICK_DTYPES[brick_type]).itemsize
 
         byte_order = afni_header.get("BYTEORDER_STRING", {}).get(
             "content", ["LSB_FIRST"]
@@ -349,11 +352,9 @@ class AFNIFormat(FileFormat):
         )
         endian = "big" if byte_order_val == "MSB_FIRST" else "little"
 
-        spacing_vals = afni_header.get("DELTA", {}).get("content", [1.0, 1.0, 1.0])
-        spacing = tuple(abs(float(x)) for x in spacing_vals[:3])
-
-        origin_vals = afni_header.get("ORIGIN", {}).get("content", [0.0, 0.0, 0.0])
-        origin = tuple(float(x) for x in origin_vals[:3])
+        # RAS voxel sizes and the RAS position of voxel (0, 0, 0)
+        spacing = tuple(float(v) for v in np.linalg.norm(affine[:3, :3], axis=0))
+        origin = tuple(float(v) for v in affine[:3, 3])
 
         float_facs = afni_header.get("BRICK_FLOAT_FACS", {}).get("content", [0.0])
         slope = np.asarray(float_facs, dtype=float)

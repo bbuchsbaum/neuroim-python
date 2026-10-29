@@ -209,13 +209,16 @@ class TestResampleVec:
         except ImportError:
             pytest.skip("nibabel not installed")
     
-    def test_resample_vec_invalid_target(self):
-        """Test error with non-4D target space."""
+    def test_resample_vec_3d_target_and_invalid_target(self):
+        """A 3-D target grid is valid (the source's time axis is kept, as in
+        neuroim2); a 2-D target is not."""
         try:
             target_3d = NeuroSpace(dim=[20, 20, 20], spacing=[1, 1, 1])
-            
+            out = resample_vec(self.source_vec, target_3d)
+            assert out.shape == (20, 20, 20, self.source_vec.shape[3])
+
             with pytest.raises(ValueError):
-                resample_vec(self.source_vec, target_3d)
+                resample_vec(self.source_vec, NeuroSpace(dim=[20, 20]))
         except ImportError:
             pytest.skip("nibabel not installed")
 

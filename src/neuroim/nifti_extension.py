@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterator, List, Optional, Any
 import xml.etree.ElementTree as ET
 
+import numpy as np
+
 
 # ---------------------------------------------------------------------------
 # Extension code registry
@@ -194,8 +196,12 @@ def parse_extension(ext: NiftiExtension) -> Any:
     return ext.content
 
 
-def get_afni_attribute(ext: NiftiExtension, name: str) -> Optional[str]:
-    """Get a named attribute from an AFNI extension.
+def get_afni_attribute(ext: NiftiExtension, name: str) -> Optional[Any]:
+    """Get a named attribute from an AFNI extension, typed by its ``ni_type``.
+
+    As neuroim2: float attributes come back as a float array, integer
+    attributes as an int array, and strings as text without the XML's
+    surrounding quotes.
 
     Parameters
     ----------
@@ -206,11 +212,26 @@ def get_afni_attribute(ext: NiftiExtension, name: str) -> Optional[str]:
 
     Returns
     -------
-    str or None
+    ndarray, str or None
         The attribute value, or ``None`` if not found.
     """
-    parsed = parse_afni_extension(ext)
-    return parsed.get(name)
+    if ext.code != 4:
+        raise ValueError(f"Expected AFNI extension (code 4), got code {ext.code}")
+    text = ext.content.decode("utf-8", errors="replace").rstrip("\x00")
+    root = ET.fromstring(text)
+    for elem in root.iter():
+        if elem.get("atr_name") != name:
+            continue
+        value = (elem.text or "").strip()
+        ni_type = (elem.get("ni_type") or "").lower()
+        if "float" in ni_type or "double" in ni_type:
+            return np.asarray(value.split(), dtype=float)
+        if "int" in ni_type:
+            return np.asarray(value.split(), dtype=int)
+        if len(value) >= 2 and value[0] == value[-1] == '"':
+            value = value[1:-1]
+        return value
+    return None
 
 
 def list_afni_attributes(ext: NiftiExtension) -> List[str]:

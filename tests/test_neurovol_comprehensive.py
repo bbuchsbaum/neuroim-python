@@ -115,7 +115,9 @@ class TestNeuroVolIndexing:
         # Check if anything was masked
         if np.sum(mask) > 0:
             assert len(masked_vals) == np.sum(mask)
-            np.testing.assert_array_equal(masked_vals, self.dat[mask])
+            np.testing.assert_array_equal(
+                masked_vals, self.dat.ravel(order="F")[mask.ravel(order="F")]
+            )
         else:
             # If no values > 1000, masked_vals should be empty
             assert masked_vals is not None
@@ -412,7 +414,8 @@ class TestNeuroVolMethods:
 
     def test_vol_sd_alias(self):
         """Test vol_sd() compatibility alias."""
-        assert np.isclose(self.vol.vol_sd(), np.std(self.dat))
+        # Sample SD (n - 1), as R's sd()
+        assert np.isclose(self.vol.vol_sd(), np.std(self.dat, ddof=1))
 
     def test_min_max(self):
         """Test min/max methods."""

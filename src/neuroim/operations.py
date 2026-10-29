@@ -10,7 +10,7 @@ import numpy as np
 from typing import Union, Callable
 
 from .neuro_vol import NeuroVol, DenseNeuroVol
-from .neuro_vec import NeuroVec, DenseNeuroVec
+from .neuro_vec import NeuroVec, DenseNeuroVec, _scale_along
 from .neuro_space import NeuroSpace
 from .protocols import NeuroVecLike, NeuroVolLike
 from .verify import assert_same_space
@@ -114,7 +114,8 @@ def scale_series(vec: NeuroVecLike, method: str = "zscore") -> DenseNeuroVec:
         A 4D neuroimaging vector.
     method : str
         Normalization method. One of:
-        - ``"zscore"``: subtract mean, divide by standard deviation
+        - ``"zscore"``: subtract mean, divide by the sample standard
+          deviation (n - 1), as neuroim2's ``scale_series``
         - ``"mean_center"``: subtract mean only
         - ``"unit_scale"``: scale to [0, 1] range per voxel
 
@@ -140,10 +141,7 @@ def scale_series(vec: NeuroVecLike, method: str = "zscore") -> DenseNeuroVec:
 
     # Operate along axis=3 (time)
     if method == "zscore":
-        mean = np.mean(data, axis=3, keepdims=True)
-        std = np.std(data, axis=3, keepdims=True)
-        std[std == 0] = 1.0
-        data = (data - mean) / std
+        data = _scale_along(data, axis=3, center=True, scale=True)
     elif method == "mean_center":
         mean = np.mean(data, axis=3, keepdims=True)
         data = data - mean

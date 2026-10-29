@@ -51,9 +51,10 @@ class ClusteredNeuroVol(NeuroVol):
             if cluster_id is None:
                 raise KeyError(f"Cluster label '{key}' not found in label map")
             return self.cluster_map[cluster_id]
-        elif isinstance(key, int):
-            # If key is an integer, assume it's a cluster ID
-            return self.cluster_map.get(key, np.array([]))
+        elif isinstance(key, (int, np.integer)) and not isinstance(key, bool):
+            # An integer (Python or numpy, e.g. a cluster_map key) is a
+            # cluster ID
+            return self.cluster_map.get(int(key), np.array([], dtype=int))
         else:
             # Otherwise, delegate to the mask's __getitem__
             return self.mask[key]

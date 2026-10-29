@@ -140,6 +140,16 @@ class VolumetricAtlas:
             raise ValueError("atlas label ids must be unique")
         if int(self.background) in ids:
             raise ValueError("background id must not appear in labels")
+        raw = np.asarray(self.label_image.data)
+        if not np.issubdtype(raw.dtype, np.integer) and not (
+            np.all(np.isfinite(raw)) and np.all(raw == np.round(raw))
+        ):
+            # e.g. a label image resampled with linear interpolation: 2.8
+            # would otherwise be truncated into parcel 2.
+            raise ValueError(
+                "atlas label image must contain integer label values; "
+                "resample label maps with nearest-neighbour interpolation"
+            )
         image_ids = {
             int(value)
             for value in np.unique(np.asarray(self.label_image.data, dtype=np.int32))

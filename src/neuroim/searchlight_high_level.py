@@ -109,6 +109,9 @@ def searchlight(
 
     # Create result volume with same space as mask
     result_data = np.full(mask.data.shape, np.nan, dtype=np.float64)
+    # Centres actually visited, so a non-finite result (inf, or NaN from the
+    # method) is reported as such rather than dropped.
+    visited = np.zeros(mask.data.shape, dtype=bool)
 
     # Get searchlight iterator
     searchlights = searchlight_iterator(
@@ -144,21 +147,24 @@ def searchlight(
         )
         # Store results
         for center_idx, result in results:
-            result_data[_coords_from_parent_index(mask.space, center_idx)] = result
+            where = _coords_from_parent_index(mask.space, center_idx)
+            result_data[where] = result
+            visited[where] = True
     else:
         # Sequential processing
         for sl in searchlights:
             center_idx, result = process_searchlight(sl)
-            result_data[_coords_from_parent_index(mask.space, center_idx)] = result
+            where = _coords_from_parent_index(mask.space, center_idx)
+            result_data[where] = result
+            visited[where] = True
 
     legacy_vol = DenseNeuroVol(result_data, mask.space)
     if return_legacy:
         return legacy_vol
 
-    finite_mask = np.isfinite(result_data)
-    if finite_mask.any():
-        center_indices = np.argwhere(finite_mask)
-        values = result_data[finite_mask]
+    if visited.any():
+        center_indices = np.argwhere(visited)
+        values = result_data[visited]
     else:
         center_indices = np.zeros((0, 3), dtype=int)
         values = np.zeros(0, dtype=np.float64)

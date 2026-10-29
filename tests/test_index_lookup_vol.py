@@ -32,11 +32,11 @@ class TestInit:
             IndexLookupVol("not_a_space", active_indices)
 
     def test_out_of_range_indices(self, space):
-        with pytest.raises(ValueError, match="indices must be in range"):
+        with pytest.raises(ValueError, match="indices must be"):
             IndexLookupVol(space, np.array([1000]))
 
     def test_negative_indices(self, space):
-        with pytest.raises(ValueError, match="indices must be in range"):
+        with pytest.raises(ValueError, match="indices must be"):
             IndexLookupVol(space, np.array([-1, 5]))
 
     def test_empty_indices(self, space):

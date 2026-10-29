@@ -70,12 +70,22 @@ def _space_hash_of(obj: Any) -> str:
 
 
 def _mask_hash_of(obj: Any) -> str:
-    rec = receipt_of(obj)
-    if rec is not None:
-        return rec.mask_hash
+    from .neuro_vol import NeuroVol
+
     if obj is None:
         return "none"
-    arr = np.asarray(obj)
+    # A volume passed as a mask is hashed by its voxels (its own provenance
+    # Receipt describes the mask used to *make* it, not the volume itself).
+    if not isinstance(obj, NeuroVol):
+        rec = receipt_of(obj)
+        if rec is not None:
+            return rec.mask_hash
+    data = obj.as_dense().data if isinstance(obj, NeuroVol) else obj
+    arr = np.asarray(data)
+    # Masks are compared as boolean voxel sets (as receipts record them), so
+    # the same mask stored as uint8 or float matches.
+    if arr.dtype.kind in "iuf":
+        arr = arr != 0
     return hash_ndarray(arr)
 
 
@@ -119,7 +129,13 @@ def assert_same_space(a: Any, b: Any) -> None:
 def assert_same_mask(a: Any, b: Any) -> None:
     """Raise ``ValueError`` if ``a`` and ``b`` do not share the same mask.
 
-    Each may be a result object, a Receipt, or a bare ndarray-like mask."""
+    Each may be a result object, a Receipt, a mask volume or a bare
+    ndarray-like mask. Two mask volumes must also share a spatial contract.
+    """
+    from .neuro_vol import NeuroVol
+
+    if isinstance(a, NeuroVol) and isinstance(b, NeuroVol):
+        assert_same_space(a, b)
     ha = _mask_hash_of(a)
     hb = _mask_hash_of(b)
     if ha != hb:

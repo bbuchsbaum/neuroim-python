@@ -114,8 +114,13 @@ def which_dim(x: Any, axis: Any) -> int:
     return _member(x, "which_dim", axis)
 
 
-def add_dim(x: Any, n: int = 1, size: int = 1) -> Any:
-    return _member(x, "add_dim", n, size)
+def add_dim(x: Any, n: int) -> Any:
+    """neuroim2 ``add_dim(x, n)``: append ONE axis of length ``n``.
+
+    (The NeuroSpace method's ``n`` counts axes; here, as in R, ``n`` is the
+    new axis' size.)
+    """
+    return _member(x, "add_dim", 1, n)
 
 
 def drop_dim(x: Any, dimnum: int) -> Any:
@@ -750,16 +755,29 @@ def as_mmap(x: Any, file: Any = None, **kwargs: Any) -> Any:
     return BigNeuroVec(values(x), space(x), filename=filename)
 
 
+def _spatial_affine4(affine: np.ndarray) -> np.ndarray:
+    """The 4x4 spatial affine of a 4x4 or larger (ndim+1)^2 transform."""
+    affine = np.asarray(affine, dtype=float)
+    if affine.shape == (4, 4):
+        return affine
+    out = np.eye(4)
+    out[:3, :3] = affine[:3, :3]
+    out[:3, 3] = affine[:3, -1]  # translation is the last column
+    return out
+
+
 def _parse_mapped_voxels(mapped_voxels: Any) -> tuple[np.ndarray, np.ndarray]:
+    """``(shape, 4x4 spatial affine)`` of a space, image or (shape, affine)."""
     if hasattr(mapped_voxels, "dim") and hasattr(mapped_voxels, "trans"):
-        return np.asarray(mapped_voxels.dim), np.asarray(mapped_voxels.trans)
-    if hasattr(mapped_voxels, "space"):
+        shape, affine = mapped_voxels.dim, mapped_voxels.trans
+    elif hasattr(mapped_voxels, "space"):
         sp = space(mapped_voxels)
-        return np.asarray(sp.dim), np.asarray(sp.trans)
-    if isinstance(mapped_voxels, dict):
-        return np.asarray(mapped_voxels["shape"]), np.asarray(mapped_voxels["affine"])
-    shape, affine = mapped_voxels
-    return np.asarray(shape), np.asarray(affine)
+        shape, affine = sp.dim, sp.trans
+    elif isinstance(mapped_voxels, dict):
+        shape, affine = mapped_voxels["shape"], mapped_voxels["affine"]
+    else:
+        shape, affine = mapped_voxels
+    return np.asarray(shape), _spatial_affine4(affine)
 
 
 def output_aligned_space(mapped_voxels: Any, voxel_sizes: Any = None) -> Any:
@@ -790,7 +808,11 @@ def output_aligned_space(mapped_voxels: Any, voxel_sizes: Any = None) -> Any:
     corners = np.array(
         list(product(*[(0, int(n) - 1) for n in spatial_shape])), dtype=float
     )
-    world = apply_affine(affine[: n_axes + 1, : n_axes + 1], corners)
+    # Pad missing axes with grid 0 (as neuroim2) and map through the full
+    # 4x4 spatial affine, keeping its translation column.
+    corners3 = np.zeros((len(corners), 3))
+    corners3[:, :n_axes] = corners
+    world = apply_affine(affine, corners3)[:, :n_axes]
     out_min = np.min(world, axis=0)
     out_max = np.max(world, axis=0)
     out_shape = np.ceil((out_max - out_min) / out_vox).astype(int) + 1

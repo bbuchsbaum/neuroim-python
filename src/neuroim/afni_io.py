@@ -23,14 +23,19 @@ def _parse_float_attribute(lines: List[str]) -> List[float]:
 
 
 def _parse_string_attribute(lines: List[str]) -> List[str]:
-    # AFNI string attributes are typically tilde-delimited: ~val1~val2~...
-    # but some inputs may provide a single bare token (e.g. MSB_FIRST).
+    # AFNI writes string attributes as 'val1~val2~ (a leading single quote,
+    # then ~-separated values); older/other writers use ~val1~val2~ or a bare
+    # token (e.g. MSB_FIRST). Drop the quote so 'MSB_FIRST is recognised.
     text = "\n".join(lines).strip()
     if not text:
         return []
 
-    if text.startswith("~") and text.endswith("~"):
-        text = text[1:-1]
+    if text.startswith("'"):
+        text = text[1:]
+    if text.startswith("~"):
+        text = text[1:]
+    if text.endswith("~"):
+        text = text[:-1]
 
     values = [part for part in text.split("~") if part != ""]
     if values:
@@ -200,19 +205,13 @@ def read_niml_data(fconn: BinaryIO, meta: Dict[str, str]) -> np.ndarray:
     form = meta.get("ni_form")
 
     if form == "binary.lsbfirst":
-        if typ == "int":
-            dtype = np.dtype("<i4")
-        else:
-            # neuroim2 reads binary float/double NIML payloads with size = 4.
-            dtype = np.dtype("<f4")
+        # NIML doubles are 8 bytes (neuroim2's readBin(size = 4) misreads them)
+        dtype = np.dtype({"int": "<i4", "float": "<f4", "double": "<f8"}[typ])
         values = np.frombuffer(fconn.read(nvals * dtype.itemsize), dtype=dtype, count=nvals)
         if values.size != nvals:
             raise ValueError(f"NIML data block is truncated: expected {nvals}, got {values.size}")
     elif form == "binary.msbfirst":
-        if typ == "int":
-            dtype = np.dtype(">i4")
-        else:
-            dtype = np.dtype(">f4")
+        dtype = np.dtype({"int": ">i4", "float": ">f4", "double": ">f8"}[typ])
         values = np.frombuffer(fconn.read(nvals * dtype.itemsize), dtype=dtype, count=nvals)
         if values.size != nvals:
             raise ValueError(f"NIML data block is truncated: expected {nvals}, got {values.size}")
@@ -275,14 +274,159 @@ def parse_niml_file(file_name: Union[str, Path], maxels: int = 10000) -> List[Di
     return out
 
 
+# AFNI BRICK_TYPES codes -> numpy dtypes (byte order applied by the reader)
+AFNI_BRICK_DTYPES = {0: "u1", 1: "i2", 2: "i4", 3: "f4", 4: "f8"}
+
+# RAS (NIfTI/neuroim) <-> DICOM/RAI (AFNI): x and y change sign.
+_RAS_TO_DICOM = np.diag([-1.0, -1.0, 1.0])
+
+
+def _content(header: Dict[str, Any], name: str):
+    entry = header.get(name)
+    return None if entry is None else entry.get("content")
+
+
+def afni_affine(header: Dict[str, Any]) -> np.ndarray:
+    """4x4 RAS voxel-to-world affine of an AFNI header.
+
+    AFNI geometry is in DICOM (RAI) coordinates; flipping x and y gives RAS,
+    as nibabel's AFNI reader does. Uses ``IJK_TO_DICOM_REAL`` (obliquity),
+    else ``IJK_TO_DICOM``, else ``ORIENT_SPECIFIC`` + ``DELTA`` + ``ORIGIN``.
+    """
+    for name in ("IJK_TO_DICOM_REAL", "IJK_TO_DICOM"):
+        vals = _content(header, name)
+        if vals is not None and len(vals) >= 12:
+            mat = np.asarray(vals[:12], dtype=float).reshape(3, 4)
+            if np.all(np.isfinite(mat)) and np.linalg.matrix_rank(mat[:, :3]) == 3:
+                break
+    else:
+        orient = _content(header, "ORIENT_SPECIFIC")
+        delta = _content(header, "DELTA")
+        origin = _content(header, "ORIGIN")
+        if orient is None or delta is None or origin is None:
+            raise ValueError(
+                "AFNI header has neither IJK_TO_DICOM(_REAL) nor "
+                "ORIENT_SPECIFIC/DELTA/ORIGIN"
+            )
+        mat = np.zeros((3, 4))
+        for i, code in enumerate(orient[:3]):
+            axis = int(code) // 2  # 0,1: x (R/L)  2,3: y (A/P)  4,5: z (I/S)
+            mat[axis, i] = float(delta[i])
+            mat[axis, 3] = float(origin[i])
+    affine = np.eye(4)
+    affine[:3, :] = _RAS_TO_DICOM @ mat
+    return affine
+
+
+def afni_tr_seconds(header: Dict[str, Any]) -> float | None:
+    """Time step from TAXIS_FLOATS (converted from ms when TAXIS_NUMS says so)."""
+    floats = _content(header, "TAXIS_FLOATS")
+    if floats is None or len(floats) < 2 or float(floats[1]) <= 0:
+        return None
+    tr = float(floats[1])
+    nums = _content(header, "TAXIS_NUMS")
+    if nums is not None and len(nums) >= 3 and int(nums[2]) == 77001:  # msec
+        tr /= 1000.0
+    return tr
+
+
+# ORIENT_SPECIFIC code for (DICOM axis, step > 0). DICOM +x = Left,
+# +y = Posterior, +z = Superior; codes 0 R2L, 1 L2R, 2 P2A, 3 A2P, 4 I2S, 5 S2I.
+_ORIENT_CODE = {
+    (0, True): 0, (0, False): 1,
+    (1, True): 3, (1, False): 2,
+    (2, True): 4, (2, False): 5,
+}
+
+
+def _afni_geometry(affine: np.ndarray):
+    """AFNI geometry attributes for a RAS affine.
+
+    Returns ``(IJK_TO_DICOM_REAL, IJK_TO_DICOM, ORIENT_SPECIFIC, DELTA,
+    ORIGIN)``; the cardinal IJK_TO_DICOM/DELTA/ORIGIN approximate an oblique
+    grid by its nearest axis-aligned one (voxel sizes preserved), while
+    IJK_TO_DICOM_REAL keeps the exact mapping.
+    """
+    real = _RAS_TO_DICOM @ np.asarray(affine, dtype=float)[:3, :]
+    card = np.zeros((3, 4))
+    orient, delta, origin = [], [], []
+    used = set()
+    for i in range(3):
+        axis = int(np.argmax(np.abs(real[:, i])))
+        if axis in used:
+            raise ValueError("affine does not map voxel axes to distinct world axes")
+        used.add(axis)
+        positive = bool(real[axis, i] > 0)
+        size = float(np.linalg.norm(real[:, i])) * (1.0 if positive else -1.0)
+        orient.append(_ORIENT_CODE[(axis, positive)])
+        delta.append(size)
+        origin.append(float(real[axis, 3]))
+        card[axis, i] = size
+        card[axis, 3] = real[axis, 3]
+    return real, card, orient, delta, origin
+
+
 def _afni_dtype_info(dtype: np.dtype) -> tuple[int, np.dtype]:
     dt = np.dtype(dtype)
     if dt == np.dtype(np.uint8):
         return 0, dt
     if dt == np.dtype(np.int16):
         return 1, dt
-    # AFNI reader in neuroim currently supports FLOAT32 as general fallback.
+    # Everything else is stored as float, the type every AFNI reader supports.
     return 3, np.dtype(np.float32)
+
+
+def _afni_string(name: str, values: List[str]) -> str:
+    """A string-attribute block in AFNI's own syntax: 'val1~val2~."""
+    body = "'" + "~".join(values) + "~"
+    # AFNI separates blocks with a blank line *before* each one.
+    return (
+        "\ntype = string-attribute\n"
+        f"name = {name}\n"
+        f"count = {len(body) - 1}\n"
+        f"{body}\n"
+    )
+
+
+def _afni_numbers(kind: str, name: str, values) -> str:
+    vals = list(values)
+    fmt = (lambda v: str(int(v))) if kind == "integer" else (lambda v: repr(float(v)))
+    return (
+        f"\ntype = {kind}-attribute\n"
+        f"name = {name}\n"
+        f"count = {len(vals)}\n"
+        f"{' '.join(fmt(v) for v in vals)}\n"
+    )
+
+
+def _quantize_bricks(arr: np.ndarray, dtype: np.dtype):
+    """Integer storage with per-brick BRICK_FLOAT_FACS, never truncating.
+
+    Bricks whose values are already integers in range are stored as-is
+    (factor 0, meaning 1); others are scaled to the type's range.
+    """
+    info = np.iinfo(dtype)
+    bricks = arr[..., None] if arr.ndim == 3 else arr
+    out = np.empty(bricks.shape, dtype=dtype)
+    facs = []
+    for b in range(bricks.shape[3]):
+        vals = np.asarray(bricks[..., b], dtype=np.float64)
+        if not np.all(np.isfinite(vals)):
+            raise ValueError("integer AFNI output requires finite data values")
+        lo, hi = float(vals.min()), float(vals.max())
+        if np.all(vals == np.round(vals)) and lo >= info.min and hi <= info.max:
+            out[..., b] = vals.astype(dtype)
+            facs.append(0.0)
+            continue
+        if lo < 0 and info.min == 0:
+            raise ValueError(
+                f"{dtype} AFNI output cannot hold negative values; use FLOAT32 or INT16"
+            )
+        peak = max(abs(lo), abs(hi))
+        fac = peak / info.max if peak > 0 else 1.0
+        out[..., b] = np.clip(np.rint(vals / fac), info.min, info.max).astype(dtype)
+        facs.append(fac)
+    return (out[..., 0] if arr.ndim == 3 else out), facs
 
 
 def write_afni_pair(
@@ -293,6 +437,8 @@ def write_afni_pair(
     origin: tuple[float, float, float] = (0.0, 0.0, 0.0),
     data_encoding: str = "raw",
     data_type: str | None = None,
+    affine: np.ndarray | None = None,
+    tr: float | None = None,
 ) -> tuple[str, str]:
     """Write AFNI HEAD/BRIK pair.
 
@@ -302,14 +448,20 @@ def write_afni_pair(
         Output path hint. May be ``.HEAD``, ``.BRIK``, ``.BRIK.gz``, or stem.
     data : ndarray
         3D or 4D array to write.
-    spacing : tuple
-        Spatial spacing for x/y/z.
-    origin : tuple
-        Spatial origin for x/y/z.
+    spacing, origin : tuple
+        Axis-aligned RAS geometry, used only when ``affine`` is None.
     data_encoding : {"raw","gzip"}
         Data payload encoding. ``gzip`` writes ``.BRIK.gz``.
     data_type : str, optional
-        Requested storage type. Supports ``FLOAT32``, ``INT16``, ``UINT8``.
+        Requested storage type: ``FLOAT32``, ``INT16`` or ``UINT8``. Integer
+        storage of non-integer data uses per-brick scale factors
+        (``BRICK_FLOAT_FACS``) instead of truncating.
+    affine : ndarray, optional
+        4x4 RAS voxel-to-world affine; written as AFNI DICOM geometry
+        (``IJK_TO_DICOM_REAL`` exactly, plus the cardinal
+        ``IJK_TO_DICOM``/``ORIENT_SPECIFIC``/``DELTA``/``ORIGIN``).
+    tr : float, optional
+        Time step in seconds for 4-D data (``TAXIS_*``).
 
     Returns
     -------
@@ -343,8 +495,11 @@ def write_afni_pair(
         dt_req = str(data_type).upper()
         dtype_lookup = {
             "FLOAT32": np.float32,
+            "FLOAT": np.float32,
             "INT16": np.int16,
+            "SHORT": np.int16,
             "UINT8": np.uint8,
+            "BYTE": np.uint8,
         }
         if dt_req not in dtype_lookup:
             raise ValueError(f"Unsupported AFNI data_type: {data_type}")
@@ -353,62 +508,52 @@ def write_afni_pair(
         arr_dtype = arr.dtype
 
     brick_type, storage_dtype = _afni_dtype_info(arr_dtype)
-    arr_write = np.asarray(arr, dtype=storage_dtype)
+    if np.issubdtype(storage_dtype, np.integer):
+        arr_write, facs = _quantize_bricks(arr, storage_dtype)
+    else:
+        arr_write = np.asarray(arr, dtype=storage_dtype)
+        facs = [0.0] * nvols
+        if np.issubdtype(arr.dtype, np.integer) and not np.array_equal(
+            arr_write.astype(arr.dtype), arr
+        ):
+            import warnings
 
-    facs = " ".join(["1.0"] * nvols)
-    brick_types = " ".join([str(brick_type)] * nvols)
-    labels = "~" + "~".join([f"vol{i}" for i in range(nvols)]) + "~"
+            warnings.warn(
+                "integer values beyond float32 precision were rounded when "
+                "writing AFNI (store them as INT16 with scaling or use NIfTI)",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    if affine is None:
+        affine = np.eye(4)
+        affine[:3, :3] = np.diag([float(v) for v in spacing[:3]])
+        affine[:3, 3] = [float(v) for v in origin[:3]]
+    real, card, orient, delta, origin_dicom = _afni_geometry(affine)
+
     byte_order = "LSB_FIRST" if np.little_endian else "MSB_FIRST"
-
-    sx, sy, sz = (float(spacing[0]), float(spacing[1]), float(spacing[2]))
-    ox, oy, oz = (float(origin[0]), float(origin[1]), float(origin[2]))
-
-    # Keep y negative to match common AFNI conventions; readers use abs(DELTA).
-    dy = -abs(sy)
-    ijk_to_dicom = (
-        f"{sx} 0.0 0.0 {ox} "
-        f"0.0 {dy} 0.0 {oy} "
-        f"0.0 0.0 {sz} {oz}"
-    )
-
     head_txt = (
-        "type = integer-attribute\n"
-        "name = DATASET_DIMENSIONS\n"
-        "count = 5\n"
-        f"{int(dims[0])} {int(dims[1])} {int(dims[2])} 1 0\n\n"
-        "type = integer-attribute\n"
-        "name = DATASET_RANK\n"
-        "count = 2\n"
-        f"3 {int(nvols)}\n\n"
-        "type = float-attribute\n"
-        "name = DELTA\n"
-        "count = 3\n"
-        f"{sx} {dy} {sz}\n\n"
-        "type = float-attribute\n"
-        "name = IJK_TO_DICOM\n"
-        "count = 12\n"
-        f"{ijk_to_dicom}\n\n"
-        "type = float-attribute\n"
-        "name = ORIGIN\n"
-        "count = 3\n"
-        f"{ox} {oy} {oz}\n\n"
-        "type = integer-attribute\n"
-        "name = BRICK_TYPES\n"
-        f"count = {int(nvols)}\n"
-        f"{brick_types}\n\n"
-        "type = float-attribute\n"
-        "name = BRICK_FLOAT_FACS\n"
-        f"count = {int(nvols)}\n"
-        f"{facs}\n\n"
-        "type = string-attribute\n"
-        "name = BYTEORDER_STRING\n"
-        f"count = {len(byte_order) + 2}\n"
-        f"~{byte_order}~\n\n"
-        "type = string-attribute\n"
-        "name = BRICK_LABS\n"
-        f"count = {len(labels)}\n"
-        f"{labels}\n"
+        _afni_string("TYPESTRING", ["3DIM_HEAD_ANAT"])
+        # SCENE_DATA: view (0 = +orig), anatomy type, type-string index
+        + _afni_numbers("integer", "SCENE_DATA", [0, 0, 0])
+        + _afni_numbers("integer", "DATASET_DIMENSIONS", [*dims, 0, 0])
+        + _afni_numbers("integer", "DATASET_RANK", [3, nvols])
+        + _afni_numbers("integer", "ORIENT_SPECIFIC", orient)
+        + _afni_numbers("float", "DELTA", delta)
+        + _afni_numbers("float", "ORIGIN", origin_dicom)
+        + _afni_numbers("float", "IJK_TO_DICOM", card.ravel())
+        + _afni_numbers("float", "IJK_TO_DICOM_REAL", real.ravel())
+        + _afni_numbers("integer", "BRICK_TYPES", [brick_type] * nvols)
+        + _afni_numbers("float", "BRICK_FLOAT_FACS", facs)
+        + _afni_string("BYTEORDER_STRING", [byte_order])
+        + _afni_string("BRICK_LABS", [f"vol{i}" for i in range(nvols)])
     )
+    if nvols > 1 and tr is not None and tr > 0:
+        # TAXIS_NUMS: ntt, nz (no slice offsets), units (77002 = seconds)
+        head_txt += _afni_numbers("integer", "TAXIS_NUMS", [nvols, 0, 77002])
+        head_txt += _afni_numbers(
+            "float", "TAXIS_FLOATS", [0.0, float(tr), 0.0, 0.0, 0.0]
+        )
     Path(head_file).write_text(head_txt, encoding="utf-8")
 
     raw = arr_write.ravel(order="F").tobytes()

@@ -12,6 +12,17 @@ from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_space import NeuroSpace
 
 
+def _mask_coords(mask_arr: np.ndarray) -> np.ndarray:
+    """Grid coordinates of mask voxels in Fortran (linear-index) order.
+
+    Graph node ``k`` is the ``k``-th mask voxel in the package's linear voxel
+    order, so per-voxel vectors and confound rows built from linear indices
+    line up with the graph.
+    """
+    flat = np.flatnonzero(mask_arr.ravel(order="F"))
+    return np.column_stack(np.unravel_index(flat, mask_arr.shape, order="F"))
+
+
 def cgb_make_graph(vol_or_space, mask=None):
     """Build a 6-connected adjacency graph from a volume or space.
 
@@ -56,8 +67,9 @@ def cgb_make_graph(vol_or_space, mask=None):
         return sparse.csr_matrix((0, 0), dtype=float)
 
     # Create index volume: -1 for unmasked, contiguous int for masked
+    coords = _mask_coords(mask_arr)  # (n_voxels, 3), Fortran order
     idx_vol = -np.ones((nx, ny, nz), dtype=np.intp)
-    idx_vol[mask_arr] = np.arange(n_voxels)
+    idx_vol[tuple(coords.T)] = np.arange(n_voxels)
 
     # 6-connectivity offsets (face-adjacent)
     offsets = [(1, 0, 0), (-1, 0, 0),
@@ -67,7 +79,6 @@ def cgb_make_graph(vol_or_space, mask=None):
     rows = []
     cols = []
 
-    coords = np.argwhere(mask_arr)  # (n_voxels, 3)
     for dx, dy, dz in offsets:
         nbr = coords + np.array([dx, dy, dz])
         # Check bounds
@@ -186,7 +197,7 @@ def cgb_smooth(vol, fwhm, mask=None):
     W_norm = D_inv @ W
 
     # Extract masked data
-    values = vol.data[mask_arr].astype(float)
+    values = vol.data[tuple(_mask_coords(mask_arr).T)].astype(float)
 
     # Number of iterations scales with sigma
     n_iter = max(1, int(np.ceil(sigma)))
@@ -195,7 +206,7 @@ def cgb_smooth(vol, fwhm, mask=None):
 
     # Write back
     out = vol.data.copy().astype(float)
-    out[mask_arr] = values
+    out[tuple(_mask_coords(mask_arr).T)] = values
     return DenseNeuroVol(out, vol.space)
 
 
@@ -257,14 +268,19 @@ def cgb_smooth_loro(vec, fwhm, run_labels, mask=None):
     n_iter = max(1, int(np.ceil(sigma)))
     unique_runs = np.unique(run_labels)
 
-    out_data = vec.data.copy().astype(float)
+    source = np.asarray(
+        vec.data if vec.data.ndim == 4 else vec.to_dense().data, dtype=float
+    )
+    out_data = source.copy()
+    node_idx = tuple(_mask_coords(mask_arr).T)
 
     for run in unique_runs:
         other_mask = run_labels != run
         run_mask = run_labels == run
-        # Mean of other-run volumes
-        other_mean = out_data[:, :, :, other_mask].mean(axis=3)
-        other_vals = other_mean[mask_arr]
+        # Mean of the other runs' ORIGINAL volumes (not ones already replaced
+        # in earlier iterations, which leaked results between runs)
+        other_mean = source[:, :, :, other_mask].mean(axis=3)
+        other_vals = other_mean[node_idx]
 
         # Smooth using the graph
         smoothed = other_vals.copy()
@@ -274,7 +290,7 @@ def cgb_smooth_loro(vec, fwhm, run_labels, mask=None):
         # Apply smoothed values to the current-run time points
         run_indices = np.where(run_mask)[0]
         for t in run_indices:
-            out_data[:, :, :, t][mask_arr] = smoothed
+            out_data[node_idx + (t,)] = smoothed
 
     return DenseNeuroVec(out_data, vec.space)
 
@@ -312,7 +328,7 @@ def cgb_nuisance(vol, confounds, graph, mask=None):
     else:
         mask_arr = np.ones(vol.shape[:3], dtype=bool)
 
-    values = vol.data[mask_arr].astype(float)
+    values = vol.data[tuple(_mask_coords(mask_arr).T)].astype(float)
     confounds = np.asarray(confounds, dtype=float)
     if confounds.ndim == 1:
         confounds = confounds[:, np.newaxis]
@@ -340,7 +356,7 @@ def cgb_nuisance(vol, confounds, graph, mask=None):
         residuals[i] = values[i] - predicted_center
 
     out = vol.data.copy().astype(float)
-    out[mask_arr] = residuals
+    out[tuple(_mask_coords(mask_arr).T)] = residuals
     return DenseNeuroVol(out, vol.space)
 
 
@@ -379,7 +395,7 @@ def laplace_enhance(vol, alpha=0.5, mask=None):
     else:
         mask_arr = np.ones(vol.shape[:3], dtype=bool)
 
-    values = vol.data[mask_arr].astype(float)
+    values = vol.data[tuple(_mask_coords(mask_arr).T)].astype(float)
 
     # Graph Laplacian L = D - A
     degree = np.asarray(graph.sum(axis=1)).ravel()
@@ -389,5 +405,5 @@ def laplace_enhance(vol, alpha=0.5, mask=None):
     enhanced = values + alpha * np.asarray(L @ values).ravel()
 
     out = vol.data.copy().astype(float)
-    out[mask_arr] = enhanced
+    out[tuple(_mask_coords(mask_arr).T)] = enhanced
     return DenseNeuroVol(out, vol.space)

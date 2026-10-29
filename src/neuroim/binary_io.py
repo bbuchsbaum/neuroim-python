@@ -11,6 +11,50 @@ from pathlib import Path
 import numpy as np
 import struct
 
+_FIXED_TYPES = {
+    "float32": "f4", "float": "f4", "single": "f4",
+    "float64": "f8", "double": "f8",
+    "int8": "i1", "int16": "i2", "short": "i2", "int32": "i4", "int64": "i8",
+    "long": "i8", "uint8": "u1", "byte": "u1", "uint16": "u2", "uint32": "u4",
+    "uint64": "u8",
+}
+
+
+def _binary_dtype(
+    data_type: str, bytes_per_element: int, endian: str, signed: bool = True
+) -> np.dtype:
+    """Resolve numpy and R storage names to a dtype, checking the element size.
+
+    R-style generic names take their width from ``bytes_per_element``
+    (``"integer"``/``"int"``: 1, 2, 4 or 8 bytes; ``"numeric"``: 4 or 8).
+    Unknown names, or a name whose width disagrees with
+    ``bytes_per_element``, raise instead of silently reading float32.
+    """
+    name = str(data_type).lower()
+    size = int(bytes_per_element)
+    if name in ("integer", "int"):
+        if size not in (1, 2, 4, 8):
+            raise ValueError(f"no {size}-byte integer type")
+        code = ("i" if signed else "u") + str(size)
+    elif name == "numeric":
+        if size not in (4, 8):
+            raise ValueError(f"no {size}-byte floating type")
+        code = "f" + str(size)
+    elif name in _FIXED_TYPES:
+        code = _FIXED_TYPES[name]
+        if not signed and code[0] == "i":
+            code = "u" + code[1:]
+    else:
+        raise ValueError(f"Unsupported binary data_type: {data_type!r}")
+    dtype = np.dtype(("<" if endian == "little" else ">") + code)
+    if dtype.itemsize != size:
+        raise ValueError(
+            f"data_type {data_type!r} is {dtype.itemsize} bytes per element, "
+            f"but bytes_per_element={size}"
+        )
+    return dtype
+
+
 class BinaryReader:
     """Class supporting reading of bulk binary data from a connection.
 
@@ -105,27 +149,12 @@ class BinaryReader:
 
     def _get_numpy_dtype(self) -> np.dtype:
         """Get numpy dtype from attributes."""
-        # Map data types
-        type_map = {
-            "float32": "f",
-            "float64": "d",
-            "int8": "b" if self.signed else "B",
-            "int16": "h" if self.signed else "H",
-            "int32": "i" if self.signed else "I",
-            "int64": "q" if self.signed else "Q",
-            "uint8": "B",
-            "uint16": "H",
-            "uint32": "I",
-            "uint64": "Q",
-        }
-
-        # Get base type
-        base_type = type_map.get(self.data_type.lower(), "f")
-
-        # Add endianness
-        endian_char = "<" if self.endian == "little" else ">"
-
-        return np.dtype(endian_char + base_type)
+        return _binary_dtype(
+            self.data_type,
+            self.bytes_per_element,
+            self.endian,
+            getattr(self, "signed", True),
+        )
 
     def close(self):
         """Close the connection if we own it."""
@@ -206,27 +235,12 @@ class BinaryWriter:
 
     def _get_numpy_dtype(self) -> np.dtype:
         """Get numpy dtype from attributes."""
-        # Map data types
-        type_map = {
-            "float32": "f",
-            "float64": "d",
-            "int8": "b",
-            "int16": "h",
-            "int32": "i",
-            "int64": "q",
-            "uint8": "B",
-            "uint16": "H",
-            "uint32": "I",
-            "uint64": "Q",
-        }
-
-        # Get base type
-        base_type = type_map.get(self.data_type.lower(), "f")
-
-        # Add endianness
-        endian_char = "<" if self.endian == "little" else ">"
-
-        return np.dtype(endian_char + base_type)
+        return _binary_dtype(
+            self.data_type,
+            self.bytes_per_element,
+            self.endian,
+            getattr(self, "signed", True),
+        )
 
     def close(self):
         """Close the connection if we own it."""
@@ -311,7 +325,9 @@ class ColumnReader:
         np.ndarray
             2D array with shape (n_rows, n_cols)
         """
-        # Read all data
+        # Read all data from the start of the matrix, wherever an earlier
+        # read_column() left the stream.
+        self.reader.input.seek(self.reader.byte_offset)
         data = self.reader.read_all()
 
         if self.n_rows is None:

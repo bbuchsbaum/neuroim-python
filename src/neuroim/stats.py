@@ -9,9 +9,9 @@ Statistical helpers for neuroimaging volumes and vector series.
 import numpy as np
 from typing import List, Tuple, Dict, Callable, Optional, Union
 from .neuro_vol import NeuroVol, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
-from .neuro_vec import NeuroVec, DenseNeuroVec
+from .neuro_vec import NeuroVec, DenseNeuroVec, _scale_along
 from .neuro_space import NeuroSpace
-from .roi import ROIVol
+from .roi import ROIVec, ROIVol
 from .clustered_neuro_vol import ClusteredNeuroVol
 
 def split_blocks(
@@ -48,20 +48,20 @@ def split_blocks(
     """
     # Handle nblocks convenience parameter
     if nblocks is not None:
-        if isinstance(x, NeuroVec):
-            n_voxels = np.prod(x.shape[:3])
-            all_indices = np.arange(n_voxels)
-            block_ids = np.repeat(np.arange(nblocks), int(np.ceil(n_voxels / nblocks)))[
-                :n_voxels
-            ]
-            indices = all_indices
+        spatial_shape = tuple(int(d) for d in x.shape[:3])
+        if mask is not None:
+            # Blocks over the mask voxels only (Fortran linear order)
+            mask_arr = np.asarray(getattr(mask, "data", mask), dtype=bool)
+            if mask_arr.shape != spatial_shape:
+                raise ValueError("mask must match the spatial dimensions of x")
+            all_indices = np.flatnonzero(mask_arr.ravel(order="F"))
         else:
-            n_voxels = np.prod(x.shape)
-            all_indices = np.arange(n_voxels)
-            block_ids = np.repeat(np.arange(nblocks), int(np.ceil(n_voxels / nblocks)))[
-                :n_voxels
-            ]
-            indices = all_indices
+            all_indices = np.arange(int(np.prod(spatial_shape)))
+        n_voxels = len(all_indices)
+        block_ids = np.repeat(
+            np.arange(nblocks), int(np.ceil(n_voxels / nblocks))
+        )[:n_voxels]
+        indices = all_indices
 
     if indices is None or block_ids is None:
         raise ValueError("Must provide either (indices, block_ids) or nblocks")
@@ -74,18 +74,17 @@ def split_blocks(
 
     for block_id in unique_blocks:
         # Get indices for this block
-        block_mask = block_ids == block_id
-        block_indices = indices[block_mask]
+        block_mask = np.asarray(block_ids) == block_id
+        # Sorted and unique: the block's sparse mask reads voxels in ascending
+        # Fortran order, so the series must be gathered in that order too.
+        block_indices = np.unique(np.asarray(indices)[block_mask])
 
         if isinstance(x, NeuroVec):
             # Extract data for this block
             from .neuro_vec import SparseNeuroVec
 
-            # Need to reshape x.data to 4D if it isn't already
-            if x.data.ndim == 2:
-                data_4d = x.data.reshape(x.shape)
-            else:
-                data_4d = x.data
+            # Dense 4-D values (a SparseNeuroVec's .data is time x voxels)
+            data_4d = x.data if isinstance(x, DenseNeuroVec) else x.to_dense().data
 
             # Create array to hold time series for this block
             # Time is last dimension, so shape[-1] is n_timepoints
@@ -108,14 +107,16 @@ def split_blocks(
             mask_flat = mask_data.ravel(order="F")
             mask_flat[block_indices] = True
             mask_data = mask_flat.reshape(spatial_shape, order="F")
-            mask = LogicalNeuroVol(mask_data, NeuroSpace(dim=spatial_dims))
+            block_mask_vol = LogicalNeuroVol(
+                mask_data, NeuroSpace(dim=spatial_dims, trans=x.space.affine)
+            )
 
             # Create SparseNeuroVec for this block
             # SparseNeuroVec expects data as (n_timepoints, n_voxels), so transpose
             block_vec = SparseNeuroVec(
                 data=block_series.T,
                 space=x.space,
-                mask=mask,
+                mask=block_mask_vol,
                 orientation="time_x_voxels",
             )
             blocks.append(block_vec)
@@ -140,7 +141,7 @@ def split_clusters(
     *,
     mask=None,
     k: Optional[int] = None,
-) -> List[ROIVol]:
+) -> List[Union[ROIVol, ROIVec]]:
     """Split data into ROIs based on cluster labels.
 
     Creates a list of ROIVol objects, one for each cluster, containing
@@ -155,100 +156,68 @@ def split_clusters(
 
     Returns
     -------
-    list of ROIVol
-        List of ROI volumes, one for each cluster
+    list of ROIVol or ROIVec
+        One ROI per cluster, voxels in Fortran (linear-index) order: an
+        ROIVol of values for a NeuroVol, an ROIVec of time series (time x
+        voxels) for a NeuroVec, as in neuroim2.
 
     """
+    spatial_shape = tuple(int(d) for d in x.shape[:3])
+    spatial_space = (
+        x.space
+        if isinstance(x, NeuroVol)
+        else NeuroSpace(dim=spatial_shape, trans=x.space.affine)
+    )
+    if isinstance(x, NeuroVec):
+        dense_4d = x.data if isinstance(x, DenseNeuroVec) else x.to_dense().data
+    else:
+        dense_3d = x.as_dense().data if hasattr(x, "as_dense") else x.data
+
+    def _roi(flat_idx):
+        # Voxels in Fortran (linear-index) order, as in cluster_map and R.
+        coords = np.column_stack(np.unravel_index(flat_idx, spatial_shape, order="F"))
+        if isinstance(x, NeuroVec):
+            # One time series per voxel (time x voxels), as neuroim2's ROIVec
+            series = dense_4d[coords[:, 0], coords[:, 1], coords[:, 2], :]
+            return ROIVec(data=series.T, space=spatial_space, coords=coords)
+        values = dense_3d[coords[:, 0], coords[:, 1], coords[:, 2]]
+        return ROIVol(data=values, space=spatial_space, coords=coords)
+
     # Handle mask + k convenience API: auto-generate clusters
     if clusters is None and mask is not None and k is not None:
-        if hasattr(mask, "data"):
-            mask_arr = mask.data
-        else:
-            mask_arr = np.asarray(mask, dtype=bool)
-        coords_all = np.column_stack(np.where(mask_arr))
-        n_vox = len(coords_all)
-        # Simple partition into k roughly equal groups
-        labels = np.zeros(n_vox, dtype=int)
-        for i in range(k):
-            start = i * n_vox // k
-            end = (i + 1) * n_vox // k
-            labels[start:end] = i + 1
-        rois = []
-        spatial_space = (
-            x.space
-            if isinstance(x, NeuroVol)
-            else NeuroSpace(
-                dim=x.space.dim[:3],
-                spacing=x.space.spacing[:3],
-                origin=x.space.origin[:3],
-                trans=x.space.affine,
-            )
-        )
-        for lab in range(1, k + 1):
-            lab_mask = labels == lab
-            lab_coords = coords_all[lab_mask]
-            if isinstance(x, NeuroVec):
-                data_values = []
-                for coord in lab_coords:
-                    data_values.append(np.mean(x[tuple(coord)]))
-                data = np.array(data_values)
-            else:
-                data = x.data[lab_coords[:, 0], lab_coords[:, 1], lab_coords[:, 2]]
-            roi = ROIVol(data=data, space=spatial_space, coords=lab_coords)
-            rois.append(roi)
-        return rois
+        mask_arr = np.asarray(getattr(mask, "data", mask), dtype=bool)
+        mask_idx = np.flatnonzero(mask_arr.ravel(order="F"))
+        # Simple partition into k roughly equal groups of mask voxels
+        n_vox = len(mask_idx)
+        return [
+            _roi(mask_idx[i * n_vox // k : (i + 1) * n_vox // k]) for i in range(k)
+        ]
 
     if clusters is None:
         raise ValueError("Must provide clusters or (mask, k)")
 
-    # For NeuroVec, compare spatial dimensions only
-    if isinstance(x, NeuroVec):
-        # Get spatial dimensions of NeuroVec (first 3 dimensions)
-        x_spatial_dim = (
-            x.space.dim[1:4] if x.shape[0] == x.space.dim[0] else x.space.dim[:3]
+    if not np.array_equal(np.asarray(clusters.space.dim[:3]), spatial_shape):
+        raise ValueError(
+            "x and clusters must have same space (spatial dimensions differ)"
         )
-        if not np.array_equal(x_spatial_dim, clusters.space.dim):
-            raise ValueError("x and clusters must have same spatial dimensions")
-    else:
-        if x.space != clusters.space:
-            raise ValueError("x and clusters must have same space")
+    spatial_space.compatible_with(clusters.space)
 
-    # Get cluster labels
+    # Cluster labels per voxel, in Fortran order
     if isinstance(clusters, ClusteredNeuroVol):
-        # Use the labeled data directly
+        label_flat = clusters.as_dense().data.ravel(order="F")
+        in_cluster = np.zeros(label_flat.size, dtype=bool)
+        in_cluster[clusters._mask_indices] = True
         unique_labels = np.unique(clusters.clusters)
-        cluster_data = clusters.as_dense().data
     else:
-        # Assume it's a regular volume with integer labels
-        cluster_data = clusters.data
-        unique_labels = np.unique(cluster_data[cluster_data > 0])
+        label_flat = np.asarray(clusters.data).ravel(order="F")
+        in_cluster = label_flat > 0
+        unique_labels = np.unique(label_flat[in_cluster])
 
     rois = []
-
     for label in unique_labels:
-        if label == 0:  # Skip background
-            continue
-
-        # Get voxel coordinates for this cluster
-        label_mask = cluster_data == label
-        coords = np.column_stack(np.where(label_mask))
-
-        # Extract data values
-        if isinstance(x, NeuroVec):
-            # For NeuroVec, extract time series for each voxel
-            # and average across voxels in the cluster
-            data_values = []
-            for coord in coords:
-                series = x[tuple(coord)]
-                data_values.append(np.mean(series))
-            data = np.array(data_values)
-        else:
-            # For NeuroVol, extract values directly
-            data = x.data[label_mask]
-
-        # Create ROIVol
-        roi = ROIVol(data=data, space=x.space, coords=coords)
-        rois.append(roi)
+        if label == 0 and not isinstance(clusters, ClusteredNeuroVol):
+            continue  # background
+        rois.append(_roi(np.flatnonzero(in_cluster & (label_flat == label))))
 
     return rois
 
@@ -291,12 +260,10 @@ def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
 
         # Extract subset of volumes
         if isinstance(x, DenseNeuroVec):
-            # For dense, extract the relevant volumes
-            # When data is 4D, subset along first dimension (time)
-            subset_data = x.data[level_indices, :, :, :]
+            # Time is the last axis of the (x, y, z, t) array
+            subset_data = x.data[..., level_indices]
 
-            # Create new space matching the subset shape
-            new_dim = list(subset_data.shape)  # This will be [n_volumes, x, y, z]
+            new_dim = list(x.space.dim[:3]) + [n_volumes]
             new_space = NeuroSpace(
                 dim=new_dim,
                 spacing=x.space.spacing,
@@ -473,8 +440,9 @@ def split_scale(
         )
 
     if isinstance(x, DenseNeuroVec):
-        # Copy data and reshape to 2D (n_voxels, n_timepoints)
-        scaled_data = x.data.copy()
+        # Float copy (integer input would truncate the scaled values), reshaped
+        # to 2D (n_voxels, n_timepoints)
+        scaled_data = np.array(x.data, dtype=np.float64, copy=True)
         n_voxels = np.prod(x.shape[:3])
         data_2d = scaled_data.reshape(n_voxels, x.shape[3], order="F")
 
@@ -486,17 +454,8 @@ def split_scale(
             # Get data for this level (select time points)
             level_data = data_2d[:, level_indices]
 
-            if center:
-                # Center by subtracting mean across time points
-                level_mean = np.mean(level_data, axis=1, keepdims=True)
-                level_data = level_data - level_mean
-
-            if scale:
-                # Scale by dividing by SD across time points
-                level_std = np.std(level_data, axis=1, keepdims=True)
-                # Avoid division by zero
-                level_std[level_std == 0] = 1.0
-                level_data = level_data / level_std
+            # base::scale semantics (n - 1 denominator) per level
+            level_data = _scale_along(level_data, axis=1, center=center, scale=scale)
 
             # Put back
             data_2d[:, level_indices] = level_data
@@ -508,8 +467,8 @@ def split_scale(
         # Handle sparse case
         from .neuro_vec import SparseNeuroVec
 
-        # SparseNeuroVec data is (time, voxels) - copy and scale in place
-        scaled_data = x.data.copy()
+        # SparseNeuroVec data is (time, voxels) - float copy, scaled in place
+        scaled_data = np.array(x.data, dtype=np.float64, copy=True)
 
         for level in np.unique(fac):
             level_mask = fac == level
@@ -518,14 +477,7 @@ def split_scale(
             # Get data for this level (select time points)
             level_data = scaled_data[level_indices, :]
 
-            if center:
-                level_mean = np.mean(level_data, axis=0, keepdims=True)
-                level_data = level_data - level_mean
-
-            if scale:
-                level_std = np.std(level_data, axis=0, keepdims=True)
-                level_std[level_std == 0] = 1.0
-                level_data = level_data / level_std
+            level_data = _scale_along(level_data, axis=0, center=center, scale=scale)
 
             scaled_data[level_indices, :] = level_data
 
@@ -538,8 +490,9 @@ def partition(
 ) -> ClusteredNeuroVol:
     """Partition a volume into k regions.
 
-    Uses clustering algorithms to partition the brain volume into
-    k distinct regions based on voxel values.
+    Runs k-means on the world coordinates of the nonzero (or masked)
+    voxels, giving k spatially compact parcels, as neuroim2 does. Voxel
+    intensities only define which voxels take part.
 
     Parameters
     ----------
@@ -566,22 +519,19 @@ def partition(
     else:
         mask_data = x.data != 0
 
+    mask_data = np.asarray(mask_data, dtype=bool)
     mask_indices = np.where(mask_data.ravel(order="F"))[0]
-    values = x.data.ravel(order="F")[mask_indices].reshape(-1, 1)
+    # k-means on voxel coordinates (mm), not intensities
+    coords = x.space.index_to_coord(mask_indices)[:, :3]
 
-    if len(values) < k:
+    if len(coords) < k:
         raise ValueError(
-            f"Number of non-zero voxels ({len(values)}) is less than k ({k})"
+            f"Number of non-zero voxels ({len(coords)}) is less than k ({k})"
         )
 
     if method == "kmeans":
-        # Perform k-means clustering
-        kmeans = KMeans(n_clusters=k, random_state=0)
-        labels = kmeans.fit_predict(values)
-
-        # Create label array
-        label_flat = np.zeros(int(np.prod(x.shape)), dtype=int)
-        label_flat[mask_indices] = labels + 1  # 1-indexed
+        kmeans = KMeans(n_clusters=k, random_state=0, n_init=10)
+        labels = kmeans.fit_predict(coords)
 
         # Create mask volume
         from .neuro_vol import LogicalNeuroVol
@@ -600,7 +550,9 @@ def partition(
 def map_values(x: NeuroVol, lookup: Dict[float, float]) -> NeuroVol:
     """Map values in a volume using a lookup table.
 
-    Replaces values in the volume according to a lookup dictionary.
+    Replaces values in the volume according to a lookup dictionary; values
+    not in ``lookup`` become 0 and the result is a float ``DenseNeuroVol``,
+    as in neuroim2.
 
     Parameters
     ----------
@@ -615,24 +567,15 @@ def map_values(x: NeuroVol, lookup: Dict[float, float]) -> NeuroVol:
         Volume with mapped values
 
     """
-    # Create copy of data
-    mapped_data = x.data.copy()
-
-    # Apply mapping
+    # As neuroim2: every voxel is looked up (including the implicit zeros of
+    # a sparse volume); values with no entry become 0; the result is a
+    # float DenseNeuroVol (mapped values need not fit the input dtype).
+    source = x.as_dense().data if hasattr(x, "as_dense") else np.asarray(x.data)
+    source = np.asarray(source)
+    mapped_data = np.zeros(source.shape, dtype=np.float64)
     for old_val, new_val in lookup.items():
-        mapped_data[x.data == old_val] = new_val
-
-    # Return same type of volume
-    if isinstance(x, SparseNeuroVol):
-        # For sparse, only map the non-zero values
-        mapped_values = x.data.copy()
-        for i, val in enumerate(x.data):
-            if val in lookup:
-                mapped_values[i] = lookup[val]
-        return SparseNeuroVol(data=mapped_values, space=x.space, indices=x.indices)
-    else:
-        # Use type() to preserve the exact class, including subclasses
-        return type(x)(mapped_data, x.space)
+        mapped_data[source == old_val] = new_val
+    return DenseNeuroVol(mapped_data, x.space)
 
 def centroids(
     x: ClusteredNeuroVol, method: str = "center_of_mass"

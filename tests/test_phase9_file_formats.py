@@ -445,6 +445,7 @@ class TestAFNIFormat:
         assert meta.data_file.endswith(".BRIK")
         assert meta.dims == (4, 3, 2, 2)
         assert meta.spacing == (2.0, 2.0, 3.0)
-        assert meta.origin == (10.0, 20.0, 30.0)
+        # AFNI ORIGIN is DICOM (RAI); the origin is RAS: x and y flip sign
+        assert meta.origin == (-10.0, -20.0, 30.0)
         assert meta.data_type == "FLOAT32"
         np.testing.assert_array_equal(np.asarray(meta.slope), np.asarray([1.0, 2.0]))

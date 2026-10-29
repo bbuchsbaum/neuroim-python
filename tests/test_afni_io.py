@@ -118,7 +118,8 @@ def test_read_meta_info_afni(tmp_path):
     assert isinstance(meta, AFNIMetaInfo)
     assert meta.dims == (4, 3, 2, 2)
     assert meta.spacing == (2.0, 2.0, 3.0)
-    assert meta.origin == (10.0, 20.0, 30.0)
+    # AFNI ORIGIN is DICOM (RAI); the origin is RAS: x and y flip sign
+    assert meta.origin == (-10.0, -20.0, 30.0)
     np.testing.assert_array_equal(np.asarray(meta.slope), np.asarray([1.0, 2.0]))
 
 
@@ -204,7 +205,8 @@ def test_read_header_afni(tmp_path):
     hdr = read_header(head)
     assert hdr["dim"] == (4, 3, 2)
     assert tuple(hdr["spacing"]) == (2.0, 2.0, 3.0)
-    assert tuple(hdr["origin"]) == (10.0, 20.0, 30.0)
+    # AFNI ORIGIN is DICOM (RAI); the origin is RAS: x and y flip sign
+    assert tuple(hdr["origin"]) == (-10.0, -20.0, 30.0)
     assert "afni_header" in hdr
 
 

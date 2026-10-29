@@ -18,11 +18,9 @@ from .neuro_vol import (
 from .neuro_vec import DenseNeuroVec, SparseNeuroVec, neurovec
 from .neuro_vec import neurovecseq
 from .neuro_space import NeuroSpace
-from .axis import find_anatomy_3d
 from .file_format import find_descriptor, NIFTI, FileFormat
 from .meta_info import FileMetaInfo, NIFTIMetaInfo, AFNIMetaInfo
 from .afni_io import write_afni_pair
-from .orientation import affine_to_axcodes
 
 
 def _is_afni_descriptor(desc: Optional[FileFormat]) -> bool:
@@ -30,77 +28,64 @@ def _is_afni_descriptor(desc: Optional[FileFormat]) -> bool:
 
 
 def _neurospace_from_afni_meta(meta: AFNIMetaInfo) -> NeuroSpace:
+    """3-D space of an AFNI dataset: its RAS affine (axes follow from it)."""
+    from .afni_io import afni_affine
+
     dim = tuple(int(d) for d in meta.dims[:3])
-    spacing = tuple(float(s) for s in meta.spacing[:3])
-    origin = tuple(float(o) for o in meta.origin[:3])
-    axes = meta.spatial_axes
+    header = getattr(meta, "afni_header", None) or {}
+    return NeuroSpace(dim, trans=afni_affine(header))
 
-    # AFNI stores orientation in IJK_TO_DICOM; derive neuroim2-compatible axes
-    # when available.
-    header = getattr(meta, "afni_header", None)
-    ijk_to_dicom = None
-    if isinstance(header, dict):
-        ijk_to_dicom = header.get("IJK_TO_DICOM", {}).get("content")
 
-    if ijk_to_dicom is not None:
-        vals = np.asarray(ijk_to_dicom, dtype=float)
-        if vals.size >= 12:
-            try:
-                mat = vals[:12].reshape(3, 4)
-                if mat.shape != (3, 4):
-                    raise ValueError("Malformed IJK_TO_DICOM")
+def _afni_time_space(meta: AFNIMetaInfo, spatial: NeuroSpace, n_t: int) -> NeuroSpace:
+    """4-D space with the AFNI time step (TAXIS_FLOATS) as TR."""
+    from .afni_io import afni_tr_seconds
 
-                # Match neuroim2's conversion: permute by AXIAL_RAI before decoding.
-                # AXIAL_RAI = RIGHT_LEFT, ANT_POST, INF_SUP
-                rai_to_lpi = np.array(
-                    [
-                        [-1.0, 0.0, 0.0],
-                        [0.0, -1.0, 0.0],
-                        [0.0, 0.0, 1.0],
-                    ],
-                    dtype=float,
-                )
-                tlpi = rai_to_lpi @ mat[:, :3]
-                affine = np.eye(4, dtype=float)
-                affine[:3, :3] = tlpi
-                axis_codes = affine_to_axcodes(
-                    affine, labels=[("R", "L"), ("A", "P"), ("S", "I")]
-                )
-                if len(axis_codes) == 3 and all(
-                    c in {"R", "L", "A", "P", "I", "S"} for c in axis_codes
-                ):
-                    axes = find_anatomy_3d("".join(axis_codes))
-            except Exception:
-                # keep fallback axes when any unexpected shape/parsing issue occurs
-                pass
-
-    trans = np.eye(4, dtype=float)
-    trans[0, 0] = spacing[0]
-    trans[1, 1] = spacing[1]
-    trans[2, 2] = spacing[2]
-    trans[:3, 3] = np.asarray(origin)
-    return NeuroSpace(dim, spacing=spacing, origin=origin, axes=axes, trans=trans)
+    tr = afni_tr_seconds(getattr(meta, "afni_header", None) or {}) or 1.0
+    return NeuroSpace(
+        tuple(int(d) for d in spatial.dim[:3]) + (int(n_t),),
+        spacing=tuple(float(v) for v in spatial.spacing[:3]) + (tr,),
+        trans=spatial.affine,
+    )
 
 
 _READ_IMAGE_INDEX_NOT_SET = object()
 
 
 def _read_afni_data(meta: AFNIMetaInfo) -> np.ndarray:
-    dtype = meta.get_data_dtype()
-    total_elems = int(np.prod(meta.dims))
+    from .afni_io import AFNI_BRICK_DTYPES
+
+    dims3 = tuple(int(d) for d in meta.dims[:3])
+    nvols = int(meta.dims[3]) if len(meta.dims) > 3 else 1
+    per_brick = int(np.prod(dims3))
+    order = ">" if meta.endian == "big" else "<"
+    header = getattr(meta, "afni_header", None) or {}
+    types = [int(t) for t in header.get("BRICK_TYPES", {}).get("content", [])]
+    if len(types) < nvols:
+        types = (types or [3]) + [types[-1] if types else 3] * (nvols - len(types))
+    # Each brick has its own storage type (mixed BRICK_TYPES are legal).
+    dtypes = [np.dtype(order + AFNI_BRICK_DTYPES[t]) for t in types[:nvols]]
+
     if meta.descriptor.data_encoding == "gzip":
         with gzip.open(meta.data_file, "rb") as f:
             buf = f.read()
-        data = np.frombuffer(buf, dtype=dtype, count=total_elems)
     else:
-        data = np.fromfile(meta.data_file, dtype=dtype, count=total_elems)
+        with open(meta.data_file, "rb") as f:
+            buf = f.read()
 
-    if data.size != total_elems:
+    expected = sum(per_brick * dt.itemsize for dt in dtypes)
+    if len(buf) < expected:
         raise ValueError(
-            f"AFNI data size mismatch: expected {total_elems} elements, got {data.size}"
+            f"AFNI data size mismatch: expected {expected} bytes, got {len(buf)}"
         )
+    bricks = []
+    offset = 0
+    for dt in dtypes:
+        brick = np.frombuffer(buf, dtype=dt, count=per_brick, offset=offset)
+        bricks.append(brick.astype(np.float64).reshape(dims3, order="F"))
+        offset += per_brick * dt.itemsize
+    data = np.stack(bricks, axis=-1) if len(meta.dims) > 3 else bricks[0]
 
-    arr = data.reshape(meta.dims, order="F").astype(np.float64, copy=False)
+    arr = data
 
     slope = np.asarray(meta.slope, dtype=float)
     intercept = np.asarray(meta.intercept, dtype=float)
@@ -437,19 +422,14 @@ def write_vol(
         return
 
     if format_key in ("AFNI", "AFNI_GZ"):
-        if data_type is not None:
-            dtype_key = data_type.upper()
-            if dtype_key not in _NIFTI_DTYPE_MAP:
-                raise ValueError(f"Unsupported AFNI data_type: {data_type}")
-            data = data.astype(_NIFTI_DTYPE_MAP[dtype_key])
+        # write_afni_pair validates data_type and scales (never truncates)
+        # integer output.
         data_encoding = "gzip" if format_key == "AFNI_GZ" else "raw"
-        spacing = tuple(float(x) for x in vol.spacing[:3])
-        origin = tuple(float(x) for x in vol.origin[:3])
         write_afni_pair(
             filename,
             data,
-            spacing=spacing,
-            origin=origin,
+            affine=vol.space.affine,
+            tr=None,
             data_encoding=data_encoding,
             data_type=data_type,
         )
@@ -662,6 +642,9 @@ def read_vec(
     if not _is_afni_descriptor(descriptor):
         # Time spacing survives the fold of a 5-D or (x, y, z, 1) file.
         space = _nifti_space(img, data.shape, time_spacing)
+    elif space.ndim == 3:
+        # AFNI: the TR comes from TAXIS_FLOATS
+        space = _afni_time_space(meta, space, data.shape[3])
     # Update to 4D
     if space.ndim == 3:
         space = space.add_dim(n=1, size=data.shape[3])
@@ -729,19 +712,14 @@ def write_vec(
         return
 
     if format_key in ("AFNI", "AFNI_GZ"):
-        if data_type is not None:
-            dtype_key = data_type.upper()
-            if dtype_key not in _NIFTI_DTYPE_MAP:
-                raise ValueError(f"Unsupported AFNI data_type: {data_type}")
-            data = data.astype(_NIFTI_DTYPE_MAP[dtype_key])
+        # write_afni_pair validates data_type and scales (never truncates)
+        # integer output.
         data_encoding = "gzip" if format_key == "AFNI_GZ" else "raw"
-        spacing = tuple(float(x) for x in vec.spacing[:3])
-        origin = tuple(float(x) for x in vec.origin[:3])
         write_afni_pair(
             filename,
             data,
-            spacing=spacing,
-            origin=origin,
+            affine=vec.space.affine,
+            tr=float(vec.spacing[3]) if len(vec.spacing) > 3 else None,
             data_encoding=data_encoding,
             data_type=data_type,
         )

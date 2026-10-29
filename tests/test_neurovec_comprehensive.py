@@ -404,7 +404,7 @@ class TestNeuroVecMethods:
                     ts = scaled.series(i, j, k)
                     if np.std(vec.series(i, j, k)) > 0:  # Skip constant series
                         assert np.abs(np.mean(ts)) < 1e-10
-                        assert np.abs(np.std(ts) - 1.0) < 1e-10
+                        assert np.abs(np.std(ts, ddof=1) - 1.0) < 1e-10
 
 
 class TestSparseNeuroVec:
