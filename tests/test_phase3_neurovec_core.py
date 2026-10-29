@@ -347,15 +347,16 @@ class TestNeuroVecScaling:
         
         # Scale only
         bv3 = bv1.scale_series(center=False, scale=True)
-        # Check std is ~1 for each voxel (where original std != 0)
-        stds = np.std(bv3.data, axis=3)
+        # neuroim2: scale-only divides by the n-1 root mean square
+        n_t = bv3.data.shape[3]
+        stds = np.sqrt(np.sum(bv3.data**2, axis=3) / (n_t - 1))
         mask = np.std(bv1.data, axis=3) != 0
         assert_array_almost_equal(stds[mask], np.ones_like(stds[mask]), decimal=10)
         
         # Center and scale
         bv4 = bv1.scale_series(center=True, scale=True)
         means = np.mean(bv4.data, axis=3)
-        stds = np.std(bv4.data, axis=3)
+        stds = np.std(bv4.data, axis=3, ddof=1)
         assert_array_almost_equal(means, np.zeros_like(means), decimal=10)
         assert_array_almost_equal(stds[mask], np.ones_like(stds[mask]), decimal=10)
 

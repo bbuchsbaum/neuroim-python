@@ -9,7 +9,7 @@ Statistical helpers for neuroimaging volumes and vector series.
 import numpy as np
 from typing import List, Tuple, Dict, Callable, Optional, Union
 from .neuro_vol import NeuroVol, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
-from .neuro_vec import NeuroVec, DenseNeuroVec
+from .neuro_vec import NeuroVec, DenseNeuroVec, _scale_along
 from .neuro_space import NeuroSpace
 from .roi import ROIVol
 from .clustered_neuro_vol import ClusteredNeuroVol
@@ -473,8 +473,9 @@ def split_scale(
         )
 
     if isinstance(x, DenseNeuroVec):
-        # Copy data and reshape to 2D (n_voxels, n_timepoints)
-        scaled_data = x.data.copy()
+        # Float copy (integer input would truncate the scaled values), reshaped
+        # to 2D (n_voxels, n_timepoints)
+        scaled_data = np.array(x.data, dtype=np.float64, copy=True)
         n_voxels = np.prod(x.shape[:3])
         data_2d = scaled_data.reshape(n_voxels, x.shape[3], order="F")
 
@@ -486,17 +487,8 @@ def split_scale(
             # Get data for this level (select time points)
             level_data = data_2d[:, level_indices]
 
-            if center:
-                # Center by subtracting mean across time points
-                level_mean = np.mean(level_data, axis=1, keepdims=True)
-                level_data = level_data - level_mean
-
-            if scale:
-                # Scale by dividing by SD across time points
-                level_std = np.std(level_data, axis=1, keepdims=True)
-                # Avoid division by zero
-                level_std[level_std == 0] = 1.0
-                level_data = level_data / level_std
+            # base::scale semantics (n - 1 denominator) per level
+            level_data = _scale_along(level_data, axis=1, center=center, scale=scale)
 
             # Put back
             data_2d[:, level_indices] = level_data
@@ -508,8 +500,8 @@ def split_scale(
         # Handle sparse case
         from .neuro_vec import SparseNeuroVec
 
-        # SparseNeuroVec data is (time, voxels) - copy and scale in place
-        scaled_data = x.data.copy()
+        # SparseNeuroVec data is (time, voxels) - float copy, scaled in place
+        scaled_data = np.array(x.data, dtype=np.float64, copy=True)
 
         for level in np.unique(fac):
             level_mask = fac == level
@@ -518,14 +510,7 @@ def split_scale(
             # Get data for this level (select time points)
             level_data = scaled_data[level_indices, :]
 
-            if center:
-                level_mean = np.mean(level_data, axis=0, keepdims=True)
-                level_data = level_data - level_mean
-
-            if scale:
-                level_std = np.std(level_data, axis=0, keepdims=True)
-                level_std[level_std == 0] = 1.0
-                level_data = level_data / level_std
+            level_data = _scale_along(level_data, axis=0, center=center, scale=scale)
 
             scaled_data[level_indices, :] = level_data
 

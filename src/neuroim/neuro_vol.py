@@ -3,11 +3,38 @@
 from abc import ABC, abstractmethod
 from typing import Any
 from typing import Union, Tuple, Optional, List, Dict
+import numbers
+
 import numpy as np
 from scipy import sparse
 
 from .neuro_space import NeuroSpace
 from ._array_guard import refuse_array_conversion
+
+
+def _promoting(op):
+    """Wrap a binary ufunc so integer/bool operands are computed in float64.
+
+    Images are often stored as uint8/int16; computing in the storage dtype
+    wraps around (200 + 200 -> 144 in uint8). neuroim2 computes in double, so
+    promote whenever the natural result type would be integer or bool.
+    """
+
+    def wrapped(a, b):
+        a_arr = np.asarray(a) if not np.isscalar(a) else a
+        b_arr = np.asarray(b) if not np.isscalar(b) else b
+        if np.result_type(a_arr, b_arr).kind in "biu":
+            a_arr = np.asarray(a_arr, dtype=np.float64)
+        return op(a_arr, b_arr)
+
+    return wrapped
+
+
+def _is_scalar(value) -> bool:
+    """Python and NumPy numeric scalars (np.int64, np.float32, ...)."""
+    return isinstance(value, (numbers.Number, np.number, np.bool_)) and np.ndim(
+        value
+    ) == 0
 
 
 class NeuroVol(ABC):
@@ -267,9 +294,12 @@ class NeuroVol(ABC):
         ----------
         real : bool
             If True, return world coordinates; if False, return grid coordinates        """
-        # Create grid of all voxel coordinates
-        grids = np.mgrid[0 : self.dim[0], 0 : self.dim[1], 0 : self.dim[2]]
-        grid_coords = np.column_stack([g.ravel() for g in grids])
+        # Grid coordinates of all voxels in Fortran (linear-index) order, so
+        # row i pairs with values()[i] and index_to_grid(i).
+        dims = tuple(int(d) for d in self.dim[:3])
+        grid_coords = np.column_stack(
+            np.unravel_index(np.arange(int(np.prod(dims))), dims, order="F")
+        )
 
         if real:
             return self.grid_to_coord(grid_coords)
@@ -283,35 +313,35 @@ class NeuroVol(ABC):
     # Arithmetic operations
     def __add__(self, other):
         """Add two volumes or volume and scalar."""
-        return self._arithmetic_op(other, np.add)
+        return self._arithmetic_op(other, _promoting(np.add))
 
     def __sub__(self, other):
         """Subtract two volumes or volume and scalar."""
-        return self._arithmetic_op(other, np.subtract)
+        return self._arithmetic_op(other, _promoting(np.subtract))
 
     def __mul__(self, other):
         """Multiply two volumes or volume and scalar."""
-        return self._arithmetic_op(other, np.multiply)
+        return self._arithmetic_op(other, _promoting(np.multiply))
 
     def __truediv__(self, other):
         """Divide two volumes or volume and scalar."""
-        return self._arithmetic_op(other, np.divide)
+        return self._arithmetic_op(other, _promoting(np.divide))
 
     def __radd__(self, other):
         """Handle scalar/array + volume via reversed dispatch."""
-        return self._reverse_arithmetic_op(other, np.add)
+        return self._reverse_arithmetic_op(other, _promoting(np.add))
 
     def __rsub__(self, other):
         """Handle scalar/array - volume via reversed dispatch."""
-        return self._reverse_arithmetic_op(other, np.subtract)
+        return self._reverse_arithmetic_op(other, _promoting(np.subtract))
 
     def __rmul__(self, other):
         """Handle scalar/array * volume via reversed dispatch."""
-        return self._reverse_arithmetic_op(other, np.multiply)
+        return self._reverse_arithmetic_op(other, _promoting(np.multiply))
 
     def __rtruediv__(self, other):
         """Handle scalar/array / volume via reversed dispatch."""
-        return self._reverse_arithmetic_op(other, np.divide)
+        return self._reverse_arithmetic_op(other, _promoting(np.divide))
 
     def _reverse_arithmetic_op(self, other, op):
         """Perform reversed arithmetic when right-hand side is this object."""
@@ -380,8 +410,11 @@ class NeuroVol(ABC):
         return np.min(values)
 
     def which_min(self):
-        """Return linear index of minimum value (F-order indexing)."""
-        return int(np.argmin(self.values()))
+        """Return linear index of minimum value (F-order indexing).
+
+        NaN voxels are ignored, as R's ``which.min`` ignores NA.
+        """
+        return int(np.nanargmin(self.values()))
 
     def max(self, na_rm: bool = False) -> float:
         """Maximum value.        """
@@ -391,15 +424,18 @@ class NeuroVol(ABC):
         return np.max(values)
 
     def which_max(self):
-        """Return linear index of maximum value (F-order indexing)."""
-        return int(np.argmax(self.values()))
+        """Return linear index of maximum value (F-order indexing).
+
+        NaN voxels are ignored, as R's ``which.max`` ignores NA.
+        """
+        return int(np.nanargmax(self.values()))
 
     def vol_sd(self, na_rm: bool = False) -> float:
-        """Alias for standard deviation for neuroim2 compatibility."""
+        """Sample standard deviation (n - 1 denominator), as R's ``sd``."""
         values = self.values()
         if na_rm:
-            return np.nanstd(values)
-        return float(np.std(values))
+            return float(np.nanstd(values, ddof=1))
+        return float(np.std(values, ddof=1))
 
     def range(self, na_rm: bool = False) -> Tuple[float, float]:
         """Range of values.        """
@@ -500,51 +536,60 @@ class DenseNeuroVol(NeuroVol):
         # produced inside neuroim the receipt rides directly on the volume.
         self.provenance = provenance
 
-    def __getitem__(self, key):
-        """Extract values using various indexing methods."""
-        if isinstance(key, tuple) and len(key) == 3:
-            # Standard 3D indexing
-            return self.data[key]
-        elif isinstance(key, (list, np.ndarray)):
-            # Convert list to array if needed
-            key = np.asarray(key)
-            if key.dtype == bool:
-                # Boolean indexing
-                return self.data[key]
-            elif key.ndim == 2 and key.shape[1] == 3:
-                # Nx3 matrix of coordinates
-                return self.data[key[:, 0], key[:, 1], key[:, 2]]
-            elif key.ndim == 1:
-                # Linear indices (Fortran order)
-                return self.data.ravel(order="F")[key]
-        elif isinstance(key, (int, slice)):
-            # Single index or slice (Fortran order)
-            return self.data.ravel(order="F")[key]
-        elif isinstance(key, LogicalNeuroVol):
-            # Logical indexing
+    def _voxel_index(self, key):
+        """Resolve a non-tuple key to a 3-D fancy index, in Fortran order.
+
+        Integers, slices and 1-D integer arrays/lists are 0-based linear
+        indices in column-major (R/NIfTI) order; boolean masks (3-D arrays,
+        flat masks, LogicalNeuroVol) select voxels in that same order; an
+        N x 3 integer array lists grid coordinates. The same resolution is
+        used for reading and writing, so ``v[k] = x; v[k]`` round-trips on
+        any memory layout.
+        """
+        shape = self.data.shape
+        n = int(np.prod(shape))
+        if isinstance(key, LogicalNeuroVol):
             if key.space != self.space:
                 raise ValueError("Mask must have same space as volume")
-            return self.data[key.data]
-        else:
+            key = key.data
+        if isinstance(key, slice):
+            flat = np.arange(n)[key]
+            return np.unravel_index(flat, shape, order="F")
+        if isinstance(key, (int, np.integer)) and not isinstance(key, bool):
+            flat = np.arange(n)[int(key)]  # bounds and negative indices
+            return np.unravel_index(flat, shape, order="F")
+        arr = np.asarray(key)
+        if arr.dtype == bool:
+            if arr.shape == shape or arr.size == n:
+                flat = np.flatnonzero(arr.ravel(order="F"))
+                return np.unravel_index(flat, shape, order="F")
+            raise IndexError(
+                f"boolean mask of shape {arr.shape} does not match volume {shape}"
+            )
+        if arr.ndim == 2 and arr.shape[1] == 3:
+            if not np.issubdtype(arr.dtype, np.integer):
+                raise IndexError("grid coordinates must be integers")
+            return (arr[:, 0], arr[:, 1], arr[:, 2])
+        if arr.ndim <= 1:
+            if arr.size and not np.issubdtype(arr.dtype, np.integer):
+                raise IndexError("linear voxel indices must be integers")
+            flat = np.arange(n)[arr.astype(np.intp)]
+            return np.unravel_index(flat, shape, order="F")
+        raise IndexError(f"unsupported index of shape {arr.shape}")
+
+    def __getitem__(self, key):
+        """Extract values using various indexing methods."""
+        if isinstance(key, tuple):
+            # Standard numpy indexing on the 3-D array
             return self.data[key]
+        return self.data[self._voxel_index(key)]
 
     def __setitem__(self, key, value):
         """Set values using various indexing methods."""
-        if isinstance(key, tuple) and len(key) == 3:
+        if isinstance(key, tuple):
             self.data[key] = value
-        elif isinstance(key, np.ndarray):
-            if key.ndim == 2 and key.shape[1] == 3:
-                self.data[key[:, 0], key[:, 1], key[:, 2]] = value
-            elif key.ndim == 1:
-                self.data.ravel(order="F")[key] = value
-        elif isinstance(key, (int, slice)):
-            self.data.ravel(order="F")[key] = value
-        elif isinstance(key, LogicalNeuroVol):
-            if key.space != self.space:
-                raise ValueError("Mask must have same space as volume")
-            self.data[key.data] = value
-        else:
-            self.data[key] = value
+            return
+        self.data[self._voxel_index(key)] = value
 
     def values(self) -> np.ndarray:
         """Get underlying data values."""
@@ -597,24 +642,20 @@ class DenseNeuroVol(NeuroVol):
 
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
-        if isinstance(other, (int, float, np.ndarray)):
+        if _is_scalar(other) or isinstance(other, np.ndarray):
             return DenseNeuroVol(op(self.data, other), self.space, self.label)
-        elif isinstance(other, DenseNeuroVol):
+        elif isinstance(other, (DenseNeuroVol, SparseNeuroVol)):
             if self.space != other.space:
                 raise ValueError("Volumes must have same space")
-            return DenseNeuroVol(op(self.data, other.data), self.space, self.label)
-        elif isinstance(other, SparseNeuroVol):
-            # Convert sparse to dense for operation
-            other_dense = other.as_dense()
             return DenseNeuroVol(
-                op(self.data, other_dense.data), self.space, self.label
+                op(self.data, other.as_dense().data), self.space, self.label
             )
         else:
             return NotImplemented
 
     def _comparison_op(self, value, op):
         """Perform comparison operation."""
-        if isinstance(value, (int, float, np.ndarray)):
+        if _is_scalar(value) or isinstance(value, np.ndarray):
             return LogicalNeuroVol(op(self.data, value), self.space)
         elif isinstance(value, DenseNeuroVol):
             if self.space != value.space:
@@ -642,7 +683,9 @@ class DenseNeuroVol(NeuroVol):
         for v in all_vols[1:]:
             if v.shape != self.shape:
                 raise ValueError("All volumes must have same spatial dimensions")
-        stacked = np.stack([v.data for v in all_vols], axis=-1)
+            self.space.compatible_with(v.space)
+        # as_dense(): a SparseNeuroVol's .data holds only its non-zeros
+        stacked = np.stack([v.as_dense().data for v in all_vols], axis=-1)
         vec_space = NeuroSpace(
             (*self.shape, len(all_vols)),
             spacing=np.append(self.space.spacing, 1.0),
@@ -812,10 +855,16 @@ class SparseNeuroVol(NeuroVol):
 
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
-        if isinstance(other, (int, float)):
-            # Scalar operation preserves sparsity
-            new_data = op(self.data, other)
-            return SparseNeuroVol(new_data, self.space, self.indices, self.label)
+        if _is_scalar(other):
+            # A scalar applies to every voxel, including the implicit zeros.
+            # Stay sparse only when the operation maps 0 to 0 (e.g. * 2, / 2);
+            # otherwise (+ 5, / 0, 10 - x) the result is dense, as in neuroim2.
+            with np.errstate(divide="ignore", invalid="ignore"):
+                zero_image = np.asarray(op(np.zeros(1), other))
+            if np.all(zero_image == 0):
+                new_data = op(self.data, other)
+                return SparseNeuroVol(new_data, self.space, self.indices, self.label)
+            return self.as_dense()._arithmetic_op(other, op)
         elif isinstance(other, SparseNeuroVol):
             # For sparse-sparse operations, we need to handle index union
             # Convert both operands to dense to align sparse index sets.
@@ -908,7 +957,7 @@ class LogicalNeuroVol(DenseNeuroVol):
         """Arithmetic operations on logical volumes."""
         # Convert to numeric for arithmetic
         numeric_data = self.data.astype(float)
-        if isinstance(other, (int, float)):
+        if _is_scalar(other):
             result = op(numeric_data, other)
         elif isinstance(other, LogicalNeuroVol):
             if self.space != other.space:

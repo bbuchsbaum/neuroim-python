@@ -140,7 +140,8 @@ class TestNeuroVolIndexing:
         
         # Index with mask
         masked_values = vol[mask]
-        expected = data[mask_data]
+        # Mask selection is in Fortran (linear-index) order, like values()
+        expected = data.ravel(order="F")[mask_data.ravel(order="F")]
         
         assert_array_equal(masked_values, expected)
     

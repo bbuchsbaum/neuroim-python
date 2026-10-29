@@ -245,7 +245,7 @@ class TestSplitScale:
             assert np.abs(np.mean(group_data)) < 1e-10
             
             # SD should be close to 1
-            sd = np.std(group_data)
+            sd = np.std(group_data, ddof=1)
             if sd > 0:  # Only check if not constant
                 assert np.abs(sd - 1.0) < 1e-10
     

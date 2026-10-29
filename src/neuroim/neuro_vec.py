@@ -8,6 +8,8 @@ from scipy import sparse
 
 from .neuro_space import NeuroSpace
 from .neuro_vol import (
+    _is_scalar,
+    _promoting,
     NeuroVol,
     DenseNeuroVol,
     LogicalNeuroVol,
@@ -62,6 +64,25 @@ def _call_without_legacy_warning(func, *args, **kwargs):
     with _warnings.catch_warnings():
         _warnings.simplefilter("ignore", DeprecationWarning)
         return func(*args, **kwargs)
+
+
+def _scale_along(data, axis: int, center: bool = True, scale: bool = True):
+    """Centre and/or scale ``data`` along ``axis`` the way neuroim2 does.
+
+    Scaling divides by ``sqrt(sum(x^2) / (n - 1))`` of the (optionally
+    centred) values: the sample SD when centred, the n-1 root mean square
+    otherwise -- R's ``scale_series`` / ``base::scale``. A zero scale is
+    replaced by 1. Always computes in float64.
+    """
+    out = np.array(data, dtype=np.float64, copy=True)
+    if center:
+        out = out - np.mean(out, axis=axis, keepdims=True)
+    if scale:
+        n = out.shape[axis]
+        rms = np.sqrt(np.sum(out * out, axis=axis, keepdims=True) / max(n - 1, 1))
+        rms[rms == 0] = 1.0
+        out = out / rms
+    return out
 
 
 class NeuroVec(ABC):
@@ -738,35 +759,35 @@ class NeuroVec(ABC):
     # Arithmetic operations
     def __add__(self, other):
         """Add two vectors or vector and scalar/volume."""
-        return self._arithmetic_op(other, np.add)
+        return self._arithmetic_op(other, _promoting(np.add))
 
     def __sub__(self, other):
         """Subtract two vectors or vector and scalar/volume."""
-        return self._arithmetic_op(other, np.subtract)
+        return self._arithmetic_op(other, _promoting(np.subtract))
 
     def __mul__(self, other):
         """Multiply two vectors or vector and scalar/volume."""
-        return self._arithmetic_op(other, np.multiply)
+        return self._arithmetic_op(other, _promoting(np.multiply))
 
     def __truediv__(self, other):
         """Divide two vectors or vector and scalar/volume."""
-        return self._arithmetic_op(other, np.divide)
+        return self._arithmetic_op(other, _promoting(np.divide))
 
     def __radd__(self, other):
         """Handle scalar/array + vector via reversed dispatch."""
-        return self._reverse_arithmetic_op(other, np.add)
+        return self._reverse_arithmetic_op(other, _promoting(np.add))
 
     def __rsub__(self, other):
         """Handle scalar/array - vector via reversed dispatch."""
-        return self._reverse_arithmetic_op(other, np.subtract)
+        return self._reverse_arithmetic_op(other, _promoting(np.subtract))
 
     def __rmul__(self, other):
         """Handle scalar/array * vector via reversed dispatch."""
-        return self._reverse_arithmetic_op(other, np.multiply)
+        return self._reverse_arithmetic_op(other, _promoting(np.multiply))
 
     def __rtruediv__(self, other):
         """Handle scalar/array / vector via reversed dispatch."""
-        return self._reverse_arithmetic_op(other, np.divide)
+        return self._reverse_arithmetic_op(other, _promoting(np.divide))
 
     def _reverse_arithmetic_op(self, other, op):
         """Perform reversed arithmetic when right-hand side is this object."""
@@ -802,11 +823,13 @@ class DenseNeuroVec(NeuroVec):
                 # Matrix input (time x voxels or voxels x time)
                 splen = np.prod(self.shape[:3])
                 if data.shape[0] == splen:
-                    # voxels x time -> reshape to 4D
-                    data = data.T.reshape(self.shape, order="F")
-                elif data.shape[1] == splen:
-                    # time x voxels -> reshape to 4D
+                    # voxels x time (the as_matrix layout): element (v, t) is
+                    # voxel v (F order) at time t, which is exactly the
+                    # column-major layout of the 4-D array.
                     data = data.reshape(self.shape, order="F")
+                elif data.shape[1] == splen:
+                    # time x voxels -> transpose to voxels x time first
+                    data = data.T.reshape(self.shape, order="F")
                 else:
                     raise ValueError("Matrix dimensions do not match space dimensions")
             elif data.ndim == 1:
@@ -1129,7 +1152,7 @@ class DenseNeuroVec(NeuroVec):
 
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
-        if isinstance(other, (int, float, np.integer, np.floating)):
+        if _is_scalar(other):
             # Scalar operation
             result_data = op(self.data, other)
             return DenseNeuroVec(result_data, self.space, self.label)
@@ -1137,13 +1160,17 @@ class DenseNeuroVec(NeuroVec):
             # Vector-vector operation
             if other.shape != self.shape:
                 raise ValueError("NeuroVecs must have same shape for arithmetic")
+            self.spatial_space.compatible_with(other.spatial_space)
             result_data = op(self.data, other.data)
             return DenseNeuroVec(result_data, self.space, self.label)
         elif isinstance(other, NeuroVol):
             # Vector-volume operation (broadcast volume across time)
             if other.shape != self.shape[:3]:
                 raise ValueError("NeuroVol must match spatial dimensions of NeuroVec")
-            vol_data = other.data[..., np.newaxis]  # Add time dimension
+            self.spatial_space.compatible_with(other.space)
+            # Dense values for every voxel (a SparseNeuroVol's .data holds
+            # only its stored non-zeros).
+            vol_data = other.as_dense().data[..., np.newaxis]
             result_data = op(self.data, vol_data)
             return DenseNeuroVec(result_data, self.space, self.label)
         elif isinstance(other, np.ndarray):
@@ -1160,20 +1187,11 @@ class DenseNeuroVec(NeuroVec):
         return self.data.reshape(-1, self.shape[3], order="F")
 
     def scale_series(self, center: bool = True, scale: bool = True) -> "DenseNeuroVec":
-        """Scale (center and/or normalize) each time series."""
-        data = self.data.copy()
+        """Scale (center and/or normalize) each time series, as neuroim2.
 
-        if center:
-            # Center each time series
-            mean = np.mean(data, axis=3, keepdims=True)
-            data = data - mean
-
-        if scale:
-            # Scale by standard deviation
-            std = np.std(data, axis=3, keepdims=True)
-            std[std == 0] = 1  # Avoid division by zero
-            data = data / std
-
+        See :func:`_scale_along` for the scale denominator (n - 1).
+        """
+        data = _scale_along(self.data, axis=3, center=center, scale=scale)
         return DenseNeuroVec(data, self.space, self.label)
 
 
@@ -1493,8 +1511,8 @@ class SparseNeuroVec(NeuroVec):
 
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
-        if isinstance(other, (int, float)):
-            # Scalar operation
+        if _is_scalar(other):
+            # Scalar operation (on the masked voxels this vector stores)
             result_data = op(self.data, other)
             return SparseNeuroVec(
                 result_data,
@@ -1568,7 +1586,8 @@ def neurovecseq(vecs: List, label: str = "") -> NeuroVec:
                 raise ValueError("All volumes must have same spacing")
 
         # Stack volumes
-        data = np.stack([vol.data for vol in vecs], axis=3)
+        # as_dense(): a SparseNeuroVol's .data holds only its non-zeros
+        data = np.stack([vol.as_dense().data for vol in vecs], axis=3)
 
         # Create 4D space - add_dim takes (n, size) parameters
         space_4d = space_3d.add_dim(1, len(vecs))

@@ -57,7 +57,7 @@ class TestScaleSeries:
         # Each voxel time series should have mean ~0 and std ~1
         ts = result.data[0, 0, 0, :]
         assert abs(np.mean(ts)) < 1e-10
-        assert abs(np.std(ts) - 1.0) < 1e-10
+        assert abs(np.std(ts, ddof=1) - 1.0) < 1e-10
 
     def test_mean_center(self):
         result = scale_series(self.vec, method="mean_center")

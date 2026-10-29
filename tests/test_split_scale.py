@@ -122,7 +122,7 @@ class TestSplitScale:
             for voxel in range(3):
                 voxel_data = result.data[0, 0, voxel, level_mask]
                 np.testing.assert_almost_equal(np.mean(voxel_data), 0, decimal=10)
-                np.testing.assert_almost_equal(np.std(voxel_data, ddof=0), 1, decimal=10)
+                np.testing.assert_almost_equal(np.std(voxel_data, ddof=1), 1, decimal=10)
     
     def test_split_scale_center_only(self, create_test_data):
         """Test split_scale with only centering."""
@@ -151,7 +151,9 @@ class TestSplitScale:
             for voxel in range(3):
                 original_data = vec.data[0, 0, voxel, level_mask]
                 scaled_data = result.data[0, 0, voxel, level_mask]
-                original_std = np.std(original_data)
+                # base::scale(center=FALSE): divide by the n-1 root mean square
+                n = original_data.size
+                original_std = np.sqrt(np.sum(original_data**2) / (n - 1))
                 # Check that scaling was applied correctly
                 np.testing.assert_array_almost_equal(
                     scaled_data, original_data / original_std
@@ -196,7 +198,7 @@ class TestSplitScale:
             assert np.allclose(voxel_means, 0, atol=1e-10)
             
             # SD should be close to 1
-            voxel_stds = np.std(level_data, axis=3)
+            voxel_stds = np.std(level_data, axis=3, ddof=1)
             assert np.allclose(voxel_stds, 1, atol=1e-10)
     
     def test_split_reduce_error_handling(self, create_test_data):
