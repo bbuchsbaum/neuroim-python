@@ -15,7 +15,6 @@ import neuroim as ni
 from neuroim.compat import as_canonical
 from neuroim.resample import reorient
 
-
 AIR_AFFINE = np.array(
     [
         [0.0, 0.0, 2.0, -10.0],

@@ -32,7 +32,6 @@ import numpy as np
 import nibabel as nib
 from nibabel.processing import resample_from_to
 
-
 # Plain classes with __slots__ rather than ``@dataclass`` because this
 # module is loaded via ``importlib.util`` from a digit-prefixed directory
 # (see scenarios/conftest.py).  ``@dataclass`` field-resolution inspects
@@ -45,9 +44,7 @@ class SubjectBundle:
 
     __slots__ = ("name", "bold", "mask")
 
-    def __init__(
-        self, name: str, bold: nib.Nifti1Image, mask: nib.Nifti1Image
-    ) -> None:
+    def __init__(self, name: str, bold: nib.Nifti1Image, mask: nib.Nifti1Image) -> None:
         self.name = name
         self.bold = bold
         self.mask = mask
@@ -71,15 +68,11 @@ class TemplateBundle:
 
 def _ellipsoid_mask(shape: Tuple[int, int, int]) -> np.ndarray:
     nx, ny, nz = shape
-    ii, jj, kk = np.meshgrid(
-        np.arange(nx), np.arange(ny), np.arange(nz), indexing="ij"
-    )
+    ii, jj, kk = np.meshgrid(np.arange(nx), np.arange(ny), np.arange(nz), indexing="ij")
     cx, cy, cz = (nx - 1) / 2, (ny - 1) / 2, (nz - 1) / 2
     rx, ry, rz = nx * 0.42, ny * 0.42, nz * 0.42
     return (
-        ((ii - cx) / rx) ** 2
-        + ((jj - cy) / ry) ** 2
-        + ((kk - cz) / rz) ** 2
+        ((ii - cx) / rx) ** 2 + ((jj - cy) / ry) ** 2 + ((kk - cz) / rz) ** 2
     ) <= 1.0
 
 
@@ -179,14 +172,10 @@ def group_mean_volumes(maps: Sequence[nib.Nifti1Image]) -> nib.Nifti1Image:
     first = maps[0]
     for v in maps[1:]:
         if v.shape[:3] != first.shape[:3]:
-            raise ValueError(
-                f"shape mismatch: {v.shape[:3]} != {first.shape[:3]}"
-            )
+            raise ValueError(f"shape mismatch: {v.shape[:3]} != {first.shape[:3]}")
         if not np.allclose(v.affine, first.affine):
             raise ValueError("affine mismatch between subject maps")
-    stacked = np.stack(
-        [np.asarray(v.dataobj, dtype=np.float64) for v in maps], axis=0
-    )
+    stacked = np.stack([np.asarray(v.dataobj, dtype=np.float64) for v in maps], axis=0)
     return nib.Nifti1Image(stacked.mean(axis=0), first.affine)
 
 

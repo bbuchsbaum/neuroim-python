@@ -18,7 +18,6 @@ from .clustered_neuro_vol import ClusteredNeuroVol
 from .neuro_vol import DenseNeuroVol, LogicalNeuroVol
 from .results import hash_ndarray
 
-
 __all__ = [
     "AtlasLabel",
     "AtlasProvenance",
@@ -160,13 +159,11 @@ class VolumetricAtlas:
         extra = sorted(metadata_ids - image_ids)
         if missing:
             raise ValueError(
-                "atlas label image contains ids with missing metadata: "
-                f"{missing}"
+                "atlas label image contains ids with missing metadata: " f"{missing}"
             )
         if extra:
             raise ValueError(
-                "atlas labels contain ids absent from label image: "
-                f"{extra}"
+                "atlas labels contain ids absent from label image: " f"{extra}"
             )
 
     @property
@@ -232,7 +229,9 @@ def _make_schaefer_atlas(
     if networks not in {7, 17}:
         raise ValueError("networks must be 7 or 17")
 
-    label_rows = tuple(labels) if labels is not None else _default_schaefer_labels(label_image)
+    label_rows = (
+        tuple(labels) if labels is not None else _default_schaefer_labels(label_image)
+    )
     if source_ref is None:
         source_ref = (
             f"Schaefer2018_{parcels}Parcels_{networks}Networks_order_"

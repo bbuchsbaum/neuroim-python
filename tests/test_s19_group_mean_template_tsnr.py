@@ -165,7 +165,10 @@ def test_group_mean_is_in_public_api():
 
 @pytest.mark.xfail(
     strict=True,
-    reason="PAIN-2: ni.concat does not accept 3-D NeuroVol inputs to stack into a NeuroVec",
+    reason=(
+        "PAIN-2: ni.concat does not accept 3-D NeuroVol inputs to stack into a "
+        "NeuroVec"
+    ),
 )
 def test_concat_can_stack_3d_volumes_into_vector(fixture):
     """PAIN-2 closes when ``ni.concat`` (or a sibling ``stack_volumes``) can

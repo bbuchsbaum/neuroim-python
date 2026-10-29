@@ -14,10 +14,10 @@ from neuroim.nifti_extension import (
     list_afni_attributes,
 )
 
-
 # ---------------------------------------------------------------------------
 # NiftiExtensionCodes
 # ---------------------------------------------------------------------------
+
 
 class TestNiftiExtensionCodes:
     def test_known_codes(self):
@@ -35,6 +35,7 @@ class TestNiftiExtensionCodes:
 # ---------------------------------------------------------------------------
 # NiftiExtension
 # ---------------------------------------------------------------------------
+
 
 class TestNiftiExtension:
     def test_basic_creation(self):
@@ -60,6 +61,7 @@ class TestNiftiExtension:
 # ---------------------------------------------------------------------------
 # NiftiExtensionList
 # ---------------------------------------------------------------------------
+
 
 class TestNiftiExtensionList:
     def test_empty(self):
@@ -104,6 +106,7 @@ class TestNiftiExtensionList:
 # ---------------------------------------------------------------------------
 # parse_extensions
 # ---------------------------------------------------------------------------
+
 
 class TestParseExtensions:
     def test_no_extensions(self, tmp_path):

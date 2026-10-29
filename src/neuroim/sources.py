@@ -7,8 +7,6 @@ from disk until explicitly requested via .load() or property access.
 from pathlib import Path
 from typing import Union, Optional, Any
 
-import numpy as np
-
 
 class FileSource:
     """Base class for lazy file-backed neuroimaging objects.
@@ -35,6 +33,7 @@ class FileSource:
         """
         if self._meta_info is None:
             from .io import read_header
+
             self._meta_info = read_header(self.file_path)
         return self._meta_info
 
@@ -69,8 +68,12 @@ class NeuroVolSource(FileSource):
         Pre-loaded metadata.
     """
 
-    def __init__(self, file_path: Union[str, Path], index: int = 0,
-                 meta_info: Optional[Any] = None):
+    def __init__(
+        self,
+        file_path: Union[str, Path],
+        index: int = 0,
+        meta_info: Optional[Any] = None,
+    ):
         super().__init__(file_path, meta_info)
         self.index = index
 
@@ -82,6 +85,7 @@ class NeuroVolSource(FileSource):
         DenseNeuroVol
         """
         from .io import read_vol
+
         self._loaded = read_vol(self.file_path, index=self.index)
         return self._loaded
 
@@ -109,8 +113,9 @@ class NeuroVecSource(FileSource):
         Pre-loaded metadata.
     """
 
-    def __init__(self, file_path: Union[str, Path], indices=None,
-                 meta_info: Optional[Any] = None):
+    def __init__(
+        self, file_path: Union[str, Path], indices=None, meta_info: Optional[Any] = None
+    ):
         super().__init__(file_path, meta_info)
         self.indices = indices
 
@@ -122,6 +127,7 @@ class NeuroVecSource(FileSource):
         DenseNeuroVec or SparseNeuroVec
         """
         from .io import read_vec
+
         self._loaded = read_vec(self.file_path, indices=self.indices)
         return self._loaded
 
@@ -151,8 +157,13 @@ class SparseNeuroVecSource(FileSource):
         Pre-loaded metadata.
     """
 
-    def __init__(self, file_path: Union[str, Path], mask,
-                 indices=None, meta_info: Optional[Any] = None):
+    def __init__(
+        self,
+        file_path: Union[str, Path],
+        mask,
+        indices=None,
+        meta_info: Optional[Any] = None,
+    ):
         super().__init__(file_path, meta_info)
         self.mask = mask
         self.indices = indices
@@ -165,6 +176,7 @@ class SparseNeuroVecSource(FileSource):
         SparseNeuroVec
         """
         from .io import read_vec
+
         self._loaded = read_vec(self.file_path, indices=self.indices, mask=self.mask)
         return self._loaded
 
@@ -199,9 +211,14 @@ class MappedNeuroVecSource(FileSource):
         Pre-loaded metadata.
     """
 
-    def __init__(self, file_path: Union[str, Path], map_fun,
-                 inverse_fun=None, indices=None,
-                 meta_info: Optional[Any] = None):
+    def __init__(
+        self,
+        file_path: Union[str, Path],
+        map_fun,
+        inverse_fun=None,
+        indices=None,
+        meta_info: Optional[Any] = None,
+    ):
         super().__init__(file_path, meta_info)
         self.map_fun = map_fun
         self.inverse_fun = inverse_fun
@@ -216,6 +233,7 @@ class MappedNeuroVecSource(FileSource):
         """
         from .io import read_vec
         from .mapped_neuro_vec import MappedNeuroVec
+
         source = read_vec(self.file_path, indices=self.indices)
         self._loaded = MappedNeuroVec(source, self.map_fun, self.inverse_fun)
         return self._loaded

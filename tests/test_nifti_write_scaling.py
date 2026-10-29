@@ -8,7 +8,6 @@ import pytest
 
 import neuroim as ni
 
-
 AFFINE = np.array(
     [
         [2.0, 0.0, 0.0, -8.0],

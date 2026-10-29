@@ -77,4 +77,3 @@ def test_neuroim_pickle_preserves_typed_space_and_receipt(fixture):
     assert summary["method_name"] == "temporal_snr"
     assert summary["input_space_hash"] == tsnr.provenance.input_space_hash
     assert summary["mask_hash"] == tsnr.provenance.mask_hash
-

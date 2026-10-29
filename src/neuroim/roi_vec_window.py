@@ -8,9 +8,9 @@ Windowed ROI containers for vector-valued spatial data.
 """
 
 import numpy as np
-from typing import Optional
 
 from .neuro_space import NeuroSpace
+
 
 class ROIVecWindow:
     """Windowed ROI for 4D data (time series within a spatial ROI).

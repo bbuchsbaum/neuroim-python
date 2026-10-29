@@ -16,7 +16,9 @@ def _seed_voxel_from_world(affine: np.ndarray, seed_xyz) -> tuple[int, int, int]
     return tuple(int(v) for v in np.round(ijk[:3]))
 
 
-def _correlate_seed_to_voxels(seed_ts: np.ndarray, voxel_by_time: np.ndarray) -> np.ndarray:
+def _correlate_seed_to_voxels(
+    seed_ts: np.ndarray, voxel_by_time: np.ndarray
+) -> np.ndarray:
     seed = np.asarray(seed_ts, dtype=np.float64)
     voxels = np.asarray(voxel_by_time, dtype=np.float64)
     seed = seed - seed.mean()
@@ -38,7 +40,8 @@ def seed_correlation_map(
     """Compute a seed-to-voxel map with explicit nibabel/numpy guardrails."""
     if bold_img.shape[:3] != mask_img.shape[:3]:
         raise ValueError(
-            f"mask shape {mask_img.shape[:3]} does not match BOLD shape {bold_img.shape[:3]}"
+            f"mask shape {mask_img.shape[:3]} does not match BOLD shape "
+            f"{bold_img.shape[:3]}"
         )
     if not np.allclose(bold_img.affine, mask_img.affine):
         raise ValueError("mask affine does not match BOLD affine")

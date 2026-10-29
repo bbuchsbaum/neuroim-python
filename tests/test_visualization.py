@@ -4,14 +4,15 @@ map_to_colors, resolve_cmap)."""
 import numpy as np
 import matplotlib
 import warnings
-matplotlib.use("Agg")  # non-interactive backend -- must be set before pyplot import
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import pytest
 
-from neuroim.neuro_space import NeuroSpace
-from neuroim.neuro_vol import DenseNeuroVol
-from neuroim.plotting import (
+matplotlib.use("Agg")  # non-interactive backend -- must be set before pyplot import
+import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.colors as mcolors  # noqa: E402
+import pytest  # noqa: E402
+
+from neuroim.neuro_space import NeuroSpace  # noqa: E402
+from neuroim.neuro_vol import DenseNeuroVol  # noqa: E402
+from neuroim.plotting import (  # noqa: E402
     plot_ortho,
     plot_montage,
     plot_overlay,
@@ -19,10 +20,10 @@ from neuroim.plotting import (
     resolve_cmap,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def vol_3d():
@@ -42,6 +43,7 @@ def overlay_3d(vol_3d):
 # ---------------------------------------------------------------------------
 # resolve_cmap
 # ---------------------------------------------------------------------------
+
 
 class TestResolveCmap:
     def test_standard_name(self):
@@ -81,6 +83,7 @@ class TestResolveCmap:
 # ---------------------------------------------------------------------------
 # map_to_colors
 # ---------------------------------------------------------------------------
+
 
 class TestMapToColors:
     def test_shape_1d(self):
@@ -136,6 +139,7 @@ class TestMapToColors:
 # ---------------------------------------------------------------------------
 # plot_ortho
 # ---------------------------------------------------------------------------
+
 
 class TestPlotOrtho:
     def test_returns_fig_and_axes(self, vol_3d):
@@ -193,6 +197,7 @@ class TestPlotOrtho:
 # ---------------------------------------------------------------------------
 # plot_montage
 # ---------------------------------------------------------------------------
+
 
 class TestPlotMontage:
     def test_returns_fig_and_axes(self, vol_3d):
@@ -255,6 +260,7 @@ class TestPlotMontage:
 # ---------------------------------------------------------------------------
 # plot_overlay
 # ---------------------------------------------------------------------------
+
 
 class TestPlotOverlay:
     def test_returns_fig_and_axes(self, vol_3d, overlay_3d):
@@ -407,9 +413,7 @@ class TestPlotOverlay:
                 ov_thresh=1.0,
             )
         try:
-            assert not any(
-                issubclass(item.category, RuntimeWarning) for item in caught
-            )
+            assert not any(issubclass(item.category, RuntimeWarning) for item in caught)
             rgba = np.asarray(axes[0].images[1].get_array())
             assert rgba[1, 1, 3] == pytest.approx(0.0)
             assert rgba[2, 2, 3] > 0

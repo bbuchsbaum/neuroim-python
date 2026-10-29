@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 import warnings as _warnings
 from typing import Any, Union, Tuple, List, Optional
-from scipy import sparse
 
 from .neuro_space import NeuroSpace
 from .neuro_vol import (
@@ -81,9 +80,7 @@ def _selects_one_volume(key, shape) -> bool:
         parts = parts[:i] + [slice(None)] * (4 - len(parts) + 1) + parts[i + 1 :]
     if len(parts) != 4:
         return False
-    full = all(
-        isinstance(p, slice) and p == slice(None) for p in parts[:3]
-    )
+    full = all(isinstance(p, slice) and p == slice(None) for p in parts[:3])
     t = parts[3]
     return full and isinstance(t, (int, np.integer)) and not isinstance(t, bool)
 
@@ -186,12 +183,10 @@ class NeuroVec(ABC):
     @abstractmethod
     def __getitem__(self, key):
         """Extract values using various indexing methods."""
-        pass
 
     @abstractmethod
     def __setitem__(self, key, value):
         """Set values using various indexing methods."""
-        pass
 
     def series_3d(self, x: int, y: int, z: int) -> np.ndarray:
         """Extract time series for a single voxel using 3D coordinates.
@@ -237,7 +232,9 @@ class NeuroVec(ABC):
         total = int(np.prod(self._spatial_shape()))
         return (indices >= 0) & (indices < total)
 
-    def _raise_oob(self, label: str, values: np.ndarray, valid_mask: np.ndarray) -> None:
+    def _raise_oob(
+        self, label: str, values: np.ndarray, valid_mask: np.ndarray
+    ) -> None:
         if np.all(valid_mask):
             return
         bad = values[~valid_mask]
@@ -383,7 +380,9 @@ class NeuroVec(ABC):
             spacing = np.asarray(self.spatial_space.spacing[:3], dtype=float)
             voxel_radius = np.ceil(radius / spacing).astype(int)
             lower = np.maximum(0, center - voxel_radius)
-            upper = np.minimum(np.asarray(self._spatial_shape()), center + voxel_radius + 1)
+            upper = np.minimum(
+                np.asarray(self._spatial_shape()), center + voxel_radius + 1
+            )
             grids = np.meshgrid(
                 range(lower[0], upper[0]),
                 range(lower[1], upper[1]),
@@ -419,7 +418,6 @@ class NeuroVec(ABC):
         -------
         np.ndarray
             Time series data"""
-        pass
 
     def series_roi(
         self,
@@ -450,7 +448,7 @@ class NeuroVec(ABC):
         """
         import warnings as _warnings
         from .roi import ROIVol, ROICoords
-        from .results import ROIExtractionResult, make_receipt
+        from .results import ROIExtractionResult
         from .verify import assert_same_space
 
         if return_legacy:
@@ -572,7 +570,8 @@ class NeuroVec(ABC):
             mask_data = np.ones(spatial_shape, dtype=bool)
         elif mask_data.shape != spatial_shape:
             raise ValueError(
-                f"mask shape {mask_data.shape} does not match BOLD spatial shape {spatial_shape}"
+                f"mask shape {mask_data.shape} does not match BOLD spatial shape "
+                f"{spatial_shape}"
             )
 
         mean = data.mean(axis=3)
@@ -667,7 +666,6 @@ class NeuroVec(ABC):
     @abstractmethod
     def as_sparse(self, mask=None) -> "SparseNeuroVec":
         """Convert to sparse representation."""
-        pass
 
     def to_dense(self) -> "DenseNeuroVec":
         """Convert to dense representation."""
@@ -680,7 +678,6 @@ class NeuroVec(ABC):
     @abstractmethod
     def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "NeuroVec":
         """Extract subset of volumes."""
-        pass
 
     def subvolumes(self, indices: Union[int, slice, np.ndarray]) -> "NeuroVec":
         """Extract a subset of volumes along the time axis."""
@@ -844,7 +841,6 @@ class NeuroVec(ABC):
     @abstractmethod
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
-        pass
 
 
 class DenseNeuroVec(NeuroVec):
@@ -886,12 +882,14 @@ class DenseNeuroVec(NeuroVec):
                     data = data.reshape(self.shape, order="F")
                 else:
                     raise ValueError(
-                        f"Data size {data.size} doesn't match space size {np.prod(self.shape)}"
+                        f"Data size {data.size} doesn't match space size "
+                        f"{np.prod(self.shape)}"
                     )
             elif data.ndim == 4:
                 if data.shape != self.shape:
                     raise ValueError(
-                        f"Data shape {data.shape} doesn't match space shape {self.shape}"
+                        f"Data shape {data.shape} doesn't match space shape "
+                        f"{self.shape}"
                     )
             else:
                 raise ValueError(f"Data must be 1D, 2D or 4D array, got {data.ndim}D")
@@ -938,9 +936,8 @@ class DenseNeuroVec(NeuroVec):
             # re-wrap.  PAIN-14: attach a TemporalSliceParams Receipt that
             # records the slice indices and chains any upstream provenance,
             # so a downstream temporal_snr / series_roi composes the lineage.
-            if (
-                result.ndim == 4
-                and tuple(result.shape[:3]) == tuple(self.data.shape[:3])
+            if result.ndim == 4 and tuple(result.shape[:3]) == tuple(
+                self.data.shape[:3]
             ):
                 from .axis import AxisSet4D, NamedAxis
                 from .results import TemporalSliceParams, receipt_for
@@ -1335,7 +1332,8 @@ class SparseNeuroVec(NeuroVec):
             mask = LNV(mask_data, NeuroSpace(spatial_shape, trans=space.affine))
         elif not isinstance(mask, LogicalNeuroVol):
             raise TypeError(
-                "mask must be a LogicalNeuroVol, boolean array, or integer indices array"
+                "mask must be a LogicalNeuroVol, boolean array, or integer indices "
+                "array"
             )
 
         if mask.shape != self.shape[:3]:
@@ -1484,7 +1482,8 @@ class SparseNeuroVec(NeuroVec):
 
             assert_same_space(self, mask)
 
-        # Apply additional mask by converting to dense, then back to sparse with new mask.
+        # Apply additional mask by converting to dense, then back to sparse with new
+        # mask.
         dense = self.to_dense()
         return dense.to_sparse(mask)
 

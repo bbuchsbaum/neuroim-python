@@ -803,7 +803,8 @@ def output_aligned_space(mapped_voxels: Any, voxel_sizes: Any = None) -> Any:
             or np.any(out_vox <= 0)
         ):
             raise ValueError(
-                "voxel_sizes must be a positive scalar or match the number of spatial axes"
+                "voxel_sizes must be a positive scalar or match the number of spatial "
+                "axes"
             )
     corners = np.array(
         list(product(*[(0, int(n) - 1) for n in spatial_shape])), dtype=float

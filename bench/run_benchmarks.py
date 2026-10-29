@@ -66,7 +66,6 @@ sys.path.insert(0, str(_REPO_ROOT / "tests"))
 import neuroim as ni  # noqa: E402
 from fixtures.realistic_bold import make_realistic_bold  # noqa: E402
 
-
 # ----------------------------------------------------------------------
 # Timing helpers
 # ----------------------------------------------------------------------
@@ -95,7 +94,9 @@ class Measurement:
         return max(self.peak_bytes) / (1024 * 1024)
 
 
-def measure(label: str, fn: Callable[[], object], *, runs: int = 5, notes: str = "") -> Measurement:
+def measure(
+    label: str, fn: Callable[[], object], *, runs: int = 5, notes: str = ""
+) -> Measurement:
     """Run ``fn`` ``runs`` times.  Record wall-time and tracemalloc peak."""
     m = Measurement(label=label, runs=runs, notes=notes)
     # Warm-up to amortise first-touch costs (e.g. module imports inside the
@@ -121,7 +122,9 @@ def measure(label: str, fn: Callable[[], object], *, runs: int = 5, notes: str =
 def bench_searchlight_typed_vs_legacy(bold: ni.DenseNeuroVec, mask: ni.LogicalNeuroVol):
     """Measure searchlight in both return modes on the same input."""
     radius_mm = 6.0
-    method = lambda block: float(np.mean(block)) if block.size else float("nan")  # noqa: E731
+
+    def method(block):
+        return float(np.mean(block)) if block.size else float("nan")
 
     typed = measure(
         "searchlight (typed SearchlightResult)",
@@ -130,8 +133,13 @@ def bench_searchlight_typed_vs_legacy(bold: ni.DenseNeuroVec, mask: ni.LogicalNe
     )
     legacy = measure(
         "searchlight (return_legacy=True DenseNeuroVol)",
-        lambda: ni.searchlight_apply(mask, radius=radius_mm, method=method, data=bold, return_legacy=True),
-        notes=f"radius={radius_mm}mm, method=mean, return_legacy=True (legacy projection)",
+        lambda: ni.searchlight_apply(
+            mask, radius=radius_mm, method=method, data=bold, return_legacy=True
+        ),
+        notes=(
+            f"radius={radius_mm}mm, method=mean, return_legacy=True (legacy "
+            f"projection)"
+        ),
     )
     return typed, legacy
 
@@ -202,7 +210,9 @@ def measure_rss(
     return m
 
 
-def bench_filebacked_vs_dense_peak_rss(out_dir: Path) -> tuple[Measurement, Measurement]:
+def bench_filebacked_vs_dense_peak_rss(
+    out_dir: Path,
+) -> tuple[Measurement, Measurement]:
     """Peak-RSS comparison: full-materialize Dense vs. lazy FileBacked.
 
     Writes a scaled realistic-BOLD fixture as per-volume NIfTI files into
@@ -294,7 +304,10 @@ def bench_sparse_round_trip(bold: ni.DenseNeuroVec, mask: ni.LogicalNeuroVol):
     dense = measure(
         "DenseNeuroVol baseline (deep-copy + re-wrap)",
         dense_baseline,
-        notes="baseline for sparse round-trip comparison; same shape, no mask projection",
+        notes=(
+            "baseline for sparse round-trip comparison; same shape, no mask "
+            "projection"
+        ),
     )
     return sparse, dense
 

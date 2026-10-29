@@ -5,10 +5,10 @@ import numpy as np
 import pytest
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
-import neuroim as ni
-from neuroim.orientation import rescale_affine
+import neuroim as ni  # noqa: E402
+from neuroim.orientation import rescale_affine  # noqa: E402
 
 
 def test_downsample_accepts_neuroim2_spacing_for_4d_and_updates_affine():

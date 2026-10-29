@@ -7,13 +7,16 @@ Provides a Python-native lazy vector container for image series on disk.
 """
 
 import numpy as np
-from typing import Optional, List, Union
-import os
+from typing import TYPE_CHECKING, Optional, List, Union
 from .neuro_vec import NeuroVec
 from .neuro_space import NeuroSpace
 from .neuro_vol import NeuroVol, DenseNeuroVol
 from .io import read_vol
 from .exceptions import BackendDriftError
+
+if TYPE_CHECKING:
+    from .neuro_vec import DenseNeuroVec, SparseNeuroVec
+
 
 class FileBackedNeuroVec(NeuroVec):
     """A file-backed 4D neuroimaging vector.
@@ -314,7 +317,8 @@ class FileBackedNeuroVec(NeuroVec):
         mask_indices = np.where(mask.ravel(order="F"))[0]
         n_masked = len(mask_indices)
 
-        # Extract masked data - shape should be (n_timepoints, n_masked) for SparseNeuroVec
+        # Extract masked data - shape should be (n_timepoints, n_masked) for
+        # SparseNeuroVec
         sparse_data = np.zeros((self.n_volumes, n_masked), dtype=self.dtype)
         for t in range(self.n_volumes):
             vol_data = self._load_volume(t).ravel(order="F")
@@ -391,6 +395,7 @@ class FileBackedNeuroVec(NeuroVec):
             f"  N Files   : {self.n_volumes}\n"
             f"  Cache Size: {self.cache_size}"
         )
+
 
 def file_backed_neurovec(
     filenames: List[str], mask: Optional[np.ndarray] = None

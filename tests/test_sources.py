@@ -2,12 +2,14 @@
 
 import pytest
 import numpy as np
-import tempfile
 import os
 
 from neuroim.sources import (
-    FileSource, NeuroVolSource, NeuroVecSource,
-    SparseNeuroVecSource, MappedNeuroVecSource,
+    FileSource,
+    NeuroVolSource,
+    NeuroVecSource,
+    SparseNeuroVecSource,
+    MappedNeuroVecSource,
 )
 
 # nibabel is required for these tests
@@ -33,6 +35,7 @@ def _make_nifti_4d(tmp_path, shape=(10, 10, 10, 5), fname="vec.nii.gz"):
 
 
 # ---- FileSource base ----
+
 
 class TestFileSource:
 
@@ -61,6 +64,7 @@ class TestFileSource:
 
 
 # ---- NeuroVolSource ----
+
 
 class TestNeuroVolSource:
 
@@ -103,6 +107,7 @@ class TestNeuroVolSource:
 
 # ---- NeuroVecSource ----
 
+
 class TestNeuroVecSource:
 
     def test_lazy_load(self, tmp_path):
@@ -127,10 +132,12 @@ class TestNeuroVecSource:
 
 # ---- SparseNeuroVecSource ----
 
+
 class TestSparseNeuroVecSource:
 
     def test_lazy_load_with_mask(self, tmp_path):
         from neuroim import NeuroSpace, LogicalNeuroVol
+
         path, data = _make_nifti_4d(tmp_path, shape=(8, 8, 8, 4))
         mask_data = np.zeros((8, 8, 8), dtype=bool)
         mask_data[2:6, 2:6, 2:6] = True
@@ -146,6 +153,7 @@ class TestSparseNeuroVecSource:
 
 
 # ---- MappedNeuroVecSource ----
+
 
 class TestMappedNeuroVecSource:
 

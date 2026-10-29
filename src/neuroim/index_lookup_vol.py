@@ -7,10 +7,10 @@ Provides a compact lookup volume for sparse voxel-table indexing.
 """
 
 import numpy as np
-from typing import Union
 
 from .neuro_space import NeuroSpace
 from .neuro_vol import _linear_indices
+
 
 class IndexLookupVol:
     """Maps 1D grid indices to sparse table indices for efficient sparse lookups.

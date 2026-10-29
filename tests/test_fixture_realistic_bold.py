@@ -1,7 +1,6 @@
 """Sanity tests for the realistic BOLD fixture (ME-8)."""
 
 import numpy as np
-import pytest
 
 from fixtures.realistic_bold import RealisticBOLD, make_realistic_bold, to_nibabel
 
@@ -70,7 +69,9 @@ def test_background_voxel_has_weak_correlation_with_regressor():
     norm = float(np.linalg.norm(bg_ts)) or 1.0
     bg_ts /= norm
     r = float(np.dot(bg_ts, fx.regressor))
-    assert abs(r) < 0.5, f"background should have weak correlation, got |r|={abs(r):.3f}"
+    assert (
+        abs(r) < 0.5
+    ), f"background should have weak correlation, got |r|={abs(r):.3f}"
 
 
 def test_to_nibabel_round_trip():

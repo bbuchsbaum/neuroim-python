@@ -1,4 +1,5 @@
-"""Baseline: extract a BOLD time series at a world-mm coordinate using raw nibabel + numpy.
+"""Baseline: extract a BOLD time series at a world-mm coordinate using raw nibabel +
+numpy.
 
 This is the form a competent nibabel user writes today.  The function
 shape is fixed by the friction the mission claims to remove:

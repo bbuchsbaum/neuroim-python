@@ -5,8 +5,11 @@ import numpy as np
 
 from neuroim import NeuroSpace, DenseNeuroVol
 from neuroim.roi import (
-    cube_roi, ellipsoid_roi, patch_set,
-    spherical_roi, cuboid_roi, spherical_roi_set,
+    cube_roi,
+    ellipsoid_roi,
+    patch_set,
+    spherical_roi,
+    spherical_roi_set,
 )
 
 
@@ -20,12 +23,13 @@ def bvol():
 
 # ---- cube_roi ----
 
+
 class TestCubeRoi:
 
     def test_basic(self, bvol):
         roi = cube_roi(bvol, [10, 10, 10], width=2)
         # A cube with half-width 2 -> side length 5 -> 125 voxels (if not clipped)
-        assert len(roi) == 5 ** 3
+        assert len(roi) == 5**3
 
     def test_fills(self, bvol):
         roi = cube_roi(bvol, [10, 10, 10], width=1, fill=42.0)
@@ -35,7 +39,7 @@ class TestCubeRoi:
         """Cube at edge should be clipped by volume bounds."""
         roi = cube_roi(bvol, [0, 0, 0], width=3)
         # Only the positive octant is available: 0..3 in each dim = 4 voxels each
-        assert len(roi) == 4 ** 3
+        assert len(roi) == 4**3
 
     def test_nonzero(self):
         """nonzero=True drops zero-valued voxels."""
@@ -54,6 +58,7 @@ class TestCubeRoi:
 
 
 # ---- ellipsoid_roi ----
+
 
 class TestEllipsoidRoi:
 
@@ -100,6 +105,7 @@ class TestEllipsoidRoi:
 
 # ---- patch_set ----
 
+
 class TestPatchSet:
 
     def test_sphere_patches(self, bvol):
@@ -120,8 +126,7 @@ class TestPatchSet:
 
     def test_fill_list(self, bvol):
         centers = np.array([[5, 5, 5], [10, 10, 10]])
-        patches = patch_set(bvol, centers, radius=2, shape="sphere",
-                            fill=[3.0, 7.0])
+        patches = patch_set(bvol, centers, radius=2, shape="sphere", fill=[3.0, 7.0])
         assert np.all(patches[0].data == 3.0)
         assert np.all(patches[1].data == 7.0)
 
@@ -136,6 +141,7 @@ class TestPatchSet:
 
 
 # ---- spherical_roi_set (existing, but test shape-factory integration) ----
+
 
 class TestSphericalRoiSet:
 

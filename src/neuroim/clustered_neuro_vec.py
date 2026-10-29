@@ -1,4 +1,5 @@
-"""ClusteredNeuroVec - 4D data with cluster assignments and shared time-series per cluster.
+"""ClusteredNeuroVec - 4D data with cluster assignments and shared time-series per
+cluster.
 
 Represents 4D data using cluster assignments and shared time series.
 """
@@ -40,9 +41,7 @@ class ParcelEffectResult:
         """Cluster id with the largest positive effect."""
         return int(self.labels[int(np.argmax(self.effects))])
 
-    def map_to_volume(
-        self, *, dtype: Any = np.float64, fill: float = 0.0
-    ):
+    def map_to_volume(self, *, dtype: Any = np.float64, fill: float = 0.0):
         """Project parcel effects into a dense 3-D volume.
 
         Voxel values are filled by cluster id, preserving the underlying
@@ -288,7 +287,9 @@ class ClusteredNeuroVec:
                 f"condition shape {condition.shape} != time axis {(self.n_time,)}"
             )
         if not condition.any() or condition.all():
-            raise ValueError("condition must contain both positive and negative samples")
+            raise ValueError(
+                "condition must contain both positive and negative samples"
+            )
 
         effects = self.ts[condition].mean(axis=0) - self.ts[~condition].mean(axis=0)
         method_name = f"contrast[{positive_name}-{negative_name}]"

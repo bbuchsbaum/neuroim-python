@@ -1,8 +1,8 @@
-# mypy: disable-error-code="arg-type,assignment,attr-defined,call-overload,no-any-return,no-untyped-def,type-arg"
+# mypy: disable-error-code="arg-type,assignment,attr-defined,call-overload"
+# mypy: disable-error-code="no-any-return,no-untyped-def,type-arg"
 import numpy as np
 from typing import Any, Tuple, Union, Optional, List
 from .axis import (
-    AxisSet,
     AxisSet1D,
     AxisSet2D,
     AxisSet3D,
@@ -10,7 +10,6 @@ from .axis import (
     AxisSet5D,
     AxisSetND,
     NamedAxis,
-    find_anatomy_3d,
     axis_names,
     axis_set,
 )
@@ -131,7 +130,8 @@ class NeuroSpace:
             # For 4D+ spaces, allow larger transformation matrices
             if ndim <= 3 and self.trans.shape != (4, 4):
                 raise InvalidSpaceError(
-                    f"trans must be 4x4 matrix for {ndim}D space, got {self.trans.shape}"
+                    f"trans must be 4x4 matrix for {ndim}D space, got "
+                    f"{self.trans.shape}"
                 )
             elif ndim > 3 and self.trans.shape != (ndim + 1, ndim + 1):
                 # Try to use 4x4 for first 3 dimensions
@@ -156,7 +156,8 @@ class NeuroSpace:
                     object.__setattr__(self, "trans", full_trans)
                 else:
                     raise InvalidSpaceError(
-                        f"trans must be {ndim+1}x{ndim+1} matrix for {ndim}D space, got {self.trans.shape}"
+                        f"trans must be {ndim+1}x{ndim+1} matrix for {ndim}D space, "
+                        f"got {self.trans.shape}"
                     )
 
             # Extract spacing and origin from the affine when not provided explicitly;
@@ -203,7 +204,8 @@ class NeuroSpace:
         # Validate dimensions match
         if self.axes.ndim != ndim:
             raise ValueError(
-                f"Axes dimensionality ({self.axes.ndim}) must match space dimensionality ({ndim})"
+                f"Axes dimensionality ({self.axes.ndim}) must match space "
+                f"dimensionality ({ndim})"
             )
 
         for name, dtype in (
@@ -742,7 +744,8 @@ class NeuroSpace:
         new_origin = np.append(self.origin, [0.0] * n)
         new_spacing = np.append(self.spacing, [1.0] * n)
 
-        # Preserve existing axes and append labeled placeholder axes for each added dimension.
+        # Preserve existing axes and append labeled placeholder axes for each added
+        # dimension.
         start = len(self.axes) + 1
         extra_axes = [NamedAxis(f"v{start + i}", 1) for i in range(n)]
         new_axes = axis_set(len(new_dim), list(self.axes) + extra_axes)

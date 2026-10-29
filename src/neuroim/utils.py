@@ -2,6 +2,7 @@ from typing import Callable, Any
 
 import numpy as np
 
+
 class LazyList:
     def __init__(self, generator_func: Callable[[int], Any], length: int):
         self.generator_func = generator_func

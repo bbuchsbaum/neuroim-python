@@ -96,20 +96,53 @@ def test_dir_tracks_curated_public_surface():
 # is distinct from the R-shaped export blocklist above and catches
 # implementation-detail re-exports that survive any future restructure.
 
-_IMPLEMENTATION_LEAK_BLOCKLIST = frozenset({
-    # typing
-    "Any", "Optional", "Union", "List", "Tuple", "Dict", "Set",
-    "Iterator", "Iterable", "Callable", "Sequence", "Mapping",
-    "TYPE_CHECKING", "Generic", "TypeVar", "Protocol", "NewType",
-    # ABCs / dataclass machinery
-    "ABC", "abstractmethod", "dataclass", "field", "replace",
-    # third-party shorthand
-    "np", "numpy", "sparse", "pd", "pandas", "plt", "matplotlib",
-    "nib", "nibabel",
-    # stdlib pollution (NOTE: ``io`` is intentionally omitted — ``neuroim.io``
-    # is the I/O subpackage)
-    "os", "sys", "Path", "warnings", "logging", "logger", "hashlib",
-})
+_IMPLEMENTATION_LEAK_BLOCKLIST = frozenset(
+    {
+        # typing
+        "Any",
+        "Optional",
+        "Union",
+        "List",
+        "Tuple",
+        "Dict",
+        "Set",
+        "Iterator",
+        "Iterable",
+        "Callable",
+        "Sequence",
+        "Mapping",
+        "TYPE_CHECKING",
+        "Generic",
+        "TypeVar",
+        "Protocol",
+        "NewType",
+        # ABCs / dataclass machinery
+        "ABC",
+        "abstractmethod",
+        "dataclass",
+        "field",
+        "replace",
+        # third-party shorthand
+        "np",
+        "numpy",
+        "sparse",
+        "pd",
+        "pandas",
+        "plt",
+        "matplotlib",
+        "nib",
+        "nibabel",
+        # stdlib pollution (NOTE: ``io`` is intentionally omitted — ``neuroim.io``
+        # is the I/O subpackage)
+        "os",
+        "sys",
+        "Path",
+        "warnings",
+        "logging",
+        "logger",
+        "hashlib",
+    }
+)
 
 
 def test_no_implementation_detail_leakage_at_top_level():

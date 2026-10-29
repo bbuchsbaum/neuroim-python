@@ -4,11 +4,11 @@ Defines spatial kernels used by neuroim filtering operations.
 """
 
 import numpy as np
-from typing import Callable, Optional, Tuple, Any
-from scipy.spatial.distance import euclidean
+from typing import Callable, Optional, Tuple
 
 from .neuro_space import NeuroSpace
 from .neuro_vol import SparseNeuroVol
+
 
 class Kernel:
     """A class representing a filter kernel for spatial operations.
@@ -82,6 +82,7 @@ class Kernel:
     def __repr__(self):
         return f"Kernel(width={self.width}, n_weights={len(self.weights)})"
 
+
 def gaussian_kernel(
     vdim: Tuple[float, ...], kdim: Tuple[int, ...], sigma: float, normalize: bool = True
 ) -> Kernel:
@@ -134,6 +135,7 @@ def gaussian_kernel(
         weights = weights / np.sum(weights)
 
     return Kernel(width=tuple(kdim), weights=weights, voxels=voxel_ind, coords=coords)
+
 
 def spherical_kernel(
     vdim: Tuple[float, ...], radius: float, weight_func: Optional[Callable] = None
@@ -195,6 +197,7 @@ def spherical_kernel(
 
     return Kernel(width=tuple(kdim), weights=weights, voxels=voxel_ind, coords=coords)
 
+
 def box_kernel(kdim: Tuple[int, ...]) -> Kernel:
     """Create a box (uniform) kernel.
 
@@ -227,6 +230,7 @@ def box_kernel(kdim: Tuple[int, ...]) -> Kernel:
     coords = voxel_ind.astype(float)
 
     return Kernel(width=tuple(kdim), weights=weights, voxels=voxel_ind, coords=coords)
+
 
 def embed_kernel(
     kernel: Kernel, space: NeuroSpace, center_voxel: np.ndarray, weight: float = 1.0

@@ -84,9 +84,9 @@ def cluster_table_from_stat_map(
 
     table = pd.DataFrame(rows)
     if not table.empty:
-        table = table.sort_values("n_voxels", ascending=False, kind="stable").reset_index(
-            drop=True
-        )
+        table = table.sort_values(
+            "n_voxels", ascending=False, kind="stable"
+        ).reset_index(drop=True)
         # Re-number cluster_id by descending size so the largest cluster is #1.
         table["cluster_id"] = np.arange(1, len(table) + 1)
     return table
@@ -122,15 +122,11 @@ def synthesize_stat_map(
     mask = np.ones((nx, ny, nz), dtype=bool)
     # Brain-shaped ellipsoid mask: keep voxels inside; both clusters fall
     # inside.
-    ii, jj, kk = np.meshgrid(
-        np.arange(nx), np.arange(ny), np.arange(nz), indexing="ij"
-    )
+    ii, jj, kk = np.meshgrid(np.arange(nx), np.arange(ny), np.arange(nz), indexing="ij")
     cx, cy, cz = (nx - 1) / 2, (ny - 1) / 2, (nz - 1) / 2
     rx, ry, rz = nx * 0.45, ny * 0.45, nz * 0.45
     mask = (
-        ((ii - cx) / rx) ** 2
-        + ((jj - cy) / ry) ** 2
-        + ((kk - cz) / rz) ** 2
+        ((ii - cx) / rx) ** 2 + ((jj - cy) / ry) ** 2 + ((kk - cz) / rz) ** 2
     ) <= 1.0
 
     stat_img = nib.Nifti1Image(data, affine)

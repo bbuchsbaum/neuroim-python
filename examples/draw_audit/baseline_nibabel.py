@@ -65,9 +65,7 @@ def correlate_roi_with_regressor(
     nt = bold.shape[3]
     regressor = np.asarray(regressor, dtype=np.float64)
     if regressor.shape != (nt,):
-        raise ValueError(
-            f"regressor must have shape ({nt},); got {regressor.shape}"
-        )
+        raise ValueError(f"regressor must have shape ({nt},); got {regressor.shape}")
 
     # --- Manual: flatten 4-D into (n_voxels_in_mask, T) using mask indices.
     # NB: must use the same axis order (C by default in numpy) on both sides
@@ -89,7 +87,9 @@ def correlate_roi_with_regressor(
     series_norm = np.linalg.norm(series_centered, axis=1)
     safe = series_norm > 0
     corrs = np.full(n_vox, np.nan, dtype=np.float64)
-    corrs[safe] = (series_centered[safe] @ reg_centered) / (series_norm[safe] * reg_norm)
+    corrs[safe] = (series_centered[safe] @ reg_centered) / (
+        series_norm[safe] * reg_norm
+    )
 
     # --- Map back to 3-D space (mask_indices order must match the order
     # we used when filling masked_series; off-by-one or order='F' bugs

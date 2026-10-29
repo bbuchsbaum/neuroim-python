@@ -528,7 +528,6 @@ class TestNeuroVolIO:
         """Test reading specific volume from 4D file."""
         # This test would require a 4D test file
         # For now, just test the interface exists
-        pass
 
 
 # R-Python compatibility notes

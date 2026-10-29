@@ -21,7 +21,6 @@ from typing import Iterable, Tuple
 
 import pytest
 
-
 # results.py owns the construction primitives.  Everything else must go
 # through ``receipt_for``.
 _RESULTS_FILE = "results.py"
@@ -125,7 +124,8 @@ def test_production_callers_use_receipt_for_not_make_receipt():
             for file, hits in offenders.items()
             for lineno, src in hits
         )
-        + "\n\nMigrate to receipt_for(carrier, mask=..., n_voxels=..., params=XxxParams(...))."
+        + "\n\nMigrate to receipt_for(carrier, mask=..., n_voxels=..., "
+        "params=XxxParams(...))."
     )
 
 

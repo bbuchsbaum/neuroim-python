@@ -6,7 +6,7 @@ import pytest
 import gzip
 from pathlib import Path
 
-from neuroim.io import read_image, load_data, read_vol, read_vec
+from neuroim.io import read_image, load_data
 from neuroim.sources import NeuroVolSource, NeuroVecSource
 from neuroim.neuro_vol import DenseNeuroVol
 from neuroim.neuro_vec import DenseNeuroVec, SparseNeuroVec
@@ -78,12 +78,10 @@ def _write_afni_pair(
         "1.0 0.0 0.0 0.0 0.0 -1.0 0.0 0.0 0.0 0.0 1.0 0.0\n\n"
         "type = integer-attribute\n"
         "name = BRICK_TYPES\n"
-        f"count = {nvols}\n"
-        + "3 " * (nvols - 1) + "3\n\n"
+        f"count = {nvols}\n" + "3 " * (nvols - 1) + "3\n\n"
         "type = float-attribute\n"
         "name = BRICK_FLOAT_FACS\n"
-        f"count = {nvols}\n"
-        + "1.0 " * (nvols - 1) + "1.0\n\n"
+        f"count = {nvols}\n" + "1.0 " * (nvols - 1) + "1.0\n\n"
         "type = string-attribute\n"
         "name = BYTEORDER_STRING\n"
         "count = 10\n"
@@ -239,7 +237,9 @@ class TestReadImage:
         np.testing.assert_allclose(result.data, data, atol=1e-6)
 
     def test_afni_4d_singleton_time_dimension_returns_vol(self, tmp_path):
-        data = np.arange(4 * 3 * 2 * 1, dtype=np.float32).reshape((4, 3, 2, 1), order="F")
+        data = np.arange(4 * 3 * 2 * 1, dtype=np.float32).reshape(
+            (4, 3, 2, 1), order="F"
+        )
         head = _write_afni_pair(tmp_path, "vol4d_singleton+orig", data)
 
         result = read_image(head)
@@ -249,7 +249,9 @@ class TestReadImage:
         np.testing.assert_allclose(result.data, data[..., 0], atol=1e-6)
 
     def test_afni_4d_auto_dispatch_returns_vec(self, tmp_path):
-        data = np.arange(4 * 3 * 2 * 2, dtype=np.float32).reshape((4, 3, 2, 2), order="F")
+        data = np.arange(4 * 3 * 2 * 2, dtype=np.float32).reshape(
+            (4, 3, 2, 2), order="F"
+        )
         head = _write_afni_pair(tmp_path, "vol4d+orig", data)
 
         result = read_image(head)
@@ -274,7 +276,9 @@ class TestReadImage:
         assert np.allclose(result.data[..., 1], data2)
 
     def test_multiple_files_vec_index_ignored(self, tmp_path):
-        base = np.arange(4 * 3 * 2 * 2, dtype=np.float32).reshape((4, 3, 2, 2), order="F")
+        base = np.arange(4 * 3 * 2 * 2, dtype=np.float32).reshape(
+            (4, 3, 2, 2), order="F"
+        )
         data1 = base + 0.0
         data2 = base + 100.0
         path1 = tmp_path / "vol1.nii.gz"
@@ -328,7 +332,9 @@ class TestReadImage:
 
     def test_multiple_files_afni_vec(self, tmp_path):
         data1 = np.arange(4 * 3 * 2, dtype=np.float32).reshape((4, 3, 2), order="F")
-        data2 = (np.arange(4 * 3 * 2, dtype=np.float32) + 100).reshape((4, 3, 2), order="F")
+        data2 = (np.arange(4 * 3 * 2, dtype=np.float32) + 100).reshape(
+            (4, 3, 2), order="F"
+        )
         head1 = _write_afni_pair(tmp_path, "vol1+orig", data1)
         head2 = _write_afni_pair(tmp_path, "vol2+orig", data2)
 
@@ -362,7 +368,7 @@ class TestLoadData:
         """Calling load_data twice returns the same cached object."""
         path, _ = tmp_3d_nifti
         source = NeuroVolSource(path)
-        r1 = load_data(source)
+        load_data(source)
         r2 = load_data(source)
         # Second call should return the cached _loaded attribute
         assert r2 is source._loaded

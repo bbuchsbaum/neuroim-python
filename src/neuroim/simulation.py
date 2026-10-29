@@ -33,7 +33,9 @@ def _gamma_hrf(t, peak=6.0, undershoot=16.0, peak_amp=1.0, undershoot_amp=0.167)
     """
     from scipy.stats import gamma as gamma_dist
 
-    h = peak_amp * gamma_dist.pdf(t, peak) - undershoot_amp * gamma_dist.pdf(t, undershoot)
+    h = peak_amp * gamma_dist.pdf(t, peak) - undershoot_amp * gamma_dist.pdf(
+        t, undershoot
+    )
     # Normalize to unit peak
     if h.max() != 0:
         h = h / h.max()
@@ -180,7 +182,7 @@ def prepare_confounds(
     combined = np.hstack(parts)
 
     if include_squared:
-        combined = np.hstack([combined, combined ** 2])
+        combined = np.hstack([combined, combined**2])
 
     return combined
 
@@ -224,7 +226,9 @@ def make_time_weights(
     elif method == "uniform":
         w = np.ones(n_timepoints)
     else:
-        raise ValueError(f"Unknown method '{method}'. Use 'exponential', 'linear', or 'uniform'.")
+        raise ValueError(
+            f"Unknown method '{method}'. Use 'exponential', 'linear', or 'uniform'."
+        )
 
     total = w.sum()
     if total > 0:

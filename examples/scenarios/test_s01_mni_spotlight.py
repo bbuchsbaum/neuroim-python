@@ -96,9 +96,7 @@ def test_baseline_and_simple_form_agree(fixture, nib_bold, target_mni):
 # ----------------------------------------------------------------------
 
 
-def test_typed_form_matches_baseline_and_carries_receipt(
-    fixture, nib_bold, target_mni
-):
+def test_typed_form_matches_baseline_and_carries_receipt(fixture, nib_bold, target_mni):
     base = baseline_nibabel.series_at_mni(nib_bold, target_mni)
     typed = neuroim_version.series_at_mni_typed(fixture.bold, target_mni)
 

@@ -135,9 +135,7 @@ def test_neuro_vol_values_roi_method_matches_free_function():
     free_result = values_roi(vol, roi)
     assert isinstance(method_result, ROIExtractionResult)
     np.testing.assert_array_equal(method_result.values, free_result.values)
-    assert (
-        method_result.provenance.method_name == free_result.provenance.method_name
-    )
+    assert method_result.provenance.method_name == free_result.provenance.method_name
 
 
 def test_neuro_vol_values_roi_method_rejects_mismatched_space():

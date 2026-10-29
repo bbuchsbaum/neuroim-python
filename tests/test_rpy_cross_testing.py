@@ -19,6 +19,7 @@ try:
     from rpy2.robjects import numpy2ri
     from rpy2.robjects import conversion as ro_conversion
     from rpy2.robjects.conversion import localconverter
+
     HAS_RPY2 = True
 except Exception:
     HAS_RPY2 = False
@@ -29,7 +30,9 @@ except Exception:
 
 HAS_NEUROIM2 = False
 if HAS_RPY2:
-    HAS_NEUROIM2 = bool(ro.r('as.logical(requireNamespace("neuroim2", quietly=TRUE))')[0])
+    HAS_NEUROIM2 = bool(
+        ro.r('as.logical(requireNamespace("neuroim2", quietly=TRUE))')[0]
+    )
 
 pytestmark = pytest.mark.skipif(
     not (HAS_RPY2 and HAS_NEUROIM2),
@@ -81,7 +84,11 @@ def _r_read_header_vectors(file_path: str):
                 "})"
             )
         )
-    return np.asarray(dim, dtype=int), np.asarray(spacing, dtype=float), np.asarray(origin, dtype=float)
+    return (
+        np.asarray(dim, dtype=int),
+        np.asarray(spacing, dtype=float),
+        np.asarray(origin, dtype=float),
+    )
 
 
 def _r_bilateral_filter_4d_array(
@@ -98,7 +105,9 @@ def _r_bilateral_filter_4d_array(
 ) -> np.ndarray:
     ro.globalenv["bf4d_vals"] = ro.FloatVector(np.asarray(data).ravel(order="F"))
     ro.globalenv["bf4d_dims"] = ro.IntVector([int(x) for x in data.shape])
-    ro.globalenv["bf4d_mask_vals"] = ro.BoolVector(np.asarray(mask, dtype=bool).ravel(order="F"))
+    ro.globalenv["bf4d_mask_vals"] = ro.BoolVector(
+        np.asarray(mask, dtype=bool).ravel(order="F")
+    )
     ro.globalenv["bf4d_spatial_sigma"] = float(spatial_sigma)
     ro.globalenv["bf4d_intensity_sigma"] = float(intensity_sigma)
     ro.globalenv["bf4d_temporal_sigma"] = float(temporal_sigma)
@@ -160,7 +169,9 @@ def _r_output_aligned_space(shape, affine, voxel_sizes):
         nrow=4,
         ncol=4,
     )
-    ro.globalenv["oas_voxel_sizes"] = ro.FloatVector(np.atleast_1d(voxel_sizes).astype(float))
+    ro.globalenv["oas_voxel_sizes"] = ro.FloatVector(
+        np.atleast_1d(voxel_sizes).astype(float)
+    )
     ro.r(
         "local({"
         "  o <- neuroim2::output_aligned_space("

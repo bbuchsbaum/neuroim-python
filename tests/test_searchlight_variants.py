@@ -1,16 +1,17 @@
 """Tests for searchlight variant functions (resampled and cluster-based)."""
 
-import pytest
 import numpy as np
 from neuroim import (
-    NeuroSpace, LogicalNeuroVol, DenseNeuroVol, DenseNeuroVec,
+    NeuroSpace,
+    LogicalNeuroVol,
+    DenseNeuroVol,
+    DenseNeuroVec,
     ClusteredNeuroVol,
 )
 from neuroim.searchlight_high_level import (
     resampled_searchlight,
     cluster_searchlight_series,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -45,8 +46,12 @@ class TestResampledSearchlight:
         vec = _make_vec()
         mask = _make_mask()
         result = resampled_searchlight(
-            vec, radius=4, fun=lambda x: np.mean(x), n_resamples=5,
-            mask=mask, seed=42,
+            vec,
+            radius=4,
+            fun=lambda x: np.mean(x),
+            n_resamples=5,
+            mask=mask,
+            seed=42,
         )
         assert isinstance(result, DenseNeuroVol)
         assert result.shape == mask.shape
@@ -55,8 +60,12 @@ class TestResampledSearchlight:
         vec = _make_vec()
         mask = _make_mask()
         result = resampled_searchlight(
-            vec, radius=4, fun=lambda x: np.mean(x), n_resamples=5,
-            mask=mask, seed=42,
+            vec,
+            radius=4,
+            fun=lambda x: np.mean(x),
+            n_resamples=5,
+            mask=mask,
+            seed=42,
         )
         # Voxels inside the mask should be finite
         mask_coords = np.argwhere(mask.data)
@@ -69,12 +78,20 @@ class TestResampledSearchlight:
         vec = _make_vec()
         mask = _make_mask()
         a = resampled_searchlight(
-            vec, radius=4, fun=lambda x: np.mean(x), n_resamples=10,
-            mask=mask, seed=99,
+            vec,
+            radius=4,
+            fun=lambda x: np.mean(x),
+            n_resamples=10,
+            mask=mask,
+            seed=99,
         )
         b = resampled_searchlight(
-            vec, radius=4, fun=lambda x: np.mean(x), n_resamples=10,
-            mask=mask, seed=99,
+            vec,
+            radius=4,
+            fun=lambda x: np.mean(x),
+            n_resamples=10,
+            mask=mask,
+            seed=99,
         )
         np.testing.assert_array_equal(a.data, b.data)
 
@@ -82,12 +99,20 @@ class TestResampledSearchlight:
         vec = _make_vec()
         mask = _make_mask()
         a = resampled_searchlight(
-            vec, radius=4, fun=lambda x: np.mean(x), n_resamples=10,
-            mask=mask, seed=1,
+            vec,
+            radius=4,
+            fun=lambda x: np.mean(x),
+            n_resamples=10,
+            mask=mask,
+            seed=1,
         )
         b = resampled_searchlight(
-            vec, radius=4, fun=lambda x: np.mean(x), n_resamples=10,
-            mask=mask, seed=2,
+            vec,
+            radius=4,
+            fun=lambda x: np.mean(x),
+            n_resamples=10,
+            mask=mask,
+            seed=2,
         )
         # Not guaranteed to differ everywhere, but should overall
         assert not np.array_equal(a.data, b.data)
@@ -96,7 +121,10 @@ class TestResampledSearchlight:
         """When mask=None, it should derive one from the first volume."""
         vec = _make_vec()
         result = resampled_searchlight(
-            vec, radius=6, fun=lambda x: np.std(x), n_resamples=3,
+            vec,
+            radius=6,
+            fun=lambda x: np.std(x),
+            n_resamples=3,
             seed=42,
         )
         assert isinstance(result, DenseNeuroVol)
@@ -106,8 +134,12 @@ class TestResampledSearchlight:
         mask = _make_mask()
         # A function that returns a constant should give that constant
         result = resampled_searchlight(
-            vec, radius=4, fun=lambda x: 42.0, n_resamples=5,
-            mask=mask, seed=0,
+            vec,
+            radius=4,
+            fun=lambda x: 42.0,
+            n_resamples=5,
+            mask=mask,
+            seed=0,
         )
         mask_coords = np.argwhere(mask.data)
         vals = result.data[tuple(mask_coords.T)]
@@ -138,7 +170,9 @@ class TestClusterSearchlightSeries:
             for j in range(shape[1]):
                 for k in range(shape[2]):
                     if mask_data[i, j, k]:
-                        clusters[flat_idx] = min(i // max(1, slice_size), n_clusters - 1)
+                        clusters[flat_idx] = min(
+                            i // max(1, slice_size), n_clusters - 1
+                        )
                         flat_idx += 1
 
         return ClusteredNeuroVol(mask, clusters)

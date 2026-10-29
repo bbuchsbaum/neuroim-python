@@ -10,16 +10,15 @@ from .neuro_vol import (
     DenseNeuroVol,
     SparseNeuroVol,
     LogicalNeuroVol,
-    neurovol,
     _attach_nibabel_metadata,
     _embed_receipt_extension,
     _restore_nibabel_xforms,
 )
-from .neuro_vec import DenseNeuroVec, SparseNeuroVec, neurovec
+from .neuro_vec import DenseNeuroVec, SparseNeuroVec
 from .neuro_vec import neurovecseq
 from .neuro_space import NeuroSpace
-from .file_format import find_descriptor, NIFTI, FileFormat
-from .meta_info import FileMetaInfo, NIFTIMetaInfo, AFNIMetaInfo
+from .file_format import find_descriptor, FileFormat
+from .meta_info import FileMetaInfo, AFNIMetaInfo
 from .afni_io import write_afni_pair
 
 
@@ -96,7 +95,8 @@ def _read_afni_data(meta: AFNIMetaInfo) -> np.ndarray:
     if arr.ndim == 4 and slope.size > 1:
         if slope.size != arr.shape[3]:
             raise ValueError(
-                f"AFNI BRICK_FLOAT_FACS length {slope.size} does not match nvols {arr.shape[3]}"
+                f"AFNI BRICK_FLOAT_FACS length {slope.size} does not match nvols "
+                f"{arr.shape[3]}"
             )
         arr = arr * slope.reshape((1, 1, 1, -1))
         if intercept.size == slope.size:
@@ -251,9 +251,7 @@ def _nifti_image_for_write(
     try:
         header.set_data_dtype(target_dtype)
     except nib.spatialimages.HeaderDataError as exc:
-        raise ValueError(
-            f"dtype {target_dtype} is not representable in NIfTI"
-        ) from exc
+        raise ValueError(f"dtype {target_dtype} is not representable in NIfTI") from exc
     # The container data are already in physical/scaled units.  Any source
     # proxy scaling has therefore been consumed; allow nibabel to choose fresh
     # scaling for this output rather than applying it a second time -- unless

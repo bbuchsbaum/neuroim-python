@@ -50,7 +50,9 @@ def native_bold(template_fixture):
 
 def test_pipeline_outputs_match_numeric_map(tmp_path, template_fixture, native_bold):
     template_bold_img, template_mask_img = to_nibabel(template_fixture)
-    native_img = nib.Nifti1Image(np.asarray(native_bold.data), _spatial_affine(native_bold.space))
+    native_img = nib.Nifti1Image(
+        np.asarray(native_bold.data), _spatial_affine(native_bold.space)
+    )
 
     baseline_path = tmp_path / "baseline_tsnr.nii.gz"
     neuroim_path = tmp_path / "neuroim_tsnr.nii.gz"
@@ -73,9 +75,13 @@ def test_pipeline_outputs_match_numeric_map(tmp_path, template_fixture, native_b
     np.testing.assert_allclose(rewrite.data, baseline.get_fdata(), rtol=1e-5, atol=1e-5)
 
 
-def test_raw_nibabel_file_cannot_answer_audit_questions(tmp_path, template_fixture, native_bold):
+def test_raw_nibabel_file_cannot_answer_audit_questions(
+    tmp_path, template_fixture, native_bold
+):
     template_bold_img, template_mask_img = to_nibabel(template_fixture)
-    native_img = nib.Nifti1Image(np.asarray(native_bold.data), _spatial_affine(native_bold.space))
+    native_img = nib.Nifti1Image(
+        np.asarray(native_bold.data), _spatial_affine(native_bold.space)
+    )
     out = tmp_path / "baseline_tsnr.nii.gz"
     baseline_nibabel.write_tsnr_template(
         native_img,

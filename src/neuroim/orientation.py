@@ -8,11 +8,12 @@ a clean neuroim API.
 import numpy as np
 from typing import Tuple, Optional, Sequence, Union
 
-import nibabel as nib
 import nibabel.orientations as nibo
 
 
-def affine_to_orientation(affine: np.ndarray, tol: Optional[float] = None) -> np.ndarray:
+def affine_to_orientation(
+    affine: np.ndarray, tol: Optional[float] = None
+) -> np.ndarray:
     """Convert a 4x4 affine matrix to an orientation array.
 
     The orientation array has shape (n, 2) where each row contains
@@ -46,9 +47,11 @@ def affine_to_orientation(affine: np.ndarray, tol: Optional[float] = None) -> np
     return nibo.io_orientation(affine, tol=tol)
 
 
-def affine_to_axcodes(affine: np.ndarray,
-                      labels: Optional[Sequence[Tuple[str, str]]] = None,
-                      tol: Optional[float] = None) -> Tuple[str, ...]:
+def affine_to_axcodes(
+    affine: np.ndarray,
+    labels: Optional[Sequence[Tuple[str, str]]] = None,
+    tol: Optional[float] = None,
+) -> Tuple[str, ...]:
     """Convert a 4x4 affine matrix to axis codes such as ``('R', 'A', 'S')``.
 
     Parameters
@@ -81,8 +84,10 @@ def affine_to_axcodes(affine: np.ndarray,
     return tuple(nibo.aff2axcodes(affine, **kwargs))
 
 
-def axcodes_to_orientation(axcodes: Union[str, Sequence[str]],
-                           labels: Optional[Sequence[Tuple[str, str]]] = None) -> np.ndarray:
+def axcodes_to_orientation(
+    axcodes: Union[str, Sequence[str]],
+    labels: Optional[Sequence[Tuple[str, str]]] = None,
+) -> np.ndarray:
     """Convert axis codes (e.g. ``'RAS'``) to an orientation array.
 
     Parameters
@@ -110,8 +115,9 @@ def axcodes_to_orientation(axcodes: Union[str, Sequence[str]],
     return nibo.axcodes2ornt(axcodes, **kwargs)
 
 
-def orientation_to_axcodes(ornt: np.ndarray,
-                           labels: Optional[Sequence[Tuple[str, str]]] = None) -> Tuple[str, ...]:
+def orientation_to_axcodes(
+    ornt: np.ndarray, labels: Optional[Sequence[Tuple[str, str]]] = None
+) -> Tuple[str, ...]:
     """Convert an orientation array to axis codes."""
     kwargs = {}
     if labels is not None:
@@ -200,8 +206,9 @@ def apply_affine(aff: np.ndarray, pts: np.ndarray, inplace: bool = False) -> np.
     return out.reshape(pts.shape[:-1] + (nd_out,))
 
 
-def append_diag(aff: np.ndarray, steps: Sequence[float],
-                starts: Optional[Sequence[float]] = None) -> np.ndarray:
+def append_diag(
+    aff: np.ndarray, steps: Sequence[float], starts: Optional[Sequence[float]] = None
+) -> np.ndarray:
     """Append diagonal axes to a homogeneous affine."""
     aff = np.asarray(aff, dtype=float)
     steps = np.asarray(steps, dtype=float)
@@ -214,7 +221,9 @@ def append_diag(aff: np.ndarray, steps: Sequence[float],
     else:
         starts_arr = np.asarray(starts, dtype=float)
         if starts_arr.shape != steps.shape or not np.all(np.isfinite(starts_arr)):
-            raise ValueError("starts must be None or have the same finite length as steps")
+            raise ValueError(
+                "starts must be None or have the same finite length as steps"
+            )
 
     old_out = aff.shape[0] - 1
     old_in = aff.shape[1] - 1
@@ -224,7 +233,7 @@ def append_diag(aff: np.ndarray, steps: Sequence[float],
     out[:old_out, -1] = aff[:old_out, -1]
     for i, step in enumerate(steps):
         out[old_out + i, old_in + i] = step
-    out[old_out:old_out + n_steps, -1] = starts_arr
+    out[old_out : old_out + n_steps, -1] = starts_arr
     out[-1, -1] = 1.0
     return out
 
@@ -296,7 +305,7 @@ def obliquity(affine: np.ndarray) -> float:
     # Extract the 3x3 rotation/scale part
     rs = affine[:3, :3]
     # Normalize columns to get direction cosines
-    norms = np.sqrt(np.sum(rs ** 2, axis=0))
+    norms = np.sqrt(np.sum(rs**2, axis=0))
     norms[norms == 0] = 1.0
     cosines = rs / norms
     # The obliquity is the maximum angle between each column and
@@ -313,7 +322,9 @@ def obliquity(affine: np.ndarray) -> float:
     return float(max_angle)
 
 
-def vox2out_vox(affine: np.ndarray, shape: Sequence[int]) -> Tuple[np.ndarray, Sequence[int]]:
+def vox2out_vox(
+    affine: np.ndarray, shape: Sequence[int]
+) -> Tuple[np.ndarray, Sequence[int]]:
     """Compute the voxel-to-output-voxel mapping for canonical orientation.
 
     This determines the transform needed to reorient the data to the
@@ -387,9 +398,12 @@ def perm_mat(ornt: np.ndarray) -> np.ndarray:
     return mat
 
 
-def rescale_affine(affine: np.ndarray, shape: Sequence[int],
-                   zooms: Sequence[float],
-                   new_shape: Optional[Sequence[int]] = None) -> np.ndarray:
+def rescale_affine(
+    affine: np.ndarray,
+    shape: Sequence[int],
+    zooms: Sequence[float],
+    new_shape: Optional[Sequence[int]] = None,
+) -> np.ndarray:
     """Rescale an affine to reflect new voxel sizes.
 
     Adjusts the affine so the field of view is preserved (centered)

@@ -31,7 +31,6 @@ import nibabel as nib
 import numpy as np
 from scipy import ndimage
 
-
 _FWHM_TO_SIGMA = 1.0 / (2.0 * math.sqrt(2.0 * math.log(2.0)))
 
 
@@ -51,8 +50,6 @@ def smooth_fwhm_mm(
     if mask_img is not None:
         mask = np.asarray(mask_img.dataobj).astype(bool)
         if mask.shape != data.shape:
-            raise ValueError(
-                f"mask shape {mask.shape} != stat-map shape {data.shape}"
-            )
+            raise ValueError(f"mask shape {mask.shape} != stat-map shape {data.shape}")
         smoothed = np.where(mask, smoothed, 0.0)
     return nib.Nifti1Image(smoothed, stat_img.affine)

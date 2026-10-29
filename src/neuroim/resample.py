@@ -18,12 +18,11 @@ try:
 except ImportError:
     HAS_NIBABEL = False
 
-from .neuro_vol import NeuroVol, DenseNeuroVol, SparseNeuroVol
+from .neuro_vol import NeuroVol, DenseNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_space import NeuroSpace
 from .axis import LEFT_RIGHT, RIGHT_LEFT, ANT_POST, POST_ANT, INF_SUP, SUP_INF
 from .results import ResampleParams, hash_neurospace, receipt_for
-
 
 _LOW_OVERLAP_WARNING_THRESHOLD = 0.05
 

@@ -12,7 +12,6 @@ from __future__ import annotations
 import nibabel as nib
 import numpy as np
 
-
 # ----------------------------------------------------------------------
 # NiftiSpheresMasker substitute -- radius-8 mm sphere mean time series
 # ----------------------------------------------------------------------
@@ -30,12 +29,8 @@ def _sphere_mask(
     voxel selection: world-space Euclidean distance from the seed in mm.
     """
     nx, ny, nz = shape_3d
-    ii, jj, kk = np.meshgrid(
-        np.arange(nx), np.arange(ny), np.arange(nz), indexing="ij"
-    )
-    voxel_xyz = np.stack(
-        [ii.ravel(), jj.ravel(), kk.ravel(), np.ones(ii.size)], axis=0
-    )
+    ii, jj, kk = np.meshgrid(np.arange(nx), np.arange(ny), np.arange(nz), indexing="ij")
+    voxel_xyz = np.stack([ii.ravel(), jj.ravel(), kk.ravel(), np.ones(ii.size)], axis=0)
     world = (affine @ voxel_xyz)[:3].T.reshape(nx, ny, nz, 3)
     dists = np.linalg.norm(world - seed_xyz[None, None, None, :], axis=-1)
     return dists <= radius_mm
@@ -101,9 +96,9 @@ def _pearson_seed_to_voxels(
     seed = np.asarray(seed_ts, dtype=np.float64)
     voxels = np.asarray(voxel_by_time, dtype=np.float64)
     seed_z = (seed - seed.mean()) / seed.std(ddof=1)
-    voxels_z = (
-        voxels - voxels.mean(axis=1, keepdims=True)
-    ) / voxels.std(axis=1, keepdims=True, ddof=1)
+    voxels_z = (voxels - voxels.mean(axis=1, keepdims=True)) / voxels.std(
+        axis=1, keepdims=True, ddof=1
+    )
     n = seed_z.size
     return (voxels_z @ seed_z) / (n - 1)
 

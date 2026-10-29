@@ -13,6 +13,7 @@ import numpy as np
 from .axis import AxisSet, AxisSet3D
 from .file_format import FileFormat
 
+
 class MetaInfo:
     """Base class for neuroimaging metadata.
 
@@ -67,6 +68,7 @@ class MetaInfo:
         if self.ndim >= 4:
             return self.dims[3]
         return 1
+
 
 class FileMetaInfo(MetaInfo):
     """Extended metadata for file-based neuroimaging data.
@@ -185,6 +187,7 @@ class FileMetaInfo(MetaInfo):
         # Add byte order
         return np.dtype(f"{self.byte_order}{base_dtype.str[1:]}")
 
+
 class NIFTIMetaInfo(FileMetaInfo):
     """NIfTI-specific metadata.
 
@@ -218,6 +221,7 @@ class NIFTIMetaInfo(FileMetaInfo):
         if isinstance(desc, bytes):
             return desc.decode("utf-8").strip("\x00")
         return str(desc).strip()
+
 
 class AFNIMetaInfo(FileMetaInfo):
     """AFNI-specific metadata.

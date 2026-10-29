@@ -18,7 +18,6 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-import nibabel as nib
 import numpy as np
 import pytest
 

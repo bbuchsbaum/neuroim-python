@@ -72,4 +72,3 @@ def native_to_template_tsnr(
     return temporal_snr_map(resampled, template_mask), manifest(
         native_bold, template_bold, template_mask
     )
-

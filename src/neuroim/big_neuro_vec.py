@@ -9,10 +9,14 @@ Lazy 4D vector container for datasets that are too large to keep fully in memory
 import numpy as np
 import tempfile
 import os
-from typing import Optional, Union, Tuple
+from typing import TYPE_CHECKING, Optional, Union, Tuple
 from .neuro_vec import NeuroVec
 from .neuro_space import NeuroSpace
-from .neuro_vol import NeuroVol, DenseNeuroVol
+from .neuro_vol import DenseNeuroVol
+
+if TYPE_CHECKING:
+    from .neuro_vec import DenseNeuroVec, SparseNeuroVec
+
 
 class BigNeuroVec(NeuroVec):
     """A memory-mapped 4D neuroimaging vector.
@@ -67,7 +71,8 @@ class BigNeuroVec(NeuroVec):
             expected_shape = tuple(space.dim)
             if data.shape != expected_shape:
                 raise ValueError(
-                    f"data shape {data.shape} does not match space dimensions {expected_shape}"
+                    f"data shape {data.shape} does not match space dimensions "
+                    f"{expected_shape}"
                 )
 
             # Handle filename
@@ -378,7 +383,7 @@ class BigNeuroVec(NeuroVec):
             self.close()
             if self._owns_file and os.path.exists(self.filename):
                 os.unlink(self.filename)
-        except:
+        except Exception:
             pass
 
     def __repr__(self):
@@ -392,6 +397,7 @@ class BigNeuroVec(NeuroVec):
             f"  Filename  : {self.filename}\n"
             f"  Mode      : {self.mode}"
         )
+
 
 def big_neurovecseq(vols: list, mask: Optional[np.ndarray] = None) -> BigNeuroVec:
     """Create BigNeuroVec from a sequence of volumes.

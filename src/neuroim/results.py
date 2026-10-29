@@ -155,11 +155,13 @@ class Receipt:
         if not text.startswith(RECEIPT_NIFTI_PREFIX):
             return None
         try:
-            return cls.from_json(text[len(RECEIPT_NIFTI_PREFIX):])
+            return cls.from_json(text[len(RECEIPT_NIFTI_PREFIX) :])
         except (json.JSONDecodeError, KeyError, TypeError):
             return None
 
-    def merge(self, other: "Receipt", *, method_name: Optional[str] = None) -> "Receipt":
+    def merge(
+        self, other: "Receipt", *, method_name: Optional[str] = None
+    ) -> "Receipt":
         """Combine two upstream receipts into one downstream receipt.
 
         Intermediate ops that consume two typed-result inputs should call
@@ -190,9 +192,7 @@ class Receipt:
                     f"{other.input_space_hash!r}"
                 )
             if mask_diff:
-                details.append(
-                    f"mask_hash: {self.mask_hash!r} vs {other.mask_hash!r}"
-                )
+                details.append(f"mask_hash: {self.mask_hash!r} vs {other.mask_hash!r}")
             raise ValueError(
                 "Receipt.merge: upstream receipts disagree:\n  " + "\n  ".join(details)
             )
@@ -255,7 +255,9 @@ class SearchlightResult:
     provenance: Receipt
     method_name: str = ""
 
-    def map_to_volume(self, *, dtype: Any = np.float64, fill: float = np.nan) -> "NeuroVol":
+    def map_to_volume(
+        self, *, dtype: Any = np.float64, fill: float = np.nan
+    ) -> "NeuroVol":
         """Place each scalar value at its searchlight centre in a NeuroVol.
 
         The returned :class:`~neuroim.neuro_vol.DenseNeuroVol` carries this
@@ -578,11 +580,7 @@ def chain_receipt(
     return replace(
         upstream_receipt,
         method_name=f"{upstream_receipt.method_name}+{params.method_name}",
-        n_voxels=(
-            upstream_receipt.n_voxels
-            if n_voxels is None
-            else int(n_voxels)
-        ),
+        n_voxels=(upstream_receipt.n_voxels if n_voxels is None else int(n_voxels)),
     )
 
 
@@ -649,9 +647,7 @@ def _require_compatible(
     diff = self_receipt.diff(other_receipt)
     blocking = {k: v for k, v in diff.items() if k in {"input_space_hash", "mask_hash"}}
     if blocking:
-        lines = [
-            f"{k}: self={a!r} vs other={b!r}" for k, (a, b) in blocking.items()
-        ]
+        lines = [f"{k}: self={a!r} vs other={b!r}" for k, (a, b) in blocking.items()]
         raise ValueError(
             f"{self_label}: receipts disagree on space/mask:\n  " + "\n  ".join(lines)
         )

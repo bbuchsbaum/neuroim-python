@@ -7,7 +7,7 @@ import warnings
 
 import numpy as np
 from typing import Union, Tuple, Optional, List
-from abc import ABC, abstractmethod
+from abc import ABC
 from .neuro_space import NeuroSpace
 from .protocols import MaskLike, NeuroVolLike
 
@@ -27,8 +27,6 @@ def _warn_legacy_return(return_legacy: bool) -> None:
 
 class ROI(ABC):
     """Abstract base class for Region of Interest (ROI) objects."""
-
-    pass
 
 
 class ROICoords(ROI):
@@ -129,7 +127,8 @@ class ROIVol(ROICoords):
         data = np.asarray(data).ravel()
         if len(data) != len(self.coords):
             raise ValueError(
-                f"length of data ({len(data)}) must equal number of coordinates ({len(self.coords)})"
+                f"length of data ({len(data)}) must equal number of coordinates "
+                f"({len(self.coords)})"
             )
 
         self.data = data

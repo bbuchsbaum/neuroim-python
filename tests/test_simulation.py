@@ -30,14 +30,18 @@ class TestSimulateFmri:
 
     def test_signal_exceeds_noise(self):
         space = NeuroSpace(dim=[12, 12, 12])
-        result = simulate_fmri(space, n_timepoints=50, noise_sd=0.1, signal_sd=5.0, seed=0)
+        result = simulate_fmri(
+            space, n_timepoints=50, noise_sd=0.1, signal_sd=5.0, seed=0
+        )
         # With strong signal, max absolute value should be notably larger
         # than what pure noise of sd=0.1 would give
         assert np.max(np.abs(result.data)) > 1.0
 
     def test_no_regions(self):
         space = NeuroSpace(dim=[6, 6, 6])
-        result = simulate_fmri(space, n_timepoints=10, n_regions=0, noise_sd=1.0, seed=7)
+        result = simulate_fmri(
+            space, n_timepoints=10, n_regions=0, noise_sd=1.0, seed=7
+        )
         assert result.shape == (6, 6, 6, 10)
         # Pure noise -- standard deviation should be close to 1
         assert 0.5 < np.std(result.data) < 2.0

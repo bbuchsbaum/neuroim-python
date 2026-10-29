@@ -77,9 +77,7 @@ def concat(*vecs: NeuroVecLike) -> DenseNeuroVec:
     # back to a fresh "concat" Receipt anchored on the first input's space.
     from .results import ConcatParams, receipt_for
 
-    upstream_receipts = [
-        getattr(v, "provenance", None) for v in vecs
-    ]
+    upstream_receipts = [getattr(v, "provenance", None) for v in vecs]
     upstream_receipts = [r for r in upstream_receipts if r is not None]
     base = receipt_for(
         concat_space,
@@ -155,7 +153,9 @@ def scale_series(vec: NeuroVecLike, method: str = "zscore") -> DenseNeuroVec:
     return DenseNeuroVec(data, vec.space)
 
 
-def mapf(vol_or_vec: Union[NeuroVolLike, NeuroVecLike], func: Callable) -> Union[DenseNeuroVol, DenseNeuroVec]:
+def mapf(
+    vol_or_vec: Union[NeuroVolLike, NeuroVecLike], func: Callable
+) -> Union[DenseNeuroVol, DenseNeuroVec]:
     """Apply a function element-wise to the data of a volume or vector.
 
     Parameters
@@ -194,22 +194,42 @@ def _spatial_affine(space: NeuroSpace) -> np.ndarray:
     return affine
 
 
-def _space_with_downsampled_grid(space: NeuroSpace, out_shape: tuple[int, int, int]) -> NeuroSpace:
+def _space_with_downsampled_grid(
+    space: NeuroSpace, out_shape: tuple[int, int, int]
+) -> NeuroSpace:
     from .orientation import rescale_affine
 
     in_shape = tuple(int(d) for d in space.dim[:3])
     old_spacing = np.asarray(space.spacing[:3], dtype=float)
-    new_spacing = old_spacing * (np.asarray(in_shape, dtype=float) / np.asarray(out_shape, dtype=float))
-    new_affine = rescale_affine(_spatial_affine(space), in_shape, new_spacing, out_shape)
+    new_spacing = old_spacing * (
+        np.asarray(in_shape, dtype=float) / np.asarray(out_shape, dtype=float)
+    )
+    new_affine = rescale_affine(
+        _spatial_affine(space), in_shape, new_spacing, out_shape
+    )
 
     if space.ndim == 4:
         new_dim = (*out_shape, int(space.dim[3]))
-        spacing = np.concatenate([new_spacing, np.asarray(space.spacing[3:4], dtype=float)])
-        origin_tail = np.asarray(space.origin[3:4], dtype=float) if len(space.origin) > 3 else np.array([0.0])
+        spacing = np.concatenate(
+            [new_spacing, np.asarray(space.spacing[3:4], dtype=float)]
+        )
+        origin_tail = (
+            np.asarray(space.origin[3:4], dtype=float)
+            if len(space.origin) > 3
+            else np.array([0.0])
+        )
         origin = np.concatenate([new_affine[:3, 3], origin_tail])
-        return NeuroSpace(new_dim, spacing=spacing, origin=origin, axes=space.axes, trans=new_affine)
+        return NeuroSpace(
+            new_dim, spacing=spacing, origin=origin, axes=space.axes, trans=new_affine
+        )
 
-    return NeuroSpace(out_shape, spacing=new_spacing, origin=new_affine[:3, 3], axes=space.axes, trans=new_affine)
+    return NeuroSpace(
+        out_shape,
+        spacing=new_spacing,
+        origin=new_affine[:3, 3],
+        axes=space.axes,
+        trans=new_affine,
+    )
 
 
 def _resolve_downsample_shape(
@@ -237,7 +257,9 @@ def _resolve_downsample_shape(
             out = np.maximum(np.round(shape_arr * fac), 1).astype(int)
         else:
             if not np.allclose(fac, np.round(fac)):
-                raise ValueError("factor values greater than 1 must be integer block sizes")
+                raise ValueError(
+                    "factor values greater than 1 must be integer block sizes"
+                )
             out = np.floor(shape_arr / np.round(fac).astype(int)).astype(int)
     elif spacing is not None:
         target_spacing = np.asarray(spacing, dtype=float)
@@ -256,12 +278,18 @@ def _resolve_downsample_shape(
             raise ValueError("outdim must contain exactly 3 values")
         ratios = shape_arr / out.astype(float)
         if np.ptp(ratios) > 1e-6:
-            warnings.warn("downsample outdim changes the spatial aspect ratio", UserWarning, stacklevel=2)
+            warnings.warn(
+                "downsample outdim changes the spatial aspect ratio",
+                UserWarning,
+                stacklevel=2,
+            )
 
     if np.any(out <= 0):
         raise ValueError("downsample output dimensions must be positive")
     if np.any(out > shape_arr):
-        raise ValueError("downsample output dimensions must not exceed input dimensions")
+        raise ValueError(
+            "downsample output dimensions must not exceed input dimensions"
+        )
     return tuple(int(x) for x in out)
 
 

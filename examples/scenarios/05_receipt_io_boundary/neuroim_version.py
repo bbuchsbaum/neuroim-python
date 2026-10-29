@@ -49,6 +49,7 @@ def write_searchlight_mean(
     )
     img = sl.to_nibabel()
     import nibabel as nib
+
     nib.save(img, str(out_path))
     return sl
 

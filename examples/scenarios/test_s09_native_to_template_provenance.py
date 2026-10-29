@@ -54,9 +54,13 @@ def native_bold(template_fixture):
     return ni.DenseNeuroVec(data, native_space)
 
 
-def test_baseline_manifest_records_source_and_target_spaces(template_fixture, native_bold):
+def test_baseline_manifest_records_source_and_target_spaces(
+    template_fixture, native_bold
+):
     template_bold_img, template_mask_img = to_nibabel(template_fixture)
-    native_img = nib.Nifti1Image(np.asarray(native_bold.data), _spatial_affine(native_bold.space))
+    native_img = nib.Nifti1Image(
+        np.asarray(native_bold.data), _spatial_affine(native_bold.space)
+    )
     out, manifest = baseline_nibabel.native_to_template_tsnr(
         native_img, template_bold_img, template_mask_img
     )
@@ -67,7 +71,9 @@ def test_baseline_manifest_records_source_and_target_spaces(template_fixture, na
     assert manifest["resample_order"] == 1
 
 
-def test_neuroim_resampled_map_is_typed_and_template_compatible(template_fixture, native_bold):
+def test_neuroim_resampled_map_is_typed_and_template_compatible(
+    template_fixture, native_bold
+):
     out = neuroim_version.native_to_template_tsnr(
         native_bold, template_fixture.bold, template_fixture.mask
     )
@@ -77,7 +83,9 @@ def test_neuroim_resampled_map_is_typed_and_template_compatible(template_fixture
     assert out.provenance.mask_hash
 
 
-def test_neuroim_receipt_records_resample_then_temporal_snr(template_fixture, native_bold):
+def test_neuroim_receipt_records_resample_then_temporal_snr(
+    template_fixture, native_bold
+):
     out = neuroim_version.native_to_template_tsnr(
         native_bold, template_fixture.bold, template_fixture.mask
     )

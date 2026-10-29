@@ -1,14 +1,19 @@
 import numpy as np
-from typing import List, Dict
+from typing import Dict
 from .neuro_vol import NeuroVol, LogicalNeuroVol, SparseNeuroVol, DenseNeuroVol
-from .neuro_space import NeuroSpace
+
 
 class ClusteredNeuroVol(NeuroVol):
     """
     A class representing a clustered volumetric neuroimaging data.
     """
 
-    def __init__(self, mask: LogicalNeuroVol, clusters: np.ndarray, label_map: Dict[str, int] = None):
+    def __init__(
+        self,
+        mask: LogicalNeuroVol,
+        clusters: np.ndarray,
+        label_map: Dict[str, int] = None,
+    ):
         """
         Initialize a ClusteredNeuroVol.
 
@@ -26,7 +31,8 @@ class ClusteredNeuroVol(NeuroVol):
             clusters = clusters_array.ravel(order="F")
             if clusters.size != len(mask_indices):
                 raise ValueError(
-                    f"clusters length ({clusters.size}) must match number of mask voxels ({len(mask_indices)})"
+                    f"clusters length ({clusters.size}) must match number of mask "
+                    f"voxels ({len(mask_indices)})"
                 )
         self._mask_indices = mask_indices.astype(int)
         self.clusters = clusters
@@ -35,7 +41,8 @@ class ClusteredNeuroVol(NeuroVol):
 
     def _create_cluster_map(self) -> Dict[int, np.ndarray]:
         """
-        Create a mapping from cluster IDs to the set of 1D spatial indices belonging to that cluster.
+        Create a mapping from cluster IDs to the set of 1D spatial indices belonging to
+        that cluster.
         """
         # One stable sort instead of a full scan per cluster (O(N log N), not
         # O(K * N)); voxels keep their ascending spatial order within a cluster.
@@ -60,7 +67,9 @@ class ClusteredNeuroVol(NeuroVol):
             return self.mask[key]
 
     def __setitem__(self, key, value):
-        raise TypeError("ClusteredNeuroVol is read-only and does not support item assignment")
+        raise TypeError(
+            "ClusteredNeuroVol is read-only and does not support item assignment"
+        )
 
     def get_cluster_mask(self, cluster_id: int) -> LogicalNeuroVol:
         """
@@ -70,7 +79,9 @@ class ClusteredNeuroVol(NeuroVol):
         :return: A LogicalNeuroVol representing the mask of the specified cluster.
         """
         cluster_mask = np.zeros(self.shape, dtype=bool)
-        cluster_mask[np.unravel_index(self.cluster_map[cluster_id], self.shape, order="F")] = True
+        cluster_mask[
+            np.unravel_index(self.cluster_map[cluster_id], self.shape, order="F")
+        ] = True
         return LogicalNeuroVol(cluster_mask, self.space)
 
     def get_cluster_data(self, data: NeuroVol, cluster_id: int) -> np.ndarray:
@@ -106,7 +117,9 @@ class ClusteredNeuroVol(NeuroVol):
 
         :return: A dictionary mapping cluster IDs to their sizes.
         """
-        return {cluster_id: len(indices) for cluster_id, indices in self.cluster_map.items()}
+        return {
+            cluster_id: len(indices) for cluster_id, indices in self.cluster_map.items()
+        }
 
     def num_clusters(self) -> int:
         """
@@ -153,18 +166,18 @@ class ClusteredNeuroVol(NeuroVol):
     def as_sparse(self) -> SparseNeuroVol:
         """Convert to SparseNeuroVol."""
         return self.to_sparse()
-    
+
     def as_dense(self) -> DenseNeuroVol:
         """Convert to DenseNeuroVol."""
         dense_flat = np.zeros(int(np.prod(self.shape)), dtype=self.clusters.dtype)
         dense_flat[self._mask_indices] = self.clusters
         dense_data = dense_flat.reshape(self.shape, order="F")
         return DenseNeuroVol(dense_data, self.space)
-    
+
     def as_logical(self) -> LogicalNeuroVol:
         """Convert to LogicalNeuroVol."""
         return self.mask
-    
+
     def _arithmetic_op(self, other, op):
         """Arithmetic operations delegate to dense representation."""
         return self.as_dense()._arithmetic_op(other, op)
@@ -174,14 +187,19 @@ class ClusteredNeuroVol(NeuroVol):
         return self.as_dense()._comparison_op(other, op)
 
     def __repr__(self):
-        return (f"ClusteredNeuroVol(\n"
-                f"  Num clusters   : {self.num_clusters()}\n"
-                f"  Dimension      : {self.shape}\n"
-                f"  Spacing        : {' X '.join(map(str, self.space.spacing))}\n"
-                f"  Origin         : {' X '.join(map(str, self.space.origin))}\n"
-                f"  Axes           : {' '.join(ax.axis for ax in self.space.axes)}")
+        return (
+            f"ClusteredNeuroVol(\n"
+            f"  Num clusters   : {self.num_clusters()}\n"
+            f"  Dimension      : {self.shape}\n"
+            f"  Spacing        : {' X '.join(map(str, self.space.spacing))}\n"
+            f"  Origin         : {' X '.join(map(str, self.space.origin))}\n"
+            f"  Axes           : {' '.join(ax.axis for ax in self.space.axes)}"
+        )
 
-def clustered_neuro_vol(mask: LogicalNeuroVol, clusters: np.ndarray, label_map: Dict[str, int] = None) -> ClusteredNeuroVol:
+
+def clustered_neuro_vol(
+    mask: LogicalNeuroVol, clusters: np.ndarray, label_map: Dict[str, int] = None
+) -> ClusteredNeuroVol:
     """
     Factory function to create a ClusteredNeuroVol instance.
 

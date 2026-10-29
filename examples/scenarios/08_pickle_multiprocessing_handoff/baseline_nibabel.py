@@ -19,7 +19,9 @@ import nibabel as nib
 import numpy as np
 
 
-def temporal_snr_image(bold_img: nib.Nifti1Image, mask_img: nib.Nifti1Image) -> nib.Nifti1Image:
+def temporal_snr_image(
+    bold_img: nib.Nifti1Image, mask_img: nib.Nifti1Image
+) -> nib.Nifti1Image:
     """Compute a masked temporal-SNR map as a bare nibabel image."""
     if bold_img.shape[:3] != mask_img.shape[:3]:
         raise ValueError("bold and mask spatial shapes differ")
@@ -36,7 +38,9 @@ def temporal_snr_image(bold_img: nib.Nifti1Image, mask_img: nib.Nifti1Image) -> 
     return nib.Nifti1Image(out, bold_img.affine)
 
 
-def manual_manifest(bold_img: nib.Nifti1Image, mask_img: nib.Nifti1Image) -> dict[str, Any]:
+def manual_manifest(
+    bold_img: nib.Nifti1Image, mask_img: nib.Nifti1Image
+) -> dict[str, Any]:
     """Hand-written provenance a careful nibabel user must keep in sync."""
     mask = np.asarray(mask_img.get_fdata()).astype(bool)
     return {
@@ -86,4 +90,3 @@ print(json.dumps(summary, sort_keys=True))
         check=True,
     )
     return json.loads(result.stdout)
-

@@ -9,13 +9,23 @@ Binary I/O helpers for neuroimaging file formats.
 from typing import Union, BinaryIO, Optional
 from pathlib import Path
 import numpy as np
-import struct
 
 _FIXED_TYPES = {
-    "float32": "f4", "float": "f4", "single": "f4",
-    "float64": "f8", "double": "f8",
-    "int8": "i1", "int16": "i2", "short": "i2", "int32": "i4", "int64": "i8",
-    "long": "i8", "uint8": "u1", "byte": "u1", "uint16": "u2", "uint32": "u4",
+    "float32": "f4",
+    "float": "f4",
+    "single": "f4",
+    "float64": "f8",
+    "double": "f8",
+    "int8": "i1",
+    "int16": "i2",
+    "short": "i2",
+    "int32": "i4",
+    "int64": "i8",
+    "long": "i8",
+    "uint8": "u1",
+    "byte": "u1",
+    "uint16": "u2",
+    "uint32": "u4",
     "uint64": "u8",
 }
 
@@ -167,6 +177,7 @@ class BinaryReader:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+
 class BinaryWriter:
     """Class supporting writing of bulk binary data to a connection.
 
@@ -253,6 +264,7 @@ class BinaryWriter:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
 
 class ColumnReader:
     """Reader for column-oriented binary data.

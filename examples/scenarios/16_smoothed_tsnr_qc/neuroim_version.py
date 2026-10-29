@@ -33,4 +33,3 @@ def smoothed_tsnr_qc(
         "provenance_chain": smoothed.provenance.method_name,
     }
     return smoothed, summary
-

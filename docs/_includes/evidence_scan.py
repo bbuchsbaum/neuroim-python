@@ -7,6 +7,7 @@ fails BOTH renders visibly rather than silently emitting a wrong number.
 
 Lives under `_includes/` so Quarto never renders it as a page.
 """
+
 from __future__ import annotations
 
 import re

@@ -145,7 +145,7 @@ def test_atlas_spec_and_artifact_support_future_providers():
     artifact = AtlasArtifact(
         role="label_image",
         source_url="https://www.templateflow.org",
-        source_ref="tpl-MNI152NLin6Asym_atlas-Schaefer2018_desc-200Parcels7Networks_dseg.nii.gz",
+        source_ref="tpl-MNI152NLin6Asym_atlas-Schaefer2018_desc-200Parcels7Networks_dseg.nii.gz",  # noqa: E501
         hash="abc123",
         backend="templateflow",
         format="nii.gz",

@@ -11,8 +11,8 @@ import numpy as np
 import time
 import neuroim as pn
 from neuroim.neuro_space import NeuroSpace
-from neuroim.neuro_vol import DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
-from neuroim.neuro_vec import DenseNeuroVec, SparseNeuroVec
+from neuroim.neuro_vol import DenseNeuroVol, LogicalNeuroVol
+from neuroim.neuro_vec import DenseNeuroVec
 import tempfile
 
 
@@ -75,14 +75,14 @@ class TestCorePerformance:
         # Small volume
         with Timer() as t:
             space = NeuroSpace(dim=(64, 64, 32))
-            vol = DenseNeuroVol(small_data, space)
+            DenseNeuroVol(small_data, space)
 
         assert t.elapsed < self.R_BASELINES["vol_creation_small"] * 1.2
 
         # Large volume
         with Timer() as t:
             space = NeuroSpace(dim=(256, 256, 128))
-            vol = DenseNeuroVol(large_data, space)
+            DenseNeuroVol(large_data, space)
 
         assert t.elapsed < self.R_BASELINES["vol_creation_large"] * 1.2
 
@@ -93,7 +93,7 @@ class TestCorePerformance:
 
         # Time arithmetic operations
         with Timer() as t:
-            result = small_vol * 2 + small_vol - 5
+            small_vol * 2 + small_vol - 5
 
         assert t.elapsed < self.R_BASELINES["vol_arithmetic"] * 1.2
 
@@ -115,9 +115,9 @@ class TestCorePerformance:
     def test_slicing_performance(self, small_vol):
         """Test slice extraction speed."""
         with Timer() as t:
-            slice_z = small_vol[:, :, 15]
-            slice_y = small_vol[:, 32, :]
-            slice_x = small_vol[32, :, :]
+            small_vol[:, :, 15]
+            small_vol[:, 32, :]
+            small_vol[32, :, :]
 
         assert t.elapsed < self.R_BASELINES["vol_slicing"] * 3 * 1.2
 
@@ -125,7 +125,7 @@ class TestCorePerformance:
         """Test time series extraction speed."""
         # Single voxel
         with Timer() as t:
-            ts = small_vec.series(np.array([[32, 32, 16]]))
+            small_vec.series(np.array([[32, 32, 16]]))
 
         assert t.elapsed < self.R_BASELINES["series_extraction"] * 1.2
 
@@ -133,7 +133,7 @@ class TestCorePerformance:
         coords = np.random.randint(0, 32, size=(100, 3))
 
         with Timer() as t:
-            ts_multi = small_vec.series(coords)
+            small_vec.series(coords)
 
         assert t.elapsed < self.R_BASELINES["series_extraction"] * 100 * 1.2
 
@@ -149,17 +149,17 @@ class TestCorePerformance:
 
             # Read performance
             with Timer() as t_read:
-                vol_loaded = pn.io.read_vol(tmp.name)
+                pn.io.read_vol(tmp.name)
 
             assert t_read.elapsed < self.R_BASELINES["io_read_small"] * 1.2
 
     def test_sparse_conversion_performance(self, small_vol):
         """Test dense to sparse conversion speed."""
         # Create a mask
-        mask = small_vol > 0
+        small_vol > 0
 
         with Timer() as t:
-            sparse_vol = small_vol.as_sparse()
+            small_vol.as_sparse()
 
         assert t.elapsed < self.R_BASELINES["sparse_conversion"] * 1.2
 
@@ -180,7 +180,7 @@ class TestSearchlightPerformance:
             return np.mean(data) if data.size > 0 else 0
 
         with Timer() as t:
-            result = pn.searchlight_apply(
+            pn.searchlight_apply(
                 mask=mask, radius=3, method=simple_func, combiner="mean"
             )
 
@@ -205,7 +205,7 @@ class TestSearchlightPerformance:
                 return np.mean(data) if data.size > 0 else 0
 
             with Timer() as t:
-                result = pn.searchlight_apply(
+                pn.searchlight_apply(
                     mask=mask, radius=2, method=simple_func, combiner="mean"
                 )
 
@@ -251,7 +251,7 @@ class TestMemoryMappedPerformance:
 
             # Read performance
             with Timer() as t_read:
-                data_back = big_vec[:, :, :, 0]
+                big_vec[:, :, :, 0]
 
             # Read should also be fast
             assert t_read.elapsed < 0.5
@@ -273,7 +273,7 @@ class TestStatisticalOperationsPerformance:
         with Timer() as t:
             # partition takes vol and k, applies mask internally if vol is masked
             masked_vol = vol * mask
-            result = pn.partition(masked_vol, k=10)
+            pn.partition(masked_vol, k=10)
 
         # Should complete in reasonable time
         assert t.elapsed < 5.0  # 5 seconds for k-means on ~65k voxels
@@ -291,7 +291,7 @@ class TestStatisticalOperationsPerformance:
         vol = DenseNeuroVol(data, space)
 
         with Timer() as t:
-            result = pn.conn_comp(vol, threshold=0.5)
+            pn.conn_comp(vol, threshold=0.5)
 
         # Should complete quickly
         assert t.elapsed < 1.0
@@ -311,18 +311,16 @@ class TestPerformanceOptimizations:
 
         # Modify the slice
         if hasattr(slice_vol, "data"):
-            original_value = slice_vol.data[50, 50]
+            slice_vol.data[50, 50]
             slice_vol.data[50, 50] = 999
 
             # Check if it affected the original (view behavior)
             # This is implementation-dependent
-            pass
 
     def test_chunked_operations(self):
         """Test that large operations are chunked appropriately."""
         # This would test internal chunking strategies
         # for operations that might exceed memory
-        pass
 
     def test_cache_efficiency(self):
         """Test that repeated operations use caching."""
@@ -330,12 +328,12 @@ class TestPerformanceOptimizations:
         vol = DenseNeuroVol(np.random.randn(64, 64, 32), space)
 
         # First call might compute stats
-        with Timer() as t1:
-            mean1 = vol.mean()
+        with Timer():
+            vol.mean()
 
         # Second call should be faster if cached
-        with Timer() as t2:
-            mean2 = vol.mean()
+        with Timer():
+            vol.mean()
 
         # This is implementation-dependent
         # assert t2.elapsed < t1.elapsed * 0.5
@@ -345,10 +343,10 @@ def create_performance_report():
     """Generate a performance comparison report."""
     report = """
     # neuroim Performance Report
-    
+
     ## Summary
     Python implementation performance vs R baseline (target: within 20%)
-    
+
     | Operation | R Time (s) | Python Time (s) | Ratio | Status |
     |-----------|------------|-----------------|-------|--------|
     | Volume Creation (small) | 0.001 | TBD | TBD | TBD |
@@ -361,7 +359,7 @@ def create_performance_report():
     | I/O Write (small) | 0.040 | TBD | TBD | TBD |
     | Searchlight (small) | 0.500 | TBD | TBD | TBD |
     | Sparse Conversion | 0.010 | TBD | TBD | TBD |
-    
+
     ## Recommendations
     - Operations exceeding 20% threshold should be optimized
     - Consider Numba/Cython for critical bottlenecks

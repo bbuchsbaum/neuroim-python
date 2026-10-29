@@ -10,12 +10,10 @@ import numpy as np
 from typing import Union, Optional, Callable, Dict
 from joblib import Parallel, delayed
 from .neuro_vol import NeuroVol, LogicalNeuroVol, DenseNeuroVol
-from .neuro_vec import NeuroVec
-from .results import SearchlightResult, make_receipt
+from .results import SearchlightResult
 from .searchlight import _as_logical_mask, searchlight_iterator
 from .clustered_neuro_vol import ClusteredNeuroVol
 from .protocols import MaskLike, NeuroVecLike, NeuroVolLike
-
 
 _LEGACY_DEPRECATION_MSG = (
     "return_legacy=True is deprecated and will be removed in the next minor "

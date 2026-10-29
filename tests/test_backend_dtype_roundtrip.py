@@ -33,11 +33,9 @@ from neuroim import (
     LogicalNeuroVol,
     MappedNeuroVec,
     NeuroSpace,
-    SparseNeuroVec,
     SparseNeuroVol,
 )
 from neuroim.io import read_vec, read_vol, write_vec, write_vol
-
 
 _VOL_SHAPE: Tuple[int, int, int] = (6, 6, 6)
 _VEC_SHAPE: Tuple[int, int, int, int] = (6, 6, 6, 4)

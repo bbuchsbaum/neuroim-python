@@ -2,12 +2,18 @@
 
 import pytest
 import numpy as np
-from scipy import sparse
 
 from neuroim import (
-    DenseNeuroVol, LogicalNeuroVol, DenseNeuroVec, NeuroSpace,
-    cgb_make_graph, cgb_filter, cgb_smooth,
-    cgb_smooth_loro, cgb_nuisance, laplace_enhance,
+    DenseNeuroVol,
+    LogicalNeuroVol,
+    DenseNeuroVec,
+    NeuroSpace,
+    cgb_make_graph,
+    cgb_filter,
+    cgb_smooth,
+    cgb_smooth_loro,
+    cgb_nuisance,
+    laplace_enhance,
 )
 
 
@@ -286,7 +292,7 @@ class TestLaplaceEnhance:
 
     def test_enhancement_increases_contrast(self):
         """Enhancement should sharpen differences."""
-        rng = np.random.RandomState(99)
+        np.random.RandomState(99)
         space = _make_space_3d(6, 6, 6)
         # Create a blob in the center
         data = np.zeros((6, 6, 6))

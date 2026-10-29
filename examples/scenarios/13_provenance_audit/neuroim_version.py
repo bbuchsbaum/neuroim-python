@@ -26,7 +26,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 import nibabel as nib
-import numpy as np
 
 import neuroim as ni
 

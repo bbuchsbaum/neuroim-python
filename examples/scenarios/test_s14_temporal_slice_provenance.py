@@ -5,8 +5,6 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-import nibabel as nib
-import numpy as np
 import pytest
 
 import neuroim as ni
@@ -72,14 +70,20 @@ def test_pain_13_time_axis_slice_preserves_neurovec_type(fixture):
     assert sliced.space.compatible_with(fixture.bold.spatial_space)
 
 
-@pytest.mark.xfail(strict=True, reason="PAIN-14: TemporalSliceParams missing, no chain through slice -> temporal_snr")
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "PAIN-14: TemporalSliceParams missing, no chain through slice -> "
+        "temporal_snr"
+    ),
+)
 def test_pain_14_receipt_records_temporal_slice_then_temporal_snr(fixture):
     out = neuroim_version.temporal_snr_after_slice(
         fixture.bold, fixture.mask, start=_DROP_FIRST
     )
     method = out.provenance.method_name
-    assert "temporal_slice" in method, (
-        f"method_name={method!r} does not record the upstream temporal slice (PAIN-14)"
-    )
+    assert (
+        "temporal_slice" in method
+    ), f"method_name={method!r} does not record the upstream temporal slice (PAIN-14)"
     assert "temporal_snr" in method
     assert f"start={_DROP_FIRST}" in method

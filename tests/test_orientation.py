@@ -284,18 +284,20 @@ class TestIntegration:
 
     def test_non_ras_roundtrip(self):
         """Reorient LPI data to RAS and back."""
-        data = np.random.rand(10, 20, 30)
+        np.random.rand(10, 20, 30)
         aff = np.diag([-2, -3, -4, 1]).astype(float)
 
         codes = affine_to_axcodes(aff)
         assert codes == ("L", "P", "I")
 
         ornt = affine_to_orientation(aff)
-        ras_ornt = axcodes_to_orientation("RAS")
-        transform = np.array([
-            [ornt[i, 0], -ornt[i, 1] if ornt[i, 1] < 0 else ornt[i, 1]]
-            for i in range(3)
-        ])
+        axcodes_to_orientation("RAS")
+        np.array(
+            [
+                [ornt[i, 0], -ornt[i, 1] if ornt[i, 1] < 0 else ornt[i, 1]]
+                for i in range(3)
+            ]
+        )
         # Just verify the orientation was detected correctly
         assert int(ornt[0, 1]) == -1
         assert int(ornt[1, 1]) == -1

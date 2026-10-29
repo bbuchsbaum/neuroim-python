@@ -4,12 +4,11 @@ Provides classes for reading, inspecting, and parsing NIfTI header
 extensions (e.g. AFNI, CIFTI, DICOM comment blocks).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Iterator, List, Optional, Any
 import xml.etree.ElementTree as ET
 
 import numpy as np
-
 
 # ---------------------------------------------------------------------------
 # Extension code registry
@@ -45,6 +44,7 @@ NiftiExtensionCodes: Dict[int, str] = {
 # NiftiExtension
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class NiftiExtension:
     """A single NIfTI header extension.
@@ -75,6 +75,7 @@ class NiftiExtension:
 # ---------------------------------------------------------------------------
 # NiftiExtensionList
 # ---------------------------------------------------------------------------
+
 
 class NiftiExtensionList:
     """Ordered collection of :class:`NiftiExtension` objects.
@@ -113,6 +114,7 @@ class NiftiExtensionList:
 # ---------------------------------------------------------------------------
 # Parsing helpers
 # ---------------------------------------------------------------------------
+
 
 def parse_extensions(img) -> NiftiExtensionList:
     """Extract extensions from a nibabel NIfTI image.
@@ -160,9 +162,7 @@ def parse_afni_extension(ext: NiftiExtension) -> Dict[str, Any]:
         If the extension code is not 4 (AFNI).
     """
     if ext.code != 4:
-        raise ValueError(
-            f"Expected AFNI extension (code 4), got code {ext.code}"
-        )
+        raise ValueError(f"Expected AFNI extension (code 4), got code {ext.code}")
 
     text = ext.content.decode("utf-8", errors="replace").rstrip("\x00")
     root = ET.fromstring(text)

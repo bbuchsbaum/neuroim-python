@@ -47,7 +47,10 @@ def concat_subjects_and_mean(
                 f"reference has {ref.shape[:3]}"
             )
         if not np.allclose(s.affine, ref.affine):
-            raise ValueError("affine mismatch across subjects — subjects do not share a spatial frame")
+            raise ValueError(
+                "affine mismatch across subjects — subjects do not share a spatial "
+                "frame"
+            )
 
     if mask_img.shape != ref.shape[:3]:
         raise ValueError("mask spatial shape does not match subject shape")
