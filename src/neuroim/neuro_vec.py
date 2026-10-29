@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import warnings as _warnings
-from typing import TYPE_CHECKING, Any, Union, Tuple, List, Optional
+from typing import TYPE_CHECKING, Any, Union, Tuple, List, Optional, cast
 
 from .neuro_space import NeuroSpace
 from .neuro_vol import (
@@ -16,9 +16,13 @@ from .neuro_vol import (
     _embed_receipt_extension,
     _restore_nibabel_xforms,
 )
-from .axis import drop_axis
+from .axis import AxisSet4D, drop_axis
 from ._array_guard import refuse_array_conversion
 from .exceptions import OutOfBoundsError, WorldOutOfBoundsError, InvalidArgumentError
+from .protocols import WorldCoord
+
+if TYPE_CHECKING:
+    from .results import Receipt
 
 
 def _readonly_array(value, *, dtype):
@@ -119,6 +123,9 @@ class NeuroVec(ABC):
         @property
         def data(self) -> np.ndarray: ...
 
+        # Every concrete vector also provides a dense conversion
+        def as_dense(self) -> "DenseNeuroVec": ...
+
     def __init__(self, space: NeuroSpace):
         if space.ndim != 4:
             raise ValueError("NeuroVec requires 4D space")
@@ -213,7 +220,7 @@ class NeuroVec(ABC):
             raise InvalidArgumentError("out_of_bounds must be 'raise' or 'zero'")
 
     def _spatial_shape(self) -> Tuple[int, int, int]:
-        return tuple(int(d) for d in self.shape[:3])
+        return cast(Tuple[int, int, int], tuple(int(d) for d in self.shape[:3]))
 
     def _time_length(self) -> int:
         return int(self.shape[3])
@@ -270,8 +277,8 @@ class NeuroVec(ABC):
 
         impl = getattr(self, "_series", None)
         if impl is not None:
-            return impl(x, y, z)
-        return _call_without_legacy_warning(self.series, x, y, z)
+            return cast(np.ndarray, impl(x, y, z))
+        return cast(np.ndarray, _call_without_legacy_warning(self.series, x, y, z))
 
     def series_at_coords(
         self, coords: np.ndarray, *, out_of_bounds: str = "raise"
@@ -294,8 +301,8 @@ class NeuroVec(ABC):
 
         impl = getattr(self, "_series", None)
         if impl is not None:
-            return impl(coords)
-        return _call_without_legacy_warning(self.series, coords)
+            return cast(np.ndarray, impl(coords))
+        return cast(np.ndarray, _call_without_legacy_warning(self.series, coords))
 
     def series_at_indices(
         self, indices: np.ndarray, *, out_of_bounds: str = "raise"
@@ -325,16 +332,17 @@ class NeuroVec(ABC):
 
         impl = getattr(self, "_series", None)
         if impl is not None:
-            return impl(int(flat[0])) if scalar else impl(flat)
-        return _call_without_legacy_warning(
-            self.series, int(flat[0]) if scalar else flat
+            return cast(np.ndarray, impl(int(flat[0])) if scalar else impl(flat))
+        return cast(
+            np.ndarray,
+            _call_without_legacy_warning(self.series, int(flat[0]) if scalar else flat),
         )
 
     def _voxel_from_world(self, world_xyz: np.ndarray) -> np.ndarray:
         world = np.asarray(world_xyz, dtype=float)
         if world.shape != (3,):
             raise ValueError(f"world_xyz must have shape (3,); got {world.shape}")
-        return np.asarray(self.space.world_to_grid(world), dtype=int)
+        return np.asarray(self.space.world_to_grid(cast(WorldCoord, world)), dtype=int)
 
     def _raise_world_oob(self, world_xyz: np.ndarray, voxel: np.ndarray) -> None:
         raise WorldOutOfBoundsError(
@@ -675,11 +683,13 @@ class NeuroVec(ABC):
 
     def to_dense(self) -> "DenseNeuroVec":
         """Convert to dense representation."""
-        return _call_without_legacy_warning(self.as_dense)
+        return cast("DenseNeuroVec", _call_without_legacy_warning(self.as_dense))
 
     def to_sparse(self, mask=None) -> "SparseNeuroVec":
         """Convert to sparse representation."""
-        return _call_without_legacy_warning(self.as_sparse, mask)
+        return cast(
+            "SparseNeuroVec", _call_without_legacy_warning(self.as_sparse, mask)
+        )
 
     @abstractmethod
     def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "NeuroVec":
@@ -687,7 +697,7 @@ class NeuroVec(ABC):
 
     def subvolumes(self, indices: Union[int, slice, np.ndarray]) -> "NeuroVec":
         """Extract a subset of volumes along the time axis."""
-        return _call_without_legacy_warning(self.sub_vector, indices)
+        return cast("NeuroVec", _call_without_legacy_warning(self.sub_vector, indices))
 
     def vols(self, indices=None):
         """Extract volumes as list or single volume."""
@@ -722,7 +732,7 @@ class NeuroVec(ABC):
     @property
     def shape(self) -> Tuple[int, int, int, int]:
         """Shape of the 4D data."""
-        return tuple(int(d) for d in self.space.dim)
+        return cast(Tuple[int, int, int, int], tuple(int(d) for d in self.space.dim))
 
     @property
     def dim(self) -> np.ndarray:
@@ -732,17 +742,18 @@ class NeuroVec(ABC):
     @property
     def dtype(self) -> np.dtype:
         """Data dtype without forcing full materialization when possible."""
-        if "_dtype" in self.__dict__:
-            return self.__dict__["_dtype"]
-        if "source" in self.__dict__:
-            return np.dtype(self.__dict__["source"].dtype)
-        if "_data" in self.__dict__:
-            return np.dtype(self.__dict__["_data"].dtype)
-        if "data" in self.__dict__:
-            return np.dtype(self.__dict__["data"].dtype)
+        attrs = self.__dict__
+        if "_dtype" in attrs:
+            return cast(np.dtype, attrs["_dtype"])
+        if "source" in attrs:
+            return cast(np.dtype, np.dtype(attrs["source"].dtype))
+        if "_data" in attrs:
+            return cast(np.dtype, np.dtype(attrs["_data"].dtype))
+        if "data" in attrs:
+            return cast(np.dtype, np.dtype(attrs["data"].dtype))
         data = getattr(self, "data", None)
         if data is not None:
-            return np.dtype(data.dtype)
+            return cast(np.dtype, np.dtype(data.dtype))
         raise AttributeError(f"{self.__class__.__name__} cannot report dtype")
 
     @dtype.setter
@@ -842,7 +853,9 @@ class NeuroVec(ABC):
     def __ge__(self, other):
         return self._compare(other, np.greater_equal)
 
-    __hash__ = None
+    # Element-wise __eq__ makes vectors unhashable; mypy rejects the standard
+    # ``__hash__ = None`` idiom against object.__hash__.
+    __hash__ = None  # type: ignore[assignment]
 
     @abstractmethod
     def _arithmetic_op(self, other, op):
@@ -862,6 +875,8 @@ class DenseNeuroVec(NeuroVec):
         Vector label"""
 
     data: np.ndarray
+    # Optional Receipt attached by derived-map operations (set externally)
+    provenance: Optional["Receipt"]
 
     def __init__(self, data, space: NeuroSpace, label: str = ""):
         super().__init__(space)
@@ -1039,7 +1054,7 @@ class DenseNeuroVec(NeuroVec):
         """Extract time series for voxel(s)."""
         if y is not None and z is not None:
             # Single voxel
-            return self.data[x, y, z, :]
+            return cast(np.ndarray, self.data[x, y, z, :])
         elif isinstance(x, np.ndarray):
             if x.ndim == 2 and x.shape[1] == 3:
                 # Nx3 matrix of coordinates - vectorized version
@@ -1064,18 +1079,19 @@ class DenseNeuroVec(NeuroVec):
                         valid_coords[:, 0], valid_coords[:, 1], valid_coords[:, 2], :
                     ]
 
-                return result.T  # Return as time x voxels
+                return cast(np.ndarray, result.T)  # Return as time x voxels
             elif x.ndim == 1:
                 # Linear indices - vectorized version
                 # Convert to 3D indices
                 coords = np.unravel_index(x, self.shape[:3], order="F")
                 # Use advanced indexing to extract all at once
                 result = self.data[coords[0], coords[1], coords[2], :]
-                return result.T
+                return cast(np.ndarray, result.T)
+            raise ValueError("Invalid input for series extraction")
         elif isinstance(x, int):
             # Single linear index
-            coords = np.unravel_index(x, self.shape[:3], order="F")
-            return self.data[coords[0], coords[1], coords[2], :]
+            grid = np.unravel_index(x, self.shape[:3], order="F")
+            return cast(np.ndarray, self.data[grid[0], grid[1], grid[2], :])
         else:
             raise ValueError("Invalid input for series extraction")
 
@@ -1096,7 +1112,11 @@ class DenseNeuroVec(NeuroVec):
         mask_space = NeuroSpace(
             spatial_shape,
             trans=self.space.affine,
-            axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
+            axes=(
+                drop_axis(cast(AxisSet4D, self.space.axes), 3)
+                if self.space.ndim == 4
+                else None
+            ),
         )
         if mask is None:
             # Use all non-zero voxels
@@ -1141,10 +1161,11 @@ class DenseNeuroVec(NeuroVec):
 
     def _sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "DenseNeuroVec":
         """Extract subset of volumes."""
-        if isinstance(indices, int):
-            indices = [indices]
+        selection: Union[List[int], slice, np.ndarray] = (
+            [indices] if isinstance(indices, int) else indices
+        )
 
-        sub_data = self.data[..., indices]
+        sub_data = self.data[..., selection]
         if sub_data.ndim == 3:
             sub_data = sub_data[..., np.newaxis]
 
@@ -1178,7 +1199,7 @@ class DenseNeuroVec(NeuroVec):
             return [flat[i] for i in subset]
         return [flat[i] for i in range(flat.shape[0])]
 
-    def concat(self, *others: "DenseNeuroVec") -> "DenseNeuroVec":
+    def concat(self, *others: "NeuroVec") -> "DenseNeuroVec":
         """Concatenate multiple NeuroVecs along time dimension."""
         from .verify import assert_same_space
 
@@ -1403,7 +1424,11 @@ class SparseNeuroVec(NeuroVec):
                 result.shape,
                 spacing=self.spacing[:3],
                 origin=self.origin[:3],
-                axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
+                axes=(
+                    drop_axis(cast(AxisSet4D, self.space.axes), 3)
+                    if self.space.ndim == 4
+                    else None
+                ),
                 trans=self.space.affine,
             )
             return DenseNeuroVol(result, vol_space)
@@ -1468,6 +1493,7 @@ class SparseNeuroVec(NeuroVec):
                     if sparse_idx != -1:
                         result[:, i] = self.data[:, sparse_idx]
                 return result
+            raise ValueError("Invalid input for series extraction")
         elif isinstance(x, int):
             # Single linear index
             sparse_idx = self._inverse_lookup[x]
@@ -1514,15 +1540,18 @@ class SparseNeuroVec(NeuroVec):
 
     def _sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "SparseNeuroVec":
         """Extract subset of volumes."""
+        selection: Union[List[int], np.ndarray]
         if isinstance(indices, int):
-            indices = [indices]
+            selection = [indices]
         elif isinstance(indices, slice):
-            indices = list(range(*indices.indices(self.shape[3])))
+            selection = list(range(*indices.indices(self.shape[3])))
+        else:
+            selection = indices
 
-        sub_data = self.data[indices, :]
+        sub_data = self.data[selection, :]
 
         sub_space = NeuroSpace(
-            (*self.shape[:3], len(indices)),
+            (*self.shape[:3], len(selection)),
             spacing=self.spacing,
             origin=self.origin,
             axes=self.space.axes,
@@ -1533,11 +1562,12 @@ class SparseNeuroVec(NeuroVec):
             sub_data, sub_space, self.mask, self.label, orientation="time_x_voxels"
         )
 
-    def concat(self, *others: "SparseNeuroVec") -> "SparseNeuroVec":
+    def concat(self, *others: "NeuroVec") -> "SparseNeuroVec":
         """Concatenate multiple SparseNeuroVecs along time dimension."""
         from .verify import assert_same_space
 
-        all_vecs = [self] + list(others)
+        # Only SparseNeuroVecs with this vector's mask can be concatenated
+        all_vecs = [self] + [cast(SparseNeuroVec, vec) for vec in others]
 
         # Check compatibility
         for vec in all_vecs[1:]:
@@ -1660,10 +1690,10 @@ def neurovecseq(vecs: List, label: str = "") -> NeuroVec:
 
     elif isinstance(first, SparseNeuroVec):
         # List of sparse vectors - concatenate with sparse semantics
-        result = first.concat(*vecs[1:])
+        sparse_result = first.concat(*vecs[1:])
         if label:
-            result.label = label
-        return result
+            sparse_result.label = label
+        return sparse_result
 
     else:
         raise TypeError(
@@ -1671,7 +1701,9 @@ def neurovecseq(vecs: List, label: str = "") -> NeuroVec:
         )
 
 
-def neurovec(data, space: NeuroSpace = None, mask=None, label: str = "") -> NeuroVec:
+def neurovec(
+    data, space: Optional[NeuroSpace] = None, mask=None, label: str = ""
+) -> NeuroVec:
     """Factory function to create appropriate NeuroVec type.
 
     Parameters
@@ -1713,7 +1745,11 @@ def neurovec(data, space: NeuroSpace = None, mask=None, label: str = "") -> Neur
                 space.dim[:3],
                 spacing=space.spacing[:3],
                 origin=space.origin[:3],
-                axes=drop_axis(space.axes, 3) if space.ndim == 4 else None,
+                axes=(
+                    drop_axis(cast(AxisSet4D, space.axes), 3)
+                    if space.ndim == 4
+                    else None
+                ),
                 trans=space.affine,
             )
             mask = LogicalNeuroVol(mask, mask_space)

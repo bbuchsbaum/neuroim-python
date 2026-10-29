@@ -7,13 +7,16 @@ cluster-based searchlight variants.
 import warnings
 
 import numpy as np
-from typing import Union, Optional, Callable, Dict
+from typing import TYPE_CHECKING, Union, Optional, Callable, Dict, cast
 from joblib import Parallel, delayed
 from .neuro_vol import NeuroVol, LogicalNeuroVol, DenseNeuroVol
 from .results import SearchlightResult
 from .searchlight import _as_logical_mask, searchlight_iterator
 from .clustered_neuro_vol import ClusteredNeuroVol
 from .protocols import MaskLike, NeuroVecLike, NeuroVolLike
+
+if TYPE_CHECKING:
+    from .neuro_vec import NeuroVec
 
 _LEGACY_DEPRECATION_MSG = (
     "return_legacy=True is deprecated and will be removed in the next minor "
@@ -87,7 +90,8 @@ def searchlight(
     # Use mask as data if not provided
     data_supplied = data is not None
     if data is None:
-        data = mask
+        # The mask doubles as the data volume
+        data = cast(NeuroVolLike, mask)
 
     # Convert to LogicalNeuroVol if needed
     mask = _as_logical_mask(mask)
@@ -204,7 +208,7 @@ def searchlight(
 
 
 def resampled_searchlight(
-    vec: NeuroVecLike,
+    vec: "NeuroVec",
     radius: float,
     fun: Callable,
     n_resamples: int = 100,

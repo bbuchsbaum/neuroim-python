@@ -10,6 +10,8 @@ class ClusteredNeuroVol(NeuroVol):
 
     # Set by VolumetricAtlas.to_clustered_vol; readers use getattr(..., None)
     atlas_provenance: Optional[Any]
+    # Set by operations that record a Receipt (e.g. resample); may be absent
+    provenance: Optional[Any]
 
     def __init__(
         self,

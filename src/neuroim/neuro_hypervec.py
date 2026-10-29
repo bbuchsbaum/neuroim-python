@@ -8,7 +8,7 @@ NeuroHyperVec represents neuroimaging data with:
 
 from abc import ABC, abstractmethod
 import numpy as np
-from typing import Union, Tuple, List, Optional, Callable
+from typing import TYPE_CHECKING, Union, Tuple, List, Optional, Callable, cast
 
 from .neuro_space import NeuroSpace
 from .neuro_vec import NeuroVec, DenseNeuroVec
@@ -29,6 +29,12 @@ class NeuroHyperVec(ABC):
     label : str, optional
         Label for the hypervector
     """
+
+    if TYPE_CHECKING:
+        # Every concrete hypervector provides ``data``
+
+        @property
+        def data(self) -> np.ndarray: ...
 
     def __init__(self, space: NeuroSpace, label: str = ""):
         if space.ndim < 5:
@@ -85,12 +91,12 @@ class NeuroHyperVec(ABC):
     @property
     def n_timepoints(self) -> int:
         """Number of time points."""
-        return self.space.dim[3]
+        return cast(int, self.space.dim[3])
 
     @property
     def n_features(self) -> int:
         """Number of features (5th dimension)."""
-        return self.space.dim[4]
+        return cast(int, self.space.dim[4])
 
     @property
     def spacing(self) -> np.ndarray:
@@ -130,7 +136,7 @@ class NeuroHyperVec(ABC):
         """Average across feature dimension."""
 
     @abstractmethod
-    def select_features(self, indices: List[int]) -> "NeuroHyperVec":
+    def select_features(self, indices: Union[List[int], np.ndarray]) -> "NeuroHyperVec":
         """Select subset of features."""
 
     @abstractmethod
@@ -150,6 +156,8 @@ class DenseNeuroHyperVec(NeuroHyperVec):
     label : str, optional
         Label for the hypervector
     """
+
+    data: np.ndarray
 
     def __init__(self, data: np.ndarray, space: NeuroSpace, label: str = ""):
         super().__init__(space, label)
@@ -260,7 +268,9 @@ class DenseNeuroHyperVec(NeuroHyperVec):
             # Std across all time points
             return np.std(self.data, axis=-1)
 
-    def select_features(self, indices: List[int]) -> "DenseNeuroHyperVec":
+    def select_features(
+        self, indices: Union[List[int], np.ndarray]
+    ) -> "DenseNeuroHyperVec":
         """Select subset of features."""
         indices = np.asarray(indices)
 
@@ -394,6 +404,8 @@ class SparseNeuroHyperVec(NeuroHyperVec):
         Label for the hypervector
     """
 
+    data: np.ndarray
+
     def __init__(
         self,
         data: np.ndarray,
@@ -495,7 +507,9 @@ class SparseNeuroHyperVec(NeuroHyperVec):
             mean_data, space_4d, self.mask, self.label, orientation="time_x_voxels"
         )
 
-    def select_features(self, indices: List[int]) -> "SparseNeuroHyperVec":
+    def select_features(
+        self, indices: Union[List[int], np.ndarray]
+    ) -> "SparseNeuroHyperVec":
         """Select subset of features."""
         indices = np.asarray(indices)
 
@@ -566,7 +580,7 @@ def concat_features(hypervecs: List[NeuroHyperVec]) -> DenseNeuroHyperVec:
             )
 
     # Convert sparse to dense if needed
-    dense_hvs = []
+    dense_hvs: List[NeuroHyperVec] = []
     for hv in hypervecs:
         if isinstance(hv, SparseNeuroHyperVec):
             dense_hvs.append(hv.as_dense())

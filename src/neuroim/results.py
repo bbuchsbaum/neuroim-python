@@ -24,6 +24,7 @@ import numpy as np
 if TYPE_CHECKING:  # pragma: no cover
     from .neuro_space import NeuroSpace
     from .neuro_vol import NeuroVol
+    from .neuro_vec import NeuroVec
 
 
 __all__ = [
@@ -334,7 +335,7 @@ class ROIExtractionResult:
 
     def map_to_volume(
         self, *, dtype: Any = np.float64, fill: float = 0.0
-    ) -> "NeuroVol":
+    ) -> "NeuroVol | NeuroVec":
         """Project this ROI extraction back into a spatially-shaped container.
 
         - 1-D ``values`` (e.g. from :func:`~neuroim.roi.values_roi`) produces
@@ -368,7 +369,7 @@ class ROIExtractionResult:
                 if self.space.ndim == 3
                 else NeuroSpace.from_affine(self.space.affine, spatial_dim)
             )
-            container = DenseNeuroVol(out, spatial_space)
+            container: DenseNeuroVol | DenseNeuroVec = DenseNeuroVol(out, spatial_space)
         elif values.ndim == 2:
             nt = int(values.shape[0])
             out = np.full(spatial_dim + (nt,), fill, dtype=dtype)
@@ -570,6 +571,7 @@ def chain_receipt(
     already-typed result and should preserve the upstream spatial contract
     rather than re-anchor provenance to the reduced container's own shape.
     """
+    upstream_receipt: Optional[Receipt]
     if isinstance(upstream, Receipt):
         upstream_receipt = upstream
     else:

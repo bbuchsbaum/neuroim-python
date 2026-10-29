@@ -111,7 +111,7 @@ class MappedNeuroVec(NeuroVec):
                 result[:, i] = self.map_fun(source_series[:, i])
             return result
 
-    def sub_vector(self, indices: Union[slice, np.ndarray]) -> "MappedNeuroVec":
+    def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "MappedNeuroVec":
         """Extract subset of volumes as a new MappedNeuroVec."""
         source_subset = self.source.sub_vector(indices)
         return MappedNeuroVec(source_subset, self.map_fun, self.inverse_fun)
@@ -131,7 +131,12 @@ class MappedNeuroVec(NeuroVec):
 
     def as_matrix(self) -> np.ndarray:
         """Convert to 2D matrix with mapping applied."""
-        source_matrix = self.source.as_matrix()
+        # Not every source backend has as_matrix (SparseNeuroVec does not)
+        source_as_matrix = getattr(self.source, "as_matrix", None)
+        if source_as_matrix is not None:
+            source_matrix = source_as_matrix()
+        else:
+            source_matrix = self.source.to_dense().as_matrix()
         return self.map_fun(source_matrix)
 
     def as_dense(self) -> "DenseNeuroVec":

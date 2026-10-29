@@ -4,7 +4,7 @@ Defines spatial kernels used by neuroim filtering operations.
 """
 
 import numpy as np
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, cast
 
 from .neuro_space import NeuroSpace
 from .neuro_vol import SparseNeuroVol
@@ -75,9 +75,9 @@ class Kernel:
 
         """
         if center_voxel is None:
-            return self.voxels.copy()
+            return cast(np.ndarray, self.voxels.copy())
         else:
-            return self.voxels + np.asarray(center_voxel)
+            return cast(np.ndarray, self.voxels + np.asarray(center_voxel))
 
     def __repr__(self):
         return f"Kernel(width={self.width}, n_weights={len(self.weights)})"
@@ -106,21 +106,23 @@ def gaussian_kernel(
 
     """
     # Convert to arrays
-    vdim = np.asarray(vdim)
-    kdim = np.asarray(kdim)
+    vdim_arr = np.asarray(vdim)
+    kdim_arr = np.asarray(kdim)
 
     # Ensure odd dimensions
-    kdim = np.array([k if k % 2 == 1 else k + 1 for k in kdim])
+    kdim_arr = np.array([k if k % 2 == 1 else k + 1 for k in kdim_arr])
 
     # Half-width for each dimension
-    hwidth = np.ceil(kdim / 2 - 1).astype(int)
+    hwidth = np.ceil(kdim_arr / 2 - 1).astype(int)
 
     # Create grid
     grids = [np.arange(-hw, hw + 1) for hw in hwidth]
-    voxel_ind = np.array(np.meshgrid(*grids, indexing="ij")).reshape(len(kdim), -1).T
+    voxel_ind = (
+        np.array(np.meshgrid(*grids, indexing="ij")).reshape(len(kdim_arr), -1).T
+    )
 
     # Convert to coordinates
-    cvoxel_ind = voxel_ind * vdim
+    cvoxel_ind = voxel_ind * vdim_arr
     coords = np.where(
         cvoxel_ind == 0, 0, np.sign(cvoxel_ind) * (np.abs(cvoxel_ind) - 0.5)
     )
@@ -134,7 +136,9 @@ def gaussian_kernel(
     if normalize:
         weights = weights / np.sum(weights)
 
-    return Kernel(width=tuple(kdim), weights=weights, voxels=voxel_ind, coords=coords)
+    return Kernel(
+        width=tuple(kdim_arr), weights=weights, voxels=voxel_ind, coords=coords
+    )
 
 
 def spherical_kernel(
@@ -159,10 +163,10 @@ def spherical_kernel(
 
     """
     # Convert to arrays
-    vdim = np.asarray(vdim)
+    vdim_arr = np.asarray(vdim)
 
     # Compute kernel dimensions to encompass sphere
-    kdim = np.ceil(2 * radius / vdim).astype(int)
+    kdim = np.ceil(2 * radius / vdim_arr).astype(int)
     kdim = np.array([k if k % 2 == 1 else k + 1 for k in kdim])
 
     # Half-width for each dimension
@@ -175,7 +179,7 @@ def spherical_kernel(
     # Voxel-centre offsets in mm. Membership uses true centre distances, the
     # same rule as spherical_roi (the half-unit shrink used by
     # gaussian_kernel would admit voxels whose centres lie outside the radius).
-    coords = voxel_ind * vdim
+    coords = voxel_ind * vdim_arr
 
     # Calculate distances from center
     distances = np.sqrt(np.sum(coords**2, axis=1))
@@ -213,14 +217,16 @@ def box_kernel(kdim: Tuple[int, ...]) -> Kernel:
 
     """
     # Ensure odd dimensions
-    kdim = np.array([k if k % 2 == 1 else k + 1 for k in kdim])
+    kdim_arr = np.array([k if k % 2 == 1 else k + 1 for k in kdim])
 
     # Half-width for each dimension
-    hwidth = np.ceil(kdim / 2 - 1).astype(int)
+    hwidth = np.ceil(kdim_arr / 2 - 1).astype(int)
 
     # Create grid
     grids = [np.arange(-hw, hw + 1) for hw in hwidth]
-    voxel_ind = np.array(np.meshgrid(*grids, indexing="ij")).reshape(len(kdim), -1).T
+    voxel_ind = (
+        np.array(np.meshgrid(*grids, indexing="ij")).reshape(len(kdim_arr), -1).T
+    )
 
     # Uniform weights
     n_voxels = len(voxel_ind)
@@ -229,7 +235,9 @@ def box_kernel(kdim: Tuple[int, ...]) -> Kernel:
     # Dummy coords (not used for box kernel)
     coords = voxel_ind.astype(float)
 
-    return Kernel(width=tuple(kdim), weights=weights, voxels=voxel_ind, coords=coords)
+    return Kernel(
+        width=tuple(kdim_arr), weights=weights, voxels=voxel_ind, coords=coords
+    )
 
 
 def embed_kernel(

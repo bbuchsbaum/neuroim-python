@@ -7,7 +7,7 @@ Provides a Python-native lazy vector container for image series on disk.
 """
 
 import numpy as np
-from typing import TYPE_CHECKING, Optional, List, Union
+from typing import TYPE_CHECKING, Dict, Optional, List, Union, cast
 from .neuro_vec import NeuroVec
 from .neuro_space import NeuroSpace
 from .neuro_vol import NeuroVol, DenseNeuroVol
@@ -58,12 +58,11 @@ class FileBackedNeuroVec(NeuroVec):
         if space is None:
             # Create 4D axes with spatial dimensions first, then time
             # This matches R neuroim2 convention: (x, y, z, time)
-            from .axis import AxisSet4D, NamedAxis
+            from .axis import AxisSet3D, AxisSet4D, NamedAxis
 
             time_axis = NamedAxis("t", 1)
-            axes_4d = AxisSet4D(
-                vol_space.axes.i, vol_space.axes.j, vol_space.axes.k, time_axis
-            )
+            axes_3d = cast(AxisSet3D, vol_space.axes)  # volumes are 3-D
+            axes_4d = AxisSet4D(axes_3d.i, axes_3d.j, axes_3d.k, time_axis)
 
             space = NeuroSpace(
                 dim=[int(d) for d in vol_shape] + [self.n_volumes],
@@ -79,8 +78,8 @@ class FileBackedNeuroVec(NeuroVec):
 
         # Cache setup
         self.cache_size = max(1, cache_size)
-        self._cache = {}  # Dict mapping volume index to data
-        self._cache_order = []  # Track order for LRU eviction
+        self._cache: Dict[int, np.ndarray] = {}  # volume index -> data
+        self._cache_order: List[int] = []  # Track order for LRU eviction
 
         # Store volume metadata
         self.vol_shape = vol_shape
@@ -244,6 +243,7 @@ class FileBackedNeuroVec(NeuroVec):
                         ):
                             result[t, i] = vol_data[coord[0], coord[1], coord[2]]
                 return result
+            raise ValueError("Invalid input for series extraction")
         elif isinstance(x, int):
             # Single linear index - convert to 3D coordinates
             coords = np.unravel_index(x, self.vol_shape, order="F")
@@ -255,19 +255,24 @@ class FileBackedNeuroVec(NeuroVec):
         else:
             raise ValueError("Invalid input for series extraction")
 
-    def sub_vector(self, indices: Union[slice, np.ndarray]) -> "FileBackedNeuroVec":
+    def sub_vector(
+        self, indices: Union[int, slice, np.ndarray]
+    ) -> "FileBackedNeuroVec":
         """Extract subset of volumes."""
+        selection: List[int]
         if isinstance(indices, slice):
-            indices = list(range(*indices.indices(self.n_volumes)))
+            selection = list(range(*indices.indices(self.n_volumes)))
+        elif isinstance(indices, (int, np.integer)):
+            selection = [int(indices)]
         else:
-            indices = list(indices)
+            selection = list(indices)
 
         # Create new file list
-        subset_files = [self.filenames[i] for i in indices]
+        subset_files = [self.filenames[i] for i in selection]
 
         # Create new space
         subset_space = NeuroSpace(
-            dim=list(self.vol_shape) + [len(indices)],
+            dim=list(self.vol_shape) + [len(selection)],
             spacing=self.space.spacing,
             origin=self.space.origin,
             axes=self.space.axes,
@@ -278,11 +283,10 @@ class FileBackedNeuroVec(NeuroVec):
 
     def vols(self, indices: Optional[np.ndarray] = None) -> List[NeuroVol]:
         """Extract volumes as a list of NeuroVol objects."""
-        if indices is None:
-            indices = range(self.n_volumes)
+        selection = range(self.n_volumes) if indices is None else indices
 
-        vol_list = []
-        for i in indices:
+        vol_list: List[NeuroVol] = []
+        for i in selection:
             vol_data = self._load_volume(i)
             vol = DenseNeuroVol(vol_data, self.vol_space)
             vol_list.append(vol)
