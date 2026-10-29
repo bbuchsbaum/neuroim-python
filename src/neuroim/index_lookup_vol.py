@@ -10,6 +10,7 @@ import numpy as np
 from typing import Union
 
 from .neuro_space import NeuroSpace
+from .neuro_vol import _linear_indices
 
 class IndexLookupVol:
     """Maps 1D grid indices to sparse table indices for efficient sparse lookups.
@@ -42,9 +43,11 @@ class IndexLookupVol:
         if not isinstance(space, NeuroSpace):
             raise TypeError("space must be a NeuroSpace object")
 
-        indices = np.asarray(indices, dtype=np.intp).ravel()
-
         vol_size = int(np.prod(space.dim))
+        # Integer-valued, in range and unique (no truncation of 2.7 to 2,
+        # no duplicates mapping one voxel to two table rows).
+        indices = _linear_indices(indices, vol_size, unique=True)
+
         if len(indices) > 0 and (np.any(indices < 0) or np.any(indices >= vol_size)):
             raise ValueError(
                 f"indices must be in range [0, {vol_size}), "
@@ -116,7 +119,18 @@ class IndexLookupVol:
         KeyError
             If any grid index is not among the active indices.
         """
-        indices = np.asarray(indices, dtype=np.intp).ravel()
+        indices = np.asarray(indices).ravel()
+        if indices.size and not np.issubdtype(indices.dtype, np.integer):
+            if not np.all(indices == np.round(indices)):
+                raise KeyError("grid indices must be integers")
+        indices = indices.astype(np.intp)
+        vol_size = int(np.prod(self.space.dim))
+        out_of_range = (indices < 0) | (indices >= vol_size)
+        if np.any(out_of_range):
+            # A negative index must not wrap to the last voxel.
+            raise KeyError(
+                f"Grid index {indices[out_of_range][0]} not found in lookup table"
+            )
 
         if self._use_dict:
             result = np.empty(len(indices), dtype=np.intp)

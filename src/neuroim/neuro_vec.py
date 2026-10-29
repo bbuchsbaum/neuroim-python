@@ -66,6 +66,28 @@ def _call_without_legacy_warning(func, *args, **kwargs):
         return func(*args, **kwargs)
 
 
+def _selects_one_volume(key, shape) -> bool:
+    """True when ``key`` picks a single time point with whole spatial axes.
+
+    Only then is a 3-D result a volume on the vector's spatial grid; e.g.
+    ``vec[0]`` (an x-slab: y, z, t) or ``vec[1:3, ..., 0]`` must not be
+    labelled with the full spatial space.
+    """
+    if not isinstance(key, tuple):
+        return False
+    parts = list(key)
+    if Ellipsis in parts:
+        i = parts.index(Ellipsis)
+        parts = parts[:i] + [slice(None)] * (4 - len(parts) + 1) + parts[i + 1 :]
+    if len(parts) != 4:
+        return False
+    full = all(
+        isinstance(p, slice) and p == slice(None) for p in parts[:3]
+    )
+    t = parts[3]
+    return full and isinstance(t, (int, np.integer)) and not isinstance(t, bool)
+
+
 def _scale_along(data, axis: int, center: bool = True, scale: bool = True):
     """Centre and/or scale ``data`` along ``axis`` the way neuroim2 does.
 
@@ -793,6 +815,32 @@ class NeuroVec(ABC):
         """Perform reversed arithmetic when right-hand side is this object."""
         return self._arithmetic_op(other, lambda x, y: op(y, x))
 
+    # Element-wise comparisons (as NeuroVol and R's Compare group): a boolean
+    # DenseNeuroVec. Without these, ``v == w`` fell back to object identity.
+    def _compare(self, other, op):
+        dense = self if isinstance(self, DenseNeuroVec) else self.to_dense()
+        return dense._arithmetic_op(other, op)
+
+    def __eq__(self, other):
+        return self._compare(other, np.equal)
+
+    def __ne__(self, other):
+        return self._compare(other, np.not_equal)
+
+    def __lt__(self, other):
+        return self._compare(other, np.less)
+
+    def __le__(self, other):
+        return self._compare(other, np.less_equal)
+
+    def __gt__(self, other):
+        return self._compare(other, np.greater)
+
+    def __ge__(self, other):
+        return self._compare(other, np.greater_equal)
+
+    __hash__ = None
+
     @abstractmethod
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
@@ -872,7 +920,7 @@ class DenseNeuroVec(NeuroVec):
             # Let numpy handle it
             result = self.data[key]
             # If we extracted a single volume, wrap it as NeuroVol
-            if result.ndim == 3:
+            if result.ndim == 3 and _selects_one_volume(key, self.shape):
                 vol_space = NeuroSpace(
                     result.shape,
                     spacing=self.spacing[:3],
@@ -1342,7 +1390,7 @@ class SparseNeuroVec(NeuroVec):
         result = dense_data[key]
 
         # If we extracted a single volume, wrap it as NeuroVol
-        if result.ndim == 3:
+        if result.ndim == 3 and _selects_one_volume(key, self.shape):
             vol_space = NeuroSpace(
                 result.shape,
                 spacing=self.spacing[:3],

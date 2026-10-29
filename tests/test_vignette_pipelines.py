@@ -59,7 +59,8 @@ def test_searchlight_statistics():
     for roi in rois:
         values = vol.data[roi.coords[:, 0], roi.coords[:, 1], roi.coords[:, 2]]
         sd_values.append(np.std(values))
-        indices.append(roi.indices()[0])
+        # Store each value at its window's centre voxel
+        indices.append(roi.parent_index)
 
     # Create sparse output
     sd_vol = SparseNeuroVol(
@@ -168,7 +169,8 @@ def test_knn_smoothing():
         else:
             smoothed_values.append(np.mean(roi_values))
 
-        indices.append(roi.indices()[0])
+        # Store each value at its window's centre voxel
+        indices.append(roi.parent_index)
 
     assert len(smoothed_values) == 10
     print("✓ K-NN smoothing concept works")

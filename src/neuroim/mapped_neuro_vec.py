@@ -65,8 +65,27 @@ class MappedNeuroVec(NeuroVec):
 
     @property
     def data(self) -> np.ndarray:
-        """Get all mapped data."""
-        return self.map_fun(self.source.data)
+        """Get all mapped data as a dense (x, y, z, t) array."""
+        source = self.source
+        # A sparse source's .data is its masked (time x voxels) matrix, not
+        # the 4-D array; map over the dense values instead.
+        if not isinstance(getattr(source, "data", None), np.ndarray) or (
+            np.ndim(source.data) != 4
+        ):
+            source_data = source.to_dense().data
+        else:
+            source_data = source.data
+        return self.map_fun(source_data)
+
+    @property
+    def dtype(self) -> np.dtype:
+        """dtype of the *mapped* values (the mapping may change it)."""
+        probe = np.zeros(1, dtype=np.dtype(self.source.dtype))
+        return np.asarray(self.map_fun(probe)).dtype
+
+    @dtype.setter
+    def dtype(self, value) -> None:
+        raise AttributeError("MappedNeuroVec.dtype is derived from the mapping")
 
     @property
     def values(self) -> np.ndarray:

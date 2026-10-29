@@ -12,6 +12,30 @@ from .neuro_space import NeuroSpace
 from ._array_guard import refuse_array_conversion
 
 
+def _linear_indices(indices, n: int, *, unique: bool = False) -> np.ndarray:
+    """Validate 0-based Fortran-order linear voxel indices.
+
+    Rejects non-integer values (2.7 is not truncated to 2), negative indices
+    (no silent wrap-around to the last voxel) and indices >= ``n``; with
+    ``unique=True`` also rejects duplicates, which would otherwise be summed
+    or overwritten silently.
+    """
+    arr = np.asarray(indices).ravel()
+    if arr.size == 0:
+        return arr.astype(np.intp)
+    if arr.dtype == bool:
+        raise ValueError("indices must be integer voxel indices, not a boolean mask")
+    if not np.issubdtype(arr.dtype, np.integer):
+        if not (np.all(np.isfinite(arr)) and np.all(arr == np.round(arr))):
+            raise ValueError("indices must be integer voxel indices")
+    arr = arr.astype(np.intp)
+    if arr.min() < 0 or arr.max() >= n:
+        raise ValueError(f"indices must be 0-based linear indices in [0, {n})")
+    if unique and np.unique(arr).size != arr.size:
+        raise ValueError("indices must not contain duplicates")
+    return arr
+
+
 def _promoting(op):
     """Wrap a binary ufunc so integer/bool operands are computed in float64.
 
@@ -481,8 +505,9 @@ class DenseNeuroVol(NeuroVol):
         # Handle different input types
         if indices is not None:
             # Create volume and fill only specified indices
-            flat_data = np.zeros(int(np.prod(self.shape)), dtype=np.asarray(data).dtype)
-            flat_data[np.asarray(indices, dtype=int)] = data
+            n = int(np.prod(self.shape))
+            flat_data = np.zeros(n, dtype=np.asarray(data).dtype)
+            flat_data[_linear_indices(indices, n, unique=True)] = data
             self.data = flat_data.reshape(self.shape, order="F")
         else:
             # Direct initialization
@@ -539,43 +564,11 @@ class DenseNeuroVol(NeuroVol):
     def _voxel_index(self, key):
         """Resolve a non-tuple key to a 3-D fancy index, in Fortran order.
 
-        Integers, slices and 1-D integer arrays/lists are 0-based linear
-        indices in column-major (R/NIfTI) order; boolean masks (3-D arrays,
-        flat masks, LogicalNeuroVol) select voxels in that same order; an
-        N x 3 integer array lists grid coordinates. The same resolution is
-        used for reading and writing, so ``v[k] = x; v[k]`` round-trips on
-        any memory layout.
+        See :func:`_flat_voxel_index`; the same resolution is used for reading
+        and writing, so ``v[k] = x; v[k]`` round-trips on any memory layout.
         """
-        shape = self.data.shape
-        n = int(np.prod(shape))
-        if isinstance(key, LogicalNeuroVol):
-            if key.space != self.space:
-                raise ValueError("Mask must have same space as volume")
-            key = key.data
-        if isinstance(key, slice):
-            flat = np.arange(n)[key]
-            return np.unravel_index(flat, shape, order="F")
-        if isinstance(key, (int, np.integer)) and not isinstance(key, bool):
-            flat = np.arange(n)[int(key)]  # bounds and negative indices
-            return np.unravel_index(flat, shape, order="F")
-        arr = np.asarray(key)
-        if arr.dtype == bool:
-            if arr.shape == shape or arr.size == n:
-                flat = np.flatnonzero(arr.ravel(order="F"))
-                return np.unravel_index(flat, shape, order="F")
-            raise IndexError(
-                f"boolean mask of shape {arr.shape} does not match volume {shape}"
-            )
-        if arr.ndim == 2 and arr.shape[1] == 3:
-            if not np.issubdtype(arr.dtype, np.integer):
-                raise IndexError("grid coordinates must be integers")
-            return (arr[:, 0], arr[:, 1], arr[:, 2])
-        if arr.ndim <= 1:
-            if arr.size and not np.issubdtype(arr.dtype, np.integer):
-                raise IndexError("linear voxel indices must be integers")
-            flat = np.arange(n)[arr.astype(np.intp)]
-            return np.unravel_index(flat, shape, order="F")
-        raise IndexError(f"unsupported index of shape {arr.shape}")
+        flat = _flat_voxel_index(key, self.data.shape, self.space)
+        return np.unravel_index(flat, self.data.shape, order="F")
 
     def __getitem__(self, key):
         """Extract values using various indexing methods."""
@@ -631,8 +624,9 @@ class DenseNeuroVol(NeuroVol):
         if indices is None:
             return self.as_logical()
         else:
-            flat_mask = np.zeros(int(np.prod(self.shape)), dtype=bool)
-            flat_mask[np.asarray(indices, dtype=int)] = True
+            n = int(np.prod(self.shape))
+            flat_mask = np.zeros(n, dtype=bool)
+            flat_mask[_linear_indices(indices, n)] = True
             mask_data = flat_mask.reshape(self.shape, order="F")
             return LogicalNeuroVol(mask_data, self.space)
 
@@ -695,6 +689,42 @@ class DenseNeuroVol(NeuroVol):
         return DenseNeuroVec(stacked, vec_space)
 
 
+def _flat_voxel_index(key, shape, space):
+    """Resolve a volume key to 0-based Fortran-order linear voxel indices.
+
+    Integers, slices and 1-D integer arrays/lists are linear indices in
+    column-major (R/NIfTI) order (negative integers count from the end, as
+    in numpy); boolean masks (3-D arrays, flat masks, LogicalNeuroVol)
+    select voxels in that same order; an N x 3 integer array lists grid
+    coordinates. Returns a scalar for a scalar key, else a 1-D array.
+    """
+    n = int(np.prod(shape))
+    if isinstance(key, LogicalNeuroVol):
+        if key.space != space:
+            raise ValueError("Mask must have same space as volume")
+        key = key.data
+    if isinstance(key, slice):
+        return np.arange(n)[key]
+    if isinstance(key, (int, np.integer)) and not isinstance(key, bool):
+        return np.arange(n)[int(key)]  # bounds and negative indices
+    arr = np.asarray(key)
+    if arr.dtype == bool:
+        if arr.shape == tuple(shape) or arr.size == n:
+            return np.flatnonzero(arr.ravel(order="F"))
+        raise IndexError(
+            f"boolean mask of shape {arr.shape} does not match volume {tuple(shape)}"
+        )
+    if arr.ndim == 2 and arr.shape[1] == 3:
+        if not np.issubdtype(arr.dtype, np.integer):
+            raise IndexError("grid coordinates must be integers")
+        return np.ravel_multi_index(tuple(arr.T), tuple(shape), order="F")
+    if arr.ndim <= 1:
+        if arr.size and not np.issubdtype(arr.dtype, np.integer):
+            raise IndexError("linear voxel indices must be integers")
+        return np.arange(n)[arr.astype(np.intp)]
+    raise IndexError(f"unsupported index of shape {arr.shape}")
+
+
 class SparseNeuroVol(NeuroVol):
     """Sparse 3D neuroimaging volume.
     Uses scipy.sparse for efficient storage.
@@ -735,7 +765,8 @@ class SparseNeuroVol(NeuroVol):
             raise ValueError("Cannot provide both 'mask' and 'indices'")
 
         data = np.asarray(data).ravel(order="F")
-        indices = np.asarray(indices).ravel()
+        # Duplicates would be summed by the CSR conversion; reject them.
+        indices = _linear_indices(indices, int(np.prod(self.shape)), unique=True)
 
         if len(data) != len(indices):
             raise ValueError("data and indices must have same length")
@@ -758,60 +789,34 @@ class SparseNeuroVol(NeuroVol):
         return self.sparse_data.data
 
     def __getitem__(self, key):
-        """Extract values using various indexing methods."""
-        if isinstance(key, tuple) and len(key) == 3:
-            # Convert 3D to linear index
+        """Extract values; keys resolve exactly as for DenseNeuroVol."""
+        if isinstance(key, tuple) and len(key) == 3 and all(
+            isinstance(k, (int, np.integer)) for k in key
+        ):
             idx = self.space.grid_to_index(np.array([key]))[0]
             return self.sparse_data[0, idx]
-        elif isinstance(key, np.ndarray):
-            if key.ndim == 2 and key.shape[1] == 3:
-                # Nx3 matrix of coordinates
-                indices = self.space.grid_to_index(key)
-                return self.sparse_data[0, indices].A.ravel()
-            elif key.ndim == 1:
-                # Linear indices
-                return self.sparse_data[0, key].A.ravel()
-        elif isinstance(key, (int, slice)):
-            return self.sparse_data[0, key]
-        else:
-            # Convert to dense for complex indexing
-            return self.as_dense()[key]
+        if isinstance(key, tuple):
+            # General numpy indexing on the dense array
+            return self.as_dense().data[key]
+        flat = _flat_voxel_index(key, self.shape, self.space)
+        values = self.sparse_data[0, np.atleast_1d(flat)].toarray().ravel()
+        return values[0] if np.ndim(flat) == 0 else values
 
     def __setitem__(self, key, value):
-        """Set values using various indexing methods."""
+        """Set values; keys resolve exactly as for DenseNeuroVol."""
         # Note: Setting values in sparse array can be inefficient
-        if isinstance(key, tuple) and len(key) == 3:
-            idx = self.space.grid_to_index(np.array([key]))[0]
-            self.sparse_data[0, idx] = value
-        elif isinstance(key, int):
-            self.sparse_data[0, key] = value
-        elif isinstance(key, np.ndarray):
-            if key.ndim == 2 and key.shape[1] == 3:
-                # Nx3 coordinate array
-                indices = self.space.grid_to_index(key)
-                for idx, val in zip(indices, np.broadcast_to(value, len(indices))):
-                    self.sparse_data[0, idx] = val
-            elif key.ndim == 1:
-                # Linear indices
-                for idx, val in zip(key, np.broadcast_to(value, len(key))):
-                    self.sparse_data[0, idx] = val
-            elif key.dtype == bool:
-                # Boolean mask
-                linear_indices = np.where(key.ravel(order="F"))[0]
-                vals = np.broadcast_to(value, len(linear_indices))
-                for idx, val in zip(linear_indices, vals):
-                    self.sparse_data[0, idx] = val
-            else:
-                raise TypeError(
-                    f"Unsupported array index type for SparseNeuroVol: {key.dtype}"
-                )
-        elif isinstance(key, slice):
-            indices = range(*key.indices(np.prod(self.shape)))
-            vals = np.broadcast_to(value, len(indices))
-            for idx, val in zip(indices, vals):
-                self.sparse_data[0, idx] = val
+        if isinstance(key, tuple) and len(key) == 3 and all(
+            isinstance(k, (int, np.integer)) for k in key
+        ):
+            flat = self.space.grid_to_index(np.array([key]))[:1]
+        elif isinstance(key, tuple):
+            raise TypeError("SparseNeuroVol only supports voxel-wise assignment")
         else:
-            raise TypeError(f"Unsupported index type for SparseNeuroVol: {type(key)}")
+            flat = np.atleast_1d(_flat_voxel_index(key, self.shape, self.space))
+        lil = self.sparse_data.tolil()
+        for idx, val in zip(flat, np.broadcast_to(value, flat.shape)):
+            lil[0, int(idx)] = val
+        self.sparse_data = lil.tocsr()
 
     def values(self) -> np.ndarray:
         """Get all values (including zeros)."""
@@ -908,7 +913,7 @@ class LogicalNeuroVol(DenseNeuroVol):
         if indices is not None:
             # Create false volume and set specified indices to true
             flat_data = np.zeros(int(np.prod(space.dim)), dtype=bool)
-            flat_data[np.asarray(indices, dtype=int)] = True
+            flat_data[_linear_indices(indices, flat_data.size)] = True
             bool_data = flat_data.reshape(space.dim, order="F")
             super().__init__(bool_data, space, label)
         else:
