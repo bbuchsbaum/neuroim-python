@@ -218,19 +218,21 @@ class BigNeuroVec(NeuroVec):
 
     def sub_vector(self, indices: Union[slice, np.ndarray]) -> "BigNeuroVec":
         """Extract subset of volumes."""
+        # Volumes run along the last (time) axis of the (x, y, z, t) store.
         if isinstance(indices, slice):
-            # Direct slicing is more efficient than converting to array
-            subset_data = self._data[indices]
+            subset_data = np.asarray(self._data[..., indices])
         else:
             indices = np.atleast_1d(indices)
-            subset_data = self._data[indices]
+            subset_data = np.asarray(self._data[..., indices])
 
-        # Create new BigNeuroVec with subset data
-        subset_shape = subset_data.shape
         subset_vec = BigNeuroVec(
-            subset_data,
-            NeuroSpace(
-                dim=subset_shape, spacing=self.space.spacing, origin=self.space.origin
+            data=subset_data,
+            space=NeuroSpace(
+                dim=subset_data.shape,
+                spacing=self.space.spacing,
+                origin=self.space.origin,
+                axes=self.space.axes,
+                trans=self.space.trans,
             ),
         )
 
@@ -243,26 +245,22 @@ class BigNeuroVec(NeuroVec):
     def vols(self, indices: Optional[np.ndarray] = None) -> list:
         """Extract volumes as a list of NeuroVol objects."""
         if indices is None:
-            indices = range(self.shape[0])
+            indices = range(self.shape[3])
 
         vol_list = []
-        vol_space = NeuroSpace(
-            dim=self.shape[1:],
-            spacing=self.space.spacing[1:],
-            origin=self.space.origin[1:],
-        )
+        vol_space = self.space.drop_dim(3)
 
         for i in indices:
-            vol = DenseNeuroVol(self._data[i], vol_space)
+            vol = DenseNeuroVol(np.asarray(self._data[..., i]), vol_space)
             vol_list.append(vol)
 
         return vol_list
 
     def as_matrix(self) -> np.ndarray:
         """Convert to 2D matrix (loads into memory)."""
-        n_time = self.shape[0]
-        n_voxels = np.prod(self.shape[1:])
-        return self._data.reshape(n_time, n_voxels, order="F")
+        # voxels x time, matching DenseNeuroVec.as_matrix
+        n_time = int(self.shape[3])
+        return np.asarray(self._data).reshape(-1, n_time, order="F")
 
     def as_dense(self) -> "DenseNeuroVec":
         """Convert to DenseNeuroVec (loads into memory).
@@ -282,24 +280,31 @@ class BigNeuroVec(NeuroVec):
         """Convert to SparseNeuroVec."""
         from .neuro_vec import SparseNeuroVec
 
+        from .neuro_vol import LogicalNeuroVol
+        from .neuro_space import NeuroSpace
+
         if mask is None:
-            # Use non-zero voxels from first volume
-            mask = self._data[0] != 0
+            # Use non-zero voxels from the first volume
+            mask = np.asarray(self._data[..., 0]) != 0
+        if isinstance(mask, LogicalNeuroVol):
+            mask_vol = mask
+        else:
+            mask_vol = LogicalNeuroVol(
+                np.asarray(mask, dtype=bool),
+                NeuroSpace(
+                    tuple(int(d) for d in self.shape[:3]), trans=self.space.affine
+                ),
+            )
 
-        # Extract masked data
-        mask_indices = np.where(mask.ravel(order="F"))[0]
-        n_time = self.shape[0]
-        sparse_data = np.zeros((n_time, len(mask_indices)))
-
+        mask_indices = np.where(mask_vol.data.ravel(order="F"))[0]
+        n_time = int(self.shape[3])
+        sparse_data = np.zeros((n_time, len(mask_indices)), dtype=self._data.dtype)
         for t in range(n_time):
-            vol_data = self._data[t].ravel(order="F")
-            sparse_data[t] = vol_data[mask_indices]
+            vol = np.asarray(self._data[..., t]).ravel(order="F")
+            sparse_data[t] = vol[mask_indices]
 
         return SparseNeuroVec(
-            data=sparse_data.ravel(order="F"),
-            space=self.space,
-            indices=np.tile(mask_indices, n_time),
-            mask=np.repeat(np.arange(len(mask_indices)), n_time),
+            sparse_data, self.space, mask_vol, orientation="time_x_voxels"
         )
 
     def _arithmetic_op(self, other, op):
@@ -417,6 +422,7 @@ def big_neurovecseq(vols: list, mask: Optional[np.ndarray] = None) -> BigNeuroVe
         dim=list(vol_shape) + [n_vols],
         spacing=list(first_vol.space.spacing) + [1],
         origin=list(first_vol.space.origin) + [0],
+        trans=first_vol.space.affine,
     )
 
     # Create BigNeuroVec

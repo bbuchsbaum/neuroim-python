@@ -260,12 +260,15 @@ class NIFTIFormat(FileFormat):
             header_file=header_file,
             data_file=self.data_file(file_name),
             descriptor=self,
-            data_type=str(header.get_data_dtype()),
+            # Byte-order-free name ("INT16", "FLOAT32") so big-endian files
+            # map like little-endian ones; byte order lives in ``endian``.
+            data_type=header.get_data_dtype().newbyteorder("=").name.upper(),
             dims=img.shape,
             spacing=header.get_zooms(),
             origin=img.affine[:3, 3],
-            endian="<" if header.endianness == "<" else ">",
-            data_offset=int(header["vox_offset"]),
+            endian="little" if header.endianness == "<" else "big",
+            # get_data_offset resolves vox_offset == 0 to the real offset.
+            data_offset=int(header.get_data_offset()),
             bytes_per_element=header.get_data_dtype().itemsize,
             intercept=intercept,
             slope=slope,

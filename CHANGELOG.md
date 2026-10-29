@@ -31,6 +31,14 @@ contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
 
 ### Changed
 
+- **`gaussian_blur(sigma=)` is in millimetres** (it was voxels), matching
+  neuroim2 and `fwhm_mm=`; the default is 2 mm and passing both `sigma`
+  and `fwhm_mm` raises. `gaussian_blur(vol, sigma=2)` on non-1 mm data now
+  smooths differently; to reproduce an old call, multiply the old
+  voxel sigma by the voxel size.
+- Bilateral filters take `spatial_sigma` in mm and an intensity bandwidth
+  of `intensity_sigma * range_scale`; masked `gaussian_blur` defaults to
+  `normalize=True`; `FileBackedNeuroVec.as_matrix` returns voxels x time.
 - `NeuroHyperVec` is now the class (was shadowed by a factory function
   of the same name); construct concrete types with
   `NeuroHyperVec.create(...)` or the `Dense`/`Sparse` classes directly.
@@ -76,6 +84,44 @@ contract and [ROADMAP.md](ROADMAP.md) for the release plan. All seven
 
 ### Fixed
 
+- **neuroim2 sync (Aug–Oct 2026 fixes).** Defects that neuroim2 fixed, or
+  that an audit against it found here, are corrected. Several change
+  results:
+  - *Geometry.* Voxel spacing comes from the affine in use, not pixdim. 4-D
+    world coordinates honour rotations and flips. Affines are kept by
+    `FileBackedNeuroVec`, volume extraction, sub-vectors and mask spaces.
+    `ROIVol.get_coords(real=True)` lost its half-voxel shift. Axis labels
+    follow the affine, and `reorient("RAS")` is labelled RAS.
+  - *Sparse.* `SparseNeuroVec` treats spatial-shape arrays as logical masks
+    and validates index masks; unsorted indices stay at their voxels. A new
+    `orientation=` argument makes square data unambiguous, and
+    `to_sparse` accepts index masks. Hyper-vector `mean_features`,
+    `apply_feature_func` and `as_dense` no longer misplace voxels.
+    `as_matrix` is voxels × time on every backend, and the `BigNeuroVec`
+    volume accessors use the time axis.
+  - *I/O.* Partial reads keep the source header. Complex and RGB payloads
+    are refused. 5-D `(x, y, z, 1, t)` files fold to 4-D. NIfTI-2 is
+    written when needed or requested. Scaled integer sources are written
+    back in their own storage. `read_header` reports scaling, and
+    `NIFTIMetaInfo` has the right byte order.
+  - *Filters.* Masked `gaussian_blur` is insulated to the mask by default
+    (`normalize=True`). The bilateral filters use mm distances and in-mask
+    neighbours, and `range_scale` gives the intensity bandwidth.
+    `downsample` box-averages with the data aligned to its affine.
+  - *Plotting.* The overlay scale is computed from the whole map and
+    contains the threshold. Graded opacity has a 0.6 floor
+    (`alpha_floor`). Background windows ignore air. `plot_neuro_vol(thresh=)`
+    hides values inside the range. Plane names resolve through the affine.
+  - *ROI/searchlight.* Fractional centroids are truncated. Huge radii and
+    non-finite spacing are handled. `random_searchlight` partitions the mask
+    in linear time, and `clustered_searchlight(cvol=ClusteredNeuroVol)`
+    works. `conn_comp` is vectorised and gives identical output.
+    `spherical_kernel` membership matches `spherical_roi`; `patch_set` no
+    longer truncates a cube half-width; searchlight windows carry mask
+    values (0 for out-of-mask members).
+  - *Affines everywhere.* Time slices keep the spatial affine and TR;
+    hyper-vector reductions, `NeuroVol.concat`, `dot_reduce`,
+    `simulate_fmri` and HDF5 hyper-vector files keep flips/rotations.
 - **Ergonomic pass (seed-connectivity workflow stress test).** Five
   friction points found while exercising a natural end-to-end pipeline
   through the public surface:

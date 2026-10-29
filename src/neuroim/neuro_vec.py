@@ -26,12 +26,15 @@ def _readonly_array(value, *, dtype):
     return arr
 
 
-def _empty_time_slice_space(dim, spacing, origin, axes):
+def _empty_time_slice_space(dim, spacing, origin, axes, spatial_affine=None):
     """Build the private space needed for NumPy-valid empty time slices."""
     ndim = len(dim)
     trans = np.eye(ndim + 1)
     trans[:ndim, :ndim] = np.diag(spacing)
     trans[:ndim, ndim] = origin
+    if spatial_affine is not None:
+        trans[:3, :3] = spatial_affine[:3, :3]
+        trans[:3, ndim] = spatial_affine[:3, 3]
 
     space = object.__new__(NeuroSpace)
     object.__setattr__(space, "_frozen", False)
@@ -790,7 +793,10 @@ class DenseNeuroVec(NeuroVec):
     def __init__(self, data, space: NeuroSpace, label: str = ""):
         super().__init__(space)
 
-        # Handle different input types
+        # Handle different input types; lists and other array-likes go through
+        # the same shape checks as ndarrays.
+        if not isinstance(data, np.ndarray):
+            data = np.asarray(data)
         if isinstance(data, np.ndarray):
             if data.ndim == 2:
                 # Matrix input (time x voxels or voxels x time)
@@ -818,8 +824,6 @@ class DenseNeuroVec(NeuroVec):
                     )
             else:
                 raise ValueError(f"Data must be 1D, 2D or 4D array, got {data.ndim}D")
-        else:
-            data = np.asarray(data)
 
         self.data = data
         self.label = label
@@ -853,7 +857,9 @@ class DenseNeuroVec(NeuroVec):
                     axes=(
                         drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None
                     ),
-                    trans=self.trans[:4, :4] if self.space.ndim <= 4 else None,
+                    # The 4x4 spatial affine; slicing the (ndim+1)^2 trans
+                    # would take the time column in place of the translation.
+                    trans=self.space.affine,
                 )
                 return DenseNeuroVol(result, vol_space)
             # PAIN-13: a pure time-axis selection (spatial dims unchanged) must
@@ -874,11 +880,13 @@ class DenseNeuroVec(NeuroVec):
                     spatial.axes.i, spatial.axes.j, spatial.axes.k, t_axis
                 )
                 new_dim = [int(d) for d in result.shape]
-                new_spacing = [float(s) for s in spatial.spacing] + [1.0]
+                # Keep the spatial affine (flips/rotations) and the TR.
+                tr = float(self.spacing[3]) if len(self.spacing) > 3 else 1.0
+                new_spacing = [float(s) for s in spatial.spacing] + [tr]
                 new_origin = [float(o) for o in spatial.origin] + [0.0]
                 if new_dim[3] == 0:
                     new_space = _empty_time_slice_space(
-                        new_dim, new_spacing, new_origin, axes_4d
+                        new_dim, new_spacing, new_origin, axes_4d, spatial.affine
                     )
                 else:
                     new_space = NeuroSpace(
@@ -886,6 +894,7 @@ class DenseNeuroVec(NeuroVec):
                         spacing=new_spacing,
                         origin=new_origin,
                         axes=axes_4d,
+                        trans=spatial.affine,
                     )
                 sliced = DenseNeuroVec(result, new_space)
 
@@ -1000,29 +1009,44 @@ class DenseNeuroVec(NeuroVec):
         return self._as_sparse(mask)
 
     def _as_sparse(self, mask=None) -> "SparseNeuroVec":
-        """Convert to sparse representation."""
+        """Convert to sparse representation.
+
+        ``mask`` may be a ``LogicalNeuroVol``, a spatial-shape array (nonzero
+        voxels are kept) or a 1-D array of 0-based linear voxel indices.
+        Repeated indices keep a voxel once and voxels are always stored in
+        ascending spatial order; negative or out-of-range indices are rejected.
+        """
+        spatial_shape = tuple(int(d) for d in self.shape[:3])
+        mask_space = NeuroSpace(
+            spatial_shape,
+            trans=self.space.affine,
+            axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
+        )
         if mask is None:
             # Use all non-zero voxels
-            mask_data = np.any(self.data != 0, axis=3)
-            mask_space = NeuroSpace(
-                self.shape[:3],
-                spacing=self.spacing[:3],
-                origin=self.origin[:3],
-                axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
-            )
-            mask = LogicalNeuroVol(mask_data, mask_space)
+            mask = LogicalNeuroVol(np.any(self.data != 0, axis=3), mask_space)
         elif isinstance(mask, LogicalNeuroVol):
             from .verify import assert_same_space
 
             assert_same_space(self, mask)
-        elif not isinstance(mask, LogicalNeuroVol):
-            # Convert to LogicalNeuroVol
-            mask_space = NeuroSpace(
-                self.shape[:3],
-                spacing=self.spacing[:3],
-                origin=self.origin[:3],
-                axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
-            )
+        else:
+            mask = np.asarray(mask)
+            if mask.ndim == 1 and mask.dtype != bool:
+                if mask.size and not np.issubdtype(mask.dtype, np.integer):
+                    finite = np.all(np.isfinite(mask))
+                    if not finite or not np.all(mask == np.round(mask)):
+                        raise ValueError("mask indices must be finite integers")
+                idx = mask.astype(np.int64)
+                nvox = int(np.prod(spatial_shape))
+                if idx.size and (idx.min() < 0 or idx.max() >= nvox):
+                    raise ValueError(
+                        f"mask indices must be 0-based linear indices in [0, {nvox})"
+                    )
+                flat = np.zeros(nvox, dtype=bool)
+                flat[idx] = True
+                mask = flat.reshape(spatial_shape, order="F")
+            elif mask.shape == spatial_shape and mask.dtype != bool:
+                mask = mask != 0
             mask = LogicalNeuroVol(mask, mask_space)
 
         # Extract data for masked voxels
@@ -1030,7 +1054,9 @@ class DenseNeuroVec(NeuroVec):
         data_flat = self.data.reshape(-1, self.shape[3], order="F")
         sparse_data = data_flat[mask_indices, :]
 
-        return SparseNeuroVec(sparse_data.T, self.space, mask, self.label)
+        return SparseNeuroVec(
+            sparse_data.T, self.space, mask, self.label, orientation="time_x_voxels"
+        )
 
     def sub_vector(self, indices: Union[int, slice, np.ndarray]) -> "DenseNeuroVec":
         """Deprecated alias for :meth:`subvolumes`."""
@@ -1051,6 +1077,7 @@ class DenseNeuroVec(NeuroVec):
             spacing=self.spacing,
             origin=self.origin,
             axes=self.space.axes,
+            trans=self.space.trans,
         )
 
         return DenseNeuroVec(sub_data, sub_space, self.label)
@@ -1068,7 +1095,9 @@ class DenseNeuroVec(NeuroVec):
         list of np.ndarray
             List of time series arrays, one per voxel.
         """
-        flat = self.data.reshape(-1, self.shape[3], order="F")
+        # Copy once so the returned series never alias ``self.data`` (a
+        # Fortran-ordered store reshapes to a view).
+        flat = np.array(self.data.reshape(-1, self.shape[3], order="F"))
         if subset is not None:
             return [flat[i] for i in subset]
         return [flat[i] for i in range(flat.shape[0])]
@@ -1154,38 +1183,90 @@ class SparseNeuroVec(NeuroVec):
     Parameters
     ----------
     data : np.ndarray
-        2D array (time x masked_voxels)
+        2D array, time x masked_voxels (or masked_voxels x time; see
+        ``orientation``). Voxel columns are in ascending spatial (Fortran
+        linear) index order.
     space : NeuroSpace
         4D spatial metadata
-    mask : LogicalNeuroVol
-        Mask defining which voxels are included
+    mask : LogicalNeuroVol, ndarray
+        Mask defining which voxels are included. Either a ``LogicalNeuroVol``,
+        an array with the spatial shape (nonzero voxels are kept, whatever the
+        dtype), or a 1-D array of 0-based linear voxel indices. When indices
+        are given unsorted, the data columns are taken to follow the order of
+        ``mask`` and are reordered to ascending spatial order, so each value
+        stays with its own voxel. Repeated, negative, out-of-range or
+        non-integer indices are rejected.
     label : str, optional
-        Vector label"""
+        Vector label
+    orientation : {"auto", "time_x_voxels", "voxels_x_time"}
+        Layout of ``data``. ``"auto"`` infers it from the mask cardinality;
+        when the number of voxels equals the number of time points the layout
+        is ambiguous, so ``"auto"`` assumes time x voxels and warns -- pass
+        ``orientation`` explicitly to avoid a silent transpose."""
 
-    def __init__(self, data: np.ndarray, space: NeuroSpace, mask, label: str = ""):
+    def __init__(
+        self,
+        data: np.ndarray,
+        space: NeuroSpace,
+        mask,
+        label: str = "",
+        orientation: str = "auto",
+    ):
         super().__init__(space)
 
-        # Accept indices array and convert to LogicalNeuroVol
-        if isinstance(mask, np.ndarray) and not mask.dtype == bool:
-            # Integer indices array - convert to LogicalNeuroVol
-            mask_data = np.zeros(self.shape[:3], dtype=bool)
-            mask_flat = mask_data.ravel(order="F")
-            mask_flat[mask] = True
-            mask_data = mask_flat.reshape(self.shape[:3], order="F")
+        if orientation not in ("auto", "time_x_voxels", "voxels_x_time"):
+            raise ValueError(
+                "orientation must be 'auto', 'time_x_voxels' or 'voxels_x_time'"
+            )
+        data = np.asarray(data)
+        spatial_shape = tuple(int(d) for d in self.shape[:3])
+        column_order = None
+
+        if isinstance(mask, (list, tuple)):
+            mask = np.asarray(mask)
+
+        if isinstance(mask, np.ndarray) and not isinstance(mask, LogicalNeuroVol):
+            if mask.shape == spatial_shape:
+                # A spatial array (bool, 0/1 int, float) is a logical mask.
+                if mask.dtype != bool:
+                    if not np.all(np.isfinite(mask)):
+                        raise ValueError("mask must not contain NaN or infinite values")
+                    mask = mask != 0
+                mask_data = mask
+            elif mask.ndim == 1 and mask.dtype != bool:
+                idx = mask
+                if idx.size and not np.issubdtype(idx.dtype, np.integer):
+                    finite = np.all(np.isfinite(idx))
+                    if not finite or not np.all(idx == np.round(idx)):
+                        raise ValueError("mask indices must be finite integers")
+                    idx = idx.astype(np.int64)
+                idx = idx.astype(np.int64, copy=False)
+                nvox = int(np.prod(spatial_shape))
+                if idx.size and (idx.min() < 0 or idx.max() >= nvox):
+                    raise ValueError(
+                        f"mask indices must be 0-based linear indices in [0, {nvox})"
+                    )
+                if np.unique(idx).size != idx.size:
+                    raise ValueError("mask indices must not contain duplicates")
+                mask_flat = np.zeros(nvox, dtype=bool)
+                mask_flat[idx] = True
+                mask_data = mask_flat.reshape(spatial_shape, order="F")
+                # Data columns follow the order the indices were given in.
+                column_order = np.argsort(idx, kind="stable")
+            elif (
+                mask.ndim == 1
+                and mask.dtype == bool
+                and mask.size == np.prod(spatial_shape)
+            ):
+                mask_data = mask.reshape(spatial_shape, order="F")
+            else:
+                raise ValueError(
+                    f"mask array of shape {mask.shape} matches neither the spatial "
+                    f"shape {spatial_shape} nor a 1-D index list"
+                )
             from .neuro_vol import LogicalNeuroVol as LNV
 
-            mask_space = NeuroSpace(
-                self.shape[:3], spacing=space.spacing[:3], origin=space.origin[:3]
-            )
-            mask = LNV(mask_data, mask_space)
-        elif isinstance(mask, np.ndarray) and mask.dtype == bool:
-            # Boolean array - convert to LogicalNeuroVol
-            from .neuro_vol import LogicalNeuroVol as LNV
-
-            mask_space = NeuroSpace(
-                self.shape[:3], spacing=space.spacing[:3], origin=space.origin[:3]
-            )
-            mask = LNV(mask, mask_space)
+            mask = LNV(mask_data, NeuroSpace(spatial_shape, trans=space.affine))
         elif not isinstance(mask, LogicalNeuroVol):
             raise TypeError(
                 "mask must be a LogicalNeuroVol, boolean array, or integer indices array"
@@ -1195,19 +1276,37 @@ class SparseNeuroVec(NeuroVec):
             raise ValueError("Mask dimensions must match spatial dimensions of space")
 
         # Handle data dimensionality
-        if data.ndim == 2:
-            if data.shape[0] == self.shape[3] and data.shape[1] == mask.sum:
-                # Correct orientation (time x voxels)
-                pass
-            elif data.shape[1] == self.shape[3] and data.shape[0] == mask.sum:
-                # Need to transpose (voxels x time -> time x voxels)
+        if data.ndim != 2:
+            raise ValueError("Data must be 2D array (time x masked_voxels)")
+        n_time, n_vox = int(self.shape[3]), int(mask.sum)
+        if orientation == "auto":
+            if data.shape == (n_time, n_vox):
+                if n_time == n_vox:
+                    _warnings.warn(
+                        f"SparseNeuroVec data is square ({n_vox} voxels and "
+                        f"{n_time} time points); assuming time x voxels. Pass "
+                        "orientation='time_x_voxels' or 'voxels_x_time' to "
+                        "make the layout explicit.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+            elif data.shape == (n_vox, n_time):
                 data = data.T
             else:
                 raise ValueError(
-                    f"Data shape {data.shape} doesn't match mask cardinality {mask.sum} and time dimension {self.shape[3]}"
+                    f"Data shape {data.shape} doesn't match mask cardinality "
+                    f"{n_vox} and time dimension {n_time}"
                 )
         else:
-            raise ValueError("Data must be 2D array (time x masked_voxels)")
+            if orientation == "voxels_x_time":
+                data = data.T
+            if data.shape != (n_time, n_vox):
+                raise ValueError(
+                    f"Data shape does not match orientation={orientation!r}: "
+                    f"expected {n_vox} voxels and {n_time} time points"
+                )
+        if column_order is not None and not np.all(np.diff(column_order) == 1):
+            data = data[:, column_order]
 
         self.data = data
         self.mask = mask
@@ -1231,6 +1330,7 @@ class SparseNeuroVec(NeuroVec):
                 spacing=self.spacing[:3],
                 origin=self.origin[:3],
                 axes=drop_axis(self.space.axes, 3) if self.space.ndim == 4 else None,
+                trans=self.space.affine,
             )
             return DenseNeuroVol(result, vol_space)
         return result
@@ -1351,9 +1451,12 @@ class SparseNeuroVec(NeuroVec):
             spacing=self.spacing,
             origin=self.origin,
             axes=self.space.axes,
+            trans=self.space.trans,
         )
 
-        return SparseNeuroVec(sub_data, sub_space, self.mask, self.label)
+        return SparseNeuroVec(
+            sub_data, sub_space, self.mask, self.label, orientation="time_x_voxels"
+        )
 
     def concat(self, *others: "SparseNeuroVec") -> "SparseNeuroVec":
         """Concatenate multiple SparseNeuroVecs along time dimension."""
@@ -1380,20 +1483,38 @@ class SparseNeuroVec(NeuroVec):
             trans=self.space.trans,
         )
 
-        return SparseNeuroVec(concat_data, concat_space, self.mask, self.label)
+        return SparseNeuroVec(
+            concat_data,
+            concat_space,
+            self.mask,
+            self.label,
+            orientation="time_x_voxels",
+        )
 
     def _arithmetic_op(self, other, op):
         """Perform arithmetic operation."""
         if isinstance(other, (int, float)):
             # Scalar operation
             result_data = op(self.data, other)
-            return SparseNeuroVec(result_data, self.space, self.mask, self.label)
+            return SparseNeuroVec(
+                result_data,
+                self.space,
+                self.mask,
+                self.label,
+                orientation="time_x_voxels",
+            )
         elif isinstance(other, SparseNeuroVec):
             # Sparse-sparse operation
             if not np.array_equal(other.mask.data, self.mask.data):
                 raise ValueError("SparseNeuroVecs must have same mask for arithmetic")
             result_data = op(self.data, other.data)
-            return SparseNeuroVec(result_data, self.space, self.mask, self.label)
+            return SparseNeuroVec(
+                result_data,
+                self.space,
+                self.mask,
+                self.label,
+                orientation="time_x_voxels",
+            )
         elif isinstance(other, DenseNeuroVec):
             # Convert to dense for operation
             return self.to_dense()._arithmetic_op(other, op)
@@ -1405,7 +1526,13 @@ class SparseNeuroVec(NeuroVec):
             vol_masked = other.values()[self._lookup]
             # Broadcast across time
             result_data = op(self.data, vol_masked[np.newaxis, :])
-            return SparseNeuroVec(result_data, self.space, self.mask, self.label)
+            return SparseNeuroVec(
+                result_data,
+                self.space,
+                self.mask,
+                self.label,
+                orientation="time_x_voxels",
+            )
         else:
             return NotImplemented
 
@@ -1511,6 +1638,7 @@ def neurovec(data, space: NeuroSpace = None, mask=None, label: str = "") -> Neur
                 spacing=space.spacing[:3],
                 origin=space.origin[:3],
                 axes=drop_axis(space.axes, 3) if space.ndim == 4 else None,
+                trans=space.affine,
             )
             mask = LogicalNeuroVol(mask, mask_space)
 
@@ -1519,6 +1647,8 @@ def neurovec(data, space: NeuroSpace = None, mask=None, label: str = "") -> Neur
             mask_indices = np.where(mask.data.ravel(order="F"))[0]
             data_flat = data.reshape(-1, data.shape[3], order="F")
             sparse_data = data_flat[mask_indices, :].T
-            return SparseNeuroVec(sparse_data, space, mask, label)
+            return SparseNeuroVec(
+                sparse_data, space, mask, label, orientation="time_x_voxels"
+            )
         else:
             return SparseNeuroVec(data, space, mask, label)

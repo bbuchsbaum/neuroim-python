@@ -174,7 +174,8 @@ class DenseNeuroHyperVec(NeuroHyperVec):
                 space_4d = NeuroSpace(
                     dim=self.space.dim[:4],
                     spacing=self.space.spacing[:4],
-                    origin=self.space.origin[:4]
+                    origin=self.space.origin[:4],
+                    trans=self.space.affine,
                 )
                 return DenseNeuroVec(result, space_4d, self.label)
         
@@ -219,7 +220,8 @@ class DenseNeuroHyperVec(NeuroHyperVec):
         space_4d = NeuroSpace(
             dim=self.space.dim[:4],
             spacing=self.space.spacing[:4],
-            origin=self.space.origin[:4]
+            origin=self.space.origin[:4],
+            trans=self.space.affine,
         )
         
         return DenseNeuroVec(mean_data, space_4d, self.label)
@@ -245,7 +247,8 @@ class DenseNeuroHyperVec(NeuroHyperVec):
             space_3d = NeuroSpace(
                 dim=self.space.dim[:3],
                 spacing=self.space.spacing[:3],
-                origin=self.space.origin[:3]
+                origin=self.space.origin[:3],
+                trans=self.space.affine,
             )
             
             return DenseNeuroVol(std_data, space_3d, self.label)
@@ -267,7 +270,8 @@ class DenseNeuroHyperVec(NeuroHyperVec):
         new_space = NeuroSpace(
             dim=new_dim,
             spacing=self.space.spacing,
-            origin=self.space.origin
+            origin=self.space.origin,
+            trans=self.space.affine,
         )
         
         return DenseNeuroHyperVec(selected_data, new_space, self.label)
@@ -301,7 +305,8 @@ class DenseNeuroHyperVec(NeuroHyperVec):
         space_4d = NeuroSpace(
             dim=self.space.dim[:4],
             spacing=self.space.spacing[:4],
-            origin=self.space.origin[:4]
+            origin=self.space.origin[:4],
+            trans=self.space.affine,
         )
         
         return DenseNeuroVec(weighted_data, space_4d, self.label)
@@ -324,7 +329,8 @@ class DenseNeuroHyperVec(NeuroHyperVec):
         space_4d = NeuroSpace(
             dim=self.space.dim[:4],
             spacing=self.space.spacing[:4],
-            origin=self.space.origin[:4]
+            origin=self.space.origin[:4],
+            trans=self.space.affine,
         )
         
         return DenseNeuroVec(output_data, space_4d, self.label)
@@ -341,7 +347,8 @@ class DenseNeuroHyperVec(NeuroHyperVec):
         space_4d = NeuroSpace(
             dim=self.space.dim[:4],
             spacing=self.space.spacing[:4],
-            origin=self.space.origin[:4]
+            origin=self.space.origin[:4],
+            trans=self.space.affine,
         )
         
         return DenseNeuroVec(squeezed_data, space_4d, self.label)
@@ -355,7 +362,8 @@ class DenseNeuroHyperVec(NeuroHyperVec):
         space_3d = NeuroSpace(
             dim=self.space.dim[:3],
             spacing=self.space.spacing[:3],
-            origin=self.space.origin[:3]
+            origin=self.space.origin[:3],
+            trans=self.space.affine,
         )
         
         return DenseNeuroVol(mean_data, space_3d, self.label)
@@ -406,10 +414,10 @@ class SparseNeuroHyperVec(NeuroHyperVec):
         # Initialize dense array
         dense_data = np.zeros(self.shape)
         
-        # Fill in sparse data
-        mask_coords = np.column_stack(np.where(self.mask.data))
-        for i, coord in enumerate(mask_coords):
-            dense_data[coord[0], coord[1], coord[2], :, :] = self.data[:, :, i].T
+        # Voxel columns are stored in Fortran linear-index order (_indices),
+        # so place them by that order, not by np.where's C order.
+        xi, yi, zi = np.unravel_index(self._indices, self.shape[:3], order="F")
+        dense_data[xi, yi, zi, :, :] = np.transpose(self.data, (2, 1, 0))
         
         return DenseNeuroHyperVec(dense_data, self.space, self.label)
     
@@ -455,11 +463,13 @@ class SparseNeuroHyperVec(NeuroHyperVec):
         space_4d = NeuroSpace(
             dim=self.space.dim[:4],
             spacing=self.space.spacing[:4],
-            origin=self.space.origin[:4]
+            origin=self.space.origin[:4],
+            trans=self.space.affine,
         )
         
-        # Transpose to match SparseNeuroVec format (n_voxels, n_timepoints)
-        return SparseNeuroVec(mean_data.T, space_4d, self.mask, self.label)
+        return SparseNeuroVec(
+            mean_data, space_4d, self.mask, self.label, orientation="time_x_voxels"
+        )
     
     def select_features(self, indices: List[int]) -> 'SparseNeuroHyperVec':
         """Select subset of features."""
@@ -475,7 +485,8 @@ class SparseNeuroHyperVec(NeuroHyperVec):
         new_space = NeuroSpace(
             dim=new_dim,
             spacing=self.space.spacing,
-            origin=self.space.origin
+            origin=self.space.origin,
+            trans=self.space.affine,
         )
         
         return SparseNeuroHyperVec(selected_data, self.mask, new_space, self.label)
@@ -496,10 +507,13 @@ class SparseNeuroHyperVec(NeuroHyperVec):
         space_4d = NeuroSpace(
             dim=self.space.dim[:4],
             spacing=self.space.spacing[:4],
-            origin=self.space.origin[:4]
+            origin=self.space.origin[:4],
+            trans=self.space.affine,
         )
         
-        return SparseNeuroVec(output_data, space_4d, self.mask, self.label)
+        return SparseNeuroVec(
+            output_data, space_4d, self.mask, self.label, orientation="voxels_x_time"
+        )
 
 
 def concat_features(hypervecs: List[NeuroHyperVec]) -> DenseNeuroHyperVec:
@@ -544,7 +558,8 @@ def concat_features(hypervecs: List[NeuroHyperVec]) -> DenseNeuroHyperVec:
     new_space = NeuroSpace(
         dim=new_dim,
         spacing=first.space.spacing,
-        origin=first.space.origin
+        origin=first.space.origin,
+        trans=first.space.affine,
     )
     
     return DenseNeuroHyperVec(concat_data, new_space)
@@ -577,6 +592,8 @@ def write_neurohypervec(hvec: NeuroHyperVec, filename: str):
         f.attrs['shape'] = hvec.shape
         f.attrs['spacing'] = hvec.spacing
         f.attrs['origin'] = hvec.origin
+        # The 4x4 spatial affine keeps flips/rotations across a round trip.
+        f.attrs['affine'] = hvec.space.affine
         f.attrs['label'] = hvec.label
 
 
@@ -603,8 +620,10 @@ def read_neurohypervec(filename: str) -> NeuroHyperVec:
         label = f.attrs.get('label', '')
         hvec_type = f.attrs.get('type', 'dense')
         
-        # Create space
-        space = NeuroSpace(dim=shape, spacing=spacing, origin=origin)
+        # Create space (files written before the affine attr fall back to an
+        # axis-aligned grid from spacing/origin)
+        affine = f.attrs.get('affine', None)
+        space = NeuroSpace(dim=shape, spacing=spacing, origin=origin, trans=affine)
         
         # Load data
         data = f['data'][:]
@@ -612,7 +631,9 @@ def read_neurohypervec(filename: str) -> NeuroHyperVec:
         if hvec_type == 'sparse':
             # Load mask
             mask_data = f['mask'][:]
-            mask_space = NeuroSpace(dim=shape[:3], spacing=spacing[:3], origin=origin[:3])
+            mask_space = NeuroSpace(
+                dim=shape[:3], spacing=spacing[:3], origin=origin[:3], trans=affine
+            )
             mask = LogicalNeuroVol(mask_data, mask_space)
             return SparseNeuroHyperVec(data, mask, space, label)
         else:

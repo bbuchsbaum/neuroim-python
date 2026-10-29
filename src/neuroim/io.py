@@ -11,6 +11,7 @@ from .neuro_vol import (
     SparseNeuroVol,
     LogicalNeuroVol,
     neurovol,
+    _attach_nibabel_metadata,
     _embed_receipt_extension,
     _restore_nibabel_xforms,
 )
@@ -131,6 +132,8 @@ def _resolve_write_format(format_name: str) -> str:
         "NIFTI": "NIFTI",
         "NIFTI1": "NIFTI",
         "NIFTI-1": "NIFTI",
+        "NIFTI2": "NIFTI2",
+        "NIFTI-2": "NIFTI2",
         "AFNI": "AFNI",
         "AFNI_GZ": "AFNI_GZ",
         "AFNI-GZ": "AFNI_GZ",
@@ -158,6 +161,36 @@ _NIFTI_DTYPE_MAP = {
     "UINT32": np.uint32,
     "UINT64": np.uint64,
 }
+
+
+def _source_scaled_storage(values: np.ndarray, source_header, slope_inter):
+    """Return integer storage for ``values`` under the source scaling, or None.
+
+    When an image was read from a scaled integer file and its values are still
+    exactly ``raw * slope + inter`` for in-range integers, write it back in
+    that same datatype and scaling (as neuroim2 does) instead of widening it
+    to float64.
+    """
+    if source_header is None or slope_inter is None:
+        return None
+    slope, inter = slope_inter
+    if slope is None or not np.isfinite(slope) or slope == 0:
+        return None
+    inter = 0.0 if inter is None or not np.isfinite(inter) else float(inter)
+    source_dtype = np.dtype(source_header.get_data_dtype())
+    if not np.issubdtype(source_dtype, np.integer):
+        return None
+    if not np.issubdtype(values.dtype, np.floating) or values.size == 0:
+        return None
+    if not np.all(np.isfinite(values)):
+        return None
+    raw = np.rint((values - inter) / slope)
+    info = np.iinfo(source_dtype)
+    if raw.min() < info.min or raw.max() > info.max:
+        return None
+    if not np.array_equal(raw * slope + inter, values):
+        return None
+    return raw.astype(source_dtype), float(slope), inter
 
 
 def _nifti_storage_data(data: np.ndarray, data_type: Optional[str]):
@@ -192,26 +225,118 @@ def _nifti_storage_data(data: np.ndarray, data_type: Optional[str]):
     return values.astype(target), target
 
 
-def _nifti_image_for_write(obj, data: np.ndarray, data_type: Optional[str]):
-    """Build a metadata-preserving NIfTI image with safe storage scaling."""
-    stored, target_dtype = _nifti_storage_data(data, data_type)
+_NIFTI1_MAX_DIM = 32767
+
+
+def _nifti_image_for_write(
+    obj, data: np.ndarray, data_type: Optional[str], nifti2: bool = False
+):
+    """Build a metadata-preserving NIfTI image with safe storage scaling.
+
+    NIfTI-2 is used when requested, when the source was NIfTI-2, or when a
+    dimension does not fit NIfTI-1's int16 ``dim`` field.
+    """
     source_header = getattr(obj, "_nibabel_header", None)
-    header = source_header.copy() if source_header is not None else nib.Nifti1Header()
+    scaled = None
+    if data_type is None:
+        scaled = _source_scaled_storage(
+            np.asanyarray(data),
+            source_header,
+            getattr(obj, "_nibabel_slope_inter", None),
+        )
+    if scaled is not None:
+        stored, slope, inter = scaled
+        target_dtype = stored.dtype
+    else:
+        stored, target_dtype = _nifti_storage_data(data, data_type)
+
+    use_nifti2 = (
+        nifti2
+        or isinstance(source_header, nib.Nifti2Header)
+        or any(int(d) > _NIFTI1_MAX_DIM for d in np.shape(stored))
+    )
+    header_cls = nib.Nifti2Header if use_nifti2 else nib.Nifti1Header
+    image_cls = nib.Nifti2Image if use_nifti2 else nib.Nifti1Image
+    if source_header is None:
+        header = header_cls()
+    elif type(source_header) is header_cls:
+        header = source_header.copy()
+    else:
+        header = header_cls.from_header(source_header)
     try:
         header.set_data_dtype(target_dtype)
     except nib.spatialimages.HeaderDataError as exc:
         raise ValueError(
-            f"dtype {target_dtype} is not representable in NIfTI-1"
+            f"dtype {target_dtype} is not representable in NIfTI"
         ) from exc
     # The container data are already in physical/scaled units.  Any source
     # proxy scaling has therefore been consumed; allow nibabel to choose fresh
-    # scaling for this output rather than applying it a second time.
+    # scaling for this output rather than applying it a second time -- unless
+    # the values were re-encoded exactly in the source scaling above.
     header.set_slope_inter(None, None)
-    image = nib.Nifti1Image(stored, obj.space.affine, header=header)
+    image = image_cls(stored, obj.space.affine, header=header)
+    if scaled is not None:
+        image.header.set_slope_inter(slope, inter)
     _restore_nibabel_xforms(image, obj)
     _embed_receipt_extension(image, getattr(obj, "provenance", None))
     image.header.set_zooms(tuple(float(z) for z in obj.spacing[: stored.ndim]))
     return image
+
+
+def _refuse_unsupported_nifti_dtype(img) -> None:
+    """Refuse complex and RGB payloads instead of silently mangling them."""
+    try:
+        dtype = img.get_data_dtype()
+    except AttributeError:
+        return
+    if dtype.kind == "c":
+        raise ValueError(
+            f"Complex-valued images ({dtype}) are not supported: reading them "
+            "as real data would discard the imaginary part. Load the file "
+            "with nibabel and split real/imaginary or magnitude/phase first."
+        )
+    if dtype.kind == "V" or dtype.names is not None:
+        raise ValueError(
+            f"RGB/structured images ({dtype}) are not supported: their "
+            "channels cannot be represented as a scalar volume. Load the "
+            "file with nibabel and select a channel first."
+        )
+
+
+def _nifti_vec_payload(img):
+    """Return ``(data, time_spacing)`` for a 3-D, 4-D or (x, y, z, 1, t) image.
+
+    A 5-D file whose fourth dimension is a singleton is the NIfTI way of
+    storing a time series in dim[5]; it is folded to (x, y, z, t) with the
+    fifth zoom as the time spacing, as neuroim2 does.
+    """
+    _refuse_unsupported_nifti_dtype(img)
+    shape = tuple(int(d) for d in img.shape)
+    zooms = tuple(float(z) for z in img.header.get_zooms())
+    if len(shape) == 5:
+        if shape[3] != 1:
+            raise ValueError(
+                f"5-D image of shape {shape} is a multi-feature (hyper) vector; "
+                "read_vec only folds files whose fourth dimension is 1"
+            )
+        data = np.asanyarray(img.dataobj)[:, :, :, 0, :]
+        return data, zooms[4] if len(zooms) > 4 else 1.0
+    if len(shape) > 5:
+        raise ValueError(f"Expected at most 5-D data, got {len(shape)}D")
+    data = np.asanyarray(img.dataobj)
+    return data, zooms[3] if len(shape) == 4 and len(zooms) > 3 else 1.0
+
+
+def _nifti_space(img, shape, time_spacing: float = 1.0) -> NeuroSpace:
+    """Spatial grid from the image affine, plus a time axis for 4-D shapes."""
+    spatial = NeuroSpace.from_affine(img.affine, tuple(shape[:3]))
+    if len(shape) == 3:
+        return spatial
+    return NeuroSpace(
+        tuple(int(d) for d in shape),
+        spacing=tuple(float(s) for s in spatial.spacing) + (float(time_spacing),),
+        trans=spatial.affine,
+    )
 
 
 def read_vol(filename: Union[str, Path], index: int = 0) -> DenseNeuroVol:
@@ -241,9 +366,18 @@ def read_vol(filename: Union[str, Path], index: int = 0) -> DenseNeuroVol:
         data = _read_afni_data(meta)
         space = _neurospace_from_afni_meta(meta)
     else:
-        # Load with nibabel
+        # Load with nibabel; values come from dataobj (scaling applied once,
+        # stored dtype kept when unscaled).
         img = nib.load(str(filename))
-        data = img.get_fdata()
+        _refuse_unsupported_nifti_dtype(img)
+        if len(img.shape) == 3 and index == 0:
+            return DenseNeuroVol.from_nibabel(img)
+        if len(img.shape) == 4 and 0 <= index < img.shape[3]:
+            data = np.asanyarray(img.dataobj[..., index])
+            vol = DenseNeuroVol(data, _nifti_space(img, data.shape))
+            _attach_nibabel_metadata(vol, img)
+            return vol
+        data = np.asanyarray(img.dataobj)
 
     # Extract single volume if 4D
     if data.ndim == 4:
@@ -257,12 +391,10 @@ def read_vol(filename: Union[str, Path], index: int = 0) -> DenseNeuroVol:
     elif data.ndim != 3:
         raise ValueError(f"Expected 3D or 4D data, got {data.ndim}D")
 
-    if not _is_afni_descriptor(descriptor) and tuple(img.shape) == tuple(data.shape):
-        return DenseNeuroVol.from_nibabel(img)
-
     if not _is_afni_descriptor(descriptor):
-        # Create NeuroSpace from NIfTI header only for valid dimensionality
-        space = NeuroSpace.from_affine(img.affine, data.shape, header=img.header)
+        vol = DenseNeuroVol(data, _nifti_space(img, data.shape))
+        _attach_nibabel_metadata(vol, img)
+        return vol
 
     # Create and return DenseNeuroVol
     return DenseNeuroVol(data, space)
@@ -297,8 +429,11 @@ def write_vol(
     else:
         data = vol.data
 
-    if format_key == "NIFTI":
-        nib.save(_nifti_image_for_write(vol, data, data_type), str(filename))
+    if format_key in ("NIFTI", "NIFTI2"):
+        image = _nifti_image_for_write(
+            vol, data, data_type, nifti2=format_key == "NIFTI2"
+        )
+        nib.save(image, str(filename))
         return
 
     if format_key in ("AFNI", "AFNI_GZ"):
@@ -321,7 +456,8 @@ def write_vol(
         return
 
     raise NotImplementedError(
-        f"Format '{format}' is not yet supported. Supported formats: NIFTI, AFNI, AFNI_GZ."
+        f"Format '{format}' is not yet supported. "
+        "Supported formats: NIFTI, NIFTI2, AFNI, AFNI_GZ."
     )
 
 
@@ -401,6 +537,10 @@ def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
 
     zooms = header.get_zooms()
     raw_header = {key: header[key].copy() for key in header.keys()}
+    scl_slope = float(getattr(img.dataobj, "slope", header.get("scl_slope", 1)))
+    scl_inter = float(getattr(img.dataobj, "inter", header.get("scl_inter", 0)))
+    raw_header["scl_slope"] = np.asarray(scl_slope, dtype=np.float32)
+    raw_header["scl_inter"] = np.asarray(scl_inter, dtype=np.float32)
     tr = float(zooms[3]) if len(zooms) > 3 else np.nan
     intent_name = header.get("intent_name", b"")
     if hasattr(intent_name, "item"):
@@ -429,8 +569,10 @@ def read_header(filename: Union[str, Path]) -> Dict[str, Any]:
         "intent_code": int(header.get("intent_code", 0)),
         "intent_name": intent_name,
         "vox_offset": float(header.get("vox_offset", 0)),
-        "scl_slope": float(header.get("scl_slope", 1)),
-        "scl_inter": float(header.get("scl_inter", 0)),
+        # nibabel NaNs scl_* in the loaded header and keeps the scaling on
+        # the data proxy, so report it from there.
+        "scl_slope": scl_slope,
+        "scl_inter": scl_inter,
         "cal_min": float(header.get("cal_min", np.nan)),
         "cal_max": float(header.get("cal_max", np.nan)),
         "TR": tr,
@@ -490,14 +632,14 @@ def read_vec(
     else:
         # Load with nibabel
         img = nib.load(str(filename))
-        data = img.get_fdata()
+        data, time_spacing = _nifti_vec_payload(img)
 
     if (
         not _is_afni_descriptor(descriptor)
         and indices is None
         and mask is None
-        and len(img.shape) >= 4
-        and any(dim > 1 for dim in img.shape[3:])
+        and len(img.shape) == 4
+        and img.shape[3] > 1
     ):
         return DenseNeuroVec.from_nibabel(img)
 
@@ -518,15 +660,18 @@ def read_vec(
         data = data[..., indices]
 
     if not _is_afni_descriptor(descriptor):
-        # Create NeuroSpace from NIfTI header
-        space = NeuroSpace.from_affine(img.affine, data.shape, header=img.header)
+        # Time spacing survives the fold of a 5-D or (x, y, z, 1) file.
+        space = _nifti_space(img, data.shape, time_spacing)
     # Update to 4D
     if space.ndim == 3:
         space = space.add_dim(n=1, size=data.shape[3])
 
     # Create appropriate vector type
     if mask is None:
-        return DenseNeuroVec(data, space)
+        vec = DenseNeuroVec(data, space)
+        if not _is_afni_descriptor(descriptor):
+            _attach_nibabel_metadata(vec, img)
+        return vec
     else:
         # Convert to sparse
         if not isinstance(mask, LogicalNeuroVol):
@@ -535,6 +680,7 @@ def read_vec(
                 spacing=space.spacing[:3],
                 origin=space.origin[:3],
                 axes=space.axes.drop_dim(),
+                trans=space.affine,
             )
             mask = LogicalNeuroVol(mask, mask_space)
 
@@ -543,7 +689,7 @@ def read_vec(
         data_flat = data.reshape(-1, data.shape[3], order="F")
         sparse_data = data_flat[mask_indices, :].T
 
-    return SparseNeuroVec(sparse_data, space, mask)
+    return SparseNeuroVec(sparse_data, space, mask, orientation="time_x_voxels")
 
 
 def write_vec(
@@ -575,8 +721,11 @@ def write_vec(
     else:
         data = vec.data
 
-    if format_key == "NIFTI":
-        nib.save(_nifti_image_for_write(vec, data, data_type), str(filename))
+    if format_key in ("NIFTI", "NIFTI2"):
+        image = _nifti_image_for_write(
+            vec, data, data_type, nifti2=format_key == "NIFTI2"
+        )
+        nib.save(image, str(filename))
         return
 
     if format_key in ("AFNI", "AFNI_GZ"):
@@ -599,7 +748,8 @@ def write_vec(
         return
 
     raise NotImplementedError(
-        f"Format '{format}' is not yet supported. Supported formats: NIFTI, AFNI, AFNI_GZ."
+        f"Format '{format}' is not yet supported. "
+        "Supported formats: NIFTI, NIFTI2, AFNI, AFNI_GZ."
     )
 
 

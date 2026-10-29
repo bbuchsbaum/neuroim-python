@@ -67,6 +67,9 @@ class FileBackedNeuroVec(NeuroVec):
                 spacing=[float(s) for s in vol_space.spacing] + [1.0],
                 origin=[float(o) for o in vol_space.origin] + [0.0],
                 axes=axes_4d,
+                # Keep the full spatial affine (rotations, flips), not just
+                # spacing and origin.
+                trans=vol_space.affine,
             )
 
         super().__init__(space)
@@ -265,6 +268,7 @@ class FileBackedNeuroVec(NeuroVec):
             spacing=self.space.spacing,
             origin=self.space.origin,
             axes=self.space.axes,
+            trans=self.space.trans,
         )
 
         return FileBackedNeuroVec(subset_files, subset_space, self.cache_size)
@@ -285,7 +289,7 @@ class FileBackedNeuroVec(NeuroVec):
     def as_matrix(self) -> np.ndarray:
         """Convert to 2D matrix (loads all data into memory)."""
         # Reshape to (n_voxels, n_timepoints) following R convention
-        return self.data.reshape(-1, self.n_volumes, order="F").T
+        return self.data.reshape(-1, self.n_volumes, order="F")
 
     def as_dense(self) -> "DenseNeuroVec":
         """Convert to DenseNeuroVec (loads all data into memory)."""
@@ -316,7 +320,12 @@ class FileBackedNeuroVec(NeuroVec):
             vol_data = self._load_volume(t).ravel(order="F")
             sparse_data[t, :] = vol_data[mask_indices]
 
-        return SparseNeuroVec(data=sparse_data, space=self.space, mask=mask_vol)
+        return SparseNeuroVec(
+            data=sparse_data,
+            space=self.space,
+            mask=mask_vol,
+            orientation="time_x_voxels",
+        )
 
     def _arithmetic_op(self, other, op):
         """Arithmetic operations (loads all data)."""

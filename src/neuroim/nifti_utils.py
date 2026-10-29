@@ -332,29 +332,35 @@ def as_nifti_header(vol: NeuroVol, file_name: str,
             256: 8,  # INT8
             512: 16, # UINT16
             768: 32, # UINT32
+            1024: 64,  # INT64
+            1280: 64,  # UINT64
         }
         header['bitpix'] = dtype_map.get(header['datatype'], 0)
     
-    # Set coordinate system info
-    header['qform_code'] = 1  # Scanner coordinates
-    header['sform_code'] = 1  # Scanner coordinates
-    
+    # Set coordinate system info, keeping the source codes when known
+    # (e.g. 4 = MNI) rather than relabelling everything as scanner space.
+    header['qform_code'] = int(getattr(vol, "_nibabel_qform_code", 1))
+    header['sform_code'] = int(getattr(vol, "_nibabel_sform_code", 1))
+
+    # Always the 4x4 spatial affine, also for 4-D objects whose trans is 5x5.
+    affine = vol.space.affine
+
     # Get quaternion from transformation matrix
-    quat_info = matrix_to_quatern(vol.space.trans)
+    quat_info = matrix_to_quatern(affine)
     header['quatern_b'] = quat_info['quaternion'][0]
     header['quatern_c'] = quat_info['quaternion'][1]
     header['quatern_d'] = quat_info['quaternion'][2]
     header['pixdim'][0] = quat_info['qfac']  # Store qfac in pixdim[0]
     
     # Set offsets from transformation matrix
-    header['qoffset_x'] = vol.space.trans[0, 3]
-    header['qoffset_y'] = vol.space.trans[1, 3]
-    header['qoffset_z'] = vol.space.trans[2, 3]
-    
+    header['qoffset_x'] = affine[0, 3]
+    header['qoffset_y'] = affine[1, 3]
+    header['qoffset_z'] = affine[2, 3]
+
     # Also set sform (affine matrix rows)
-    header['srow_x'] = vol.space.trans[0, :].tolist()
-    header['srow_y'] = vol.space.trans[1, :].tolist()
-    header['srow_z'] = vol.space.trans[2, :].tolist()
+    header['srow_x'] = affine[0, :].tolist()
+    header['srow_y'] = affine[1, :].tolist()
+    header['srow_z'] = affine[2, :].tolist()
     
     # Set voxel offset for single file
     if one_file:

@@ -133,8 +133,9 @@ class TestROIVol:
         
         # Real-world coordinates
         real_coords = roi.get_coords(real=True)
-        # Should be transformed by spacing and origin
-        expected = (coords - 0.5) * 2 + [10, 20, 30]
+        # 0-based voxel centres map straight through the affine
+        expected = coords * 2 + [10, 20, 30]
+        np.testing.assert_array_almost_equal(real_coords, space.grid_to_coord(coords))
         np.testing.assert_array_almost_equal(real_coords, expected)
 
 

@@ -136,6 +136,7 @@ def simulate_fmri(
         dim=(*dims, n_timepoints),
         spacing=spacing_4d,
         origin=origin_4d,
+        trans=space.affine,
     )
 
     return DenseNeuroVec(data, space_4d)

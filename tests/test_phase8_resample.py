@@ -239,27 +239,27 @@ class TestReorient:
         reoriented = reorient(self.space, "RAS")
         
         assert isinstance(reoriented, NeuroSpace)
-        assert reoriented.axes.i == RIGHT_LEFT
-        assert reoriented.axes.j == ANT_POST
-        assert reoriented.axes.k == SUP_INF
+        assert reoriented.axes.i == LEFT_RIGHT
+        assert reoriented.axes.j == POST_ANT
+        assert reoriented.axes.k == INF_SUP
     
     def test_reorient_space_list(self):
         """Test reorienting NeuroSpace with list."""
         reoriented = reorient(self.space, ["R", "A", "S"])
         
         assert isinstance(reoriented, NeuroSpace)
-        assert reoriented.axes.i == RIGHT_LEFT
-        assert reoriented.axes.j == ANT_POST
-        assert reoriented.axes.k == SUP_INF
+        assert reoriented.axes.i == LEFT_RIGHT
+        assert reoriented.axes.j == POST_ANT
+        assert reoriented.axes.k == INF_SUP
     
     def test_reorient_vol(self):
         """Test reorienting NeuroVol."""
         reoriented = reorient(self.vol, "RAS")
         
         assert isinstance(reoriented, DenseNeuroVol)
-        assert reoriented.space.axes.i == RIGHT_LEFT
-        assert reoriented.space.axes.j == ANT_POST
-        assert reoriented.space.axes.k == SUP_INF
+        assert reoriented.space.axes.i == LEFT_RIGHT
+        assert reoriented.space.axes.j == POST_ANT
+        assert reoriented.space.axes.k == INF_SUP
         
         # Data shape should be preserved (for now)
         assert reoriented.data.shape == self.vol.data.shape
@@ -268,9 +268,9 @@ class TestReorient:
         """Test that lowercase orientation codes work."""
         reoriented = reorient(self.space, "ras")
         
-        assert reoriented.axes.i == RIGHT_LEFT
-        assert reoriented.axes.j == ANT_POST
-        assert reoriented.axes.k == SUP_INF
+        assert reoriented.axes.i == LEFT_RIGHT
+        assert reoriented.axes.j == POST_ANT
+        assert reoriented.axes.k == INF_SUP
     
     def test_reorient_invalid_string_length(self):
         """Test error with invalid orientation string length."""
@@ -333,9 +333,9 @@ class TestResampleIntegration:
             resampled = resample(reoriented, target_space)
             
             assert resampled.shape == (64, 64, 40)
-            assert resampled.space.axes.i == RIGHT_LEFT
-            assert resampled.space.axes.j == ANT_POST
-            assert resampled.space.axes.k == SUP_INF
+            assert resampled.space.axes.i == LEFT_RIGHT
+            assert resampled.space.axes.j == POST_ANT
+            assert resampled.space.axes.k == INF_SUP
         except ImportError:
             pytest.skip("nibabel not installed")
     

@@ -409,12 +409,13 @@ class TestFileBackedNeuroVecOperations:
         
         mat = fb_vec.as_matrix()
         
-        assert mat.shape == (5, 1000)  # 5 volumes, 10*10*10 voxels
+        # voxels x time, matching DenseNeuroVec.as_matrix and neuroim2
+        assert mat.shape == (1000, 5)
         # Check first voxel (0,0,0) across time
         # Volume 0: has pattern at [0:2, 0:2, 0:2] so (0,0,0) = 10
         # Volume 1: has pattern at [1:3, 1:3, 1:3] so (0,0,0) = 2
         # Volume 2-4: no pattern at (0,0,0) so values are 3, 4, 5
-        assert np.all(mat[:, 0] == [10, 2, 3, 4, 5])
+        assert np.all(mat[0, :] == [10, 2, 3, 4, 5])
     
     def test_as_dense(self, temp_vol_files):
         """Test conversion to DenseNeuroVec."""

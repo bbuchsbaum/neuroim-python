@@ -190,11 +190,13 @@ def searchlight_iterator(
         center_grid = centers[idx]
 
         # Create spherical ROI around this center
-        roi = spherical_roi(mask, center_grid, radius, fill=1.0, nonzero=nonzero)
+        roi = spherical_roi(mask, center_grid, radius, fill=None, nonzero=nonzero)
 
         # Create ROIVolWindow with parent tracking
         return ROIVolWindow(
-            data=roi.data,
+            # Mask values: 1 for in-mask members, 0 for out-of-mask ones when
+            # nonzero=False (as in neuroim2).
+            data=np.asarray(roi.data, dtype=float),
             space=roi.space,
             coords=roi.coords,
             parent_index=center_idx,
@@ -262,7 +264,7 @@ def searchlight_coords(
         center_grid = centers[idx]
 
         # Create spherical ROI around this center
-        roi = spherical_roi(mask, center_grid, radius, fill=1.0, nonzero=nonzero)
+        roi = spherical_roi(mask, center_grid, radius, fill=None, nonzero=nonzero)
 
         # Return just the coordinates as a matrix
         return roi.coords
@@ -309,33 +311,57 @@ def random_searchlight(
     mask = _as_logical_mask(mask)
     radius = _validate_radius(mask, radius)
 
-    # Get nonzero voxel indices as eligible centers.
+    # Eligible centres are the nonzero mask voxels. Each window keeps only
+    # voxels no earlier window claimed (plus out-of-mask voxels when
+    # nonzero=False), so the windows partition the mask, as in neuroim2.
     mask_indices = _mask_indices(mask, nonzero_only=True)
-    remaining_indices = set(mask_indices)
-    searchlights = []
+    n_total = len(mask_indices)
+    lookup = np.full(int(np.prod(mask.shape)), -1, dtype=np.int64)
+    lookup[mask_indices] = np.arange(n_total)
 
-    while remaining_indices:
-        # Randomly select a center from remaining voxels
-        center_idx = np.random.choice(list(remaining_indices))
+    # Swap-with-last free list: free[:n_free] are unclaimed mask positions and
+    # pos[v] is where v sits in it (-1 once claimed). Claiming costs O(batch),
+    # not O(remaining), so the whole run is linear in the mask size.
+    free = np.arange(n_total)
+    pos = np.arange(n_total)
+    n_free = n_total
+
+    def claim(positions) -> None:
+        nonlocal n_free
+        for v in positions:
+            p = pos[v]
+            last = free[n_free - 1]
+            free[p] = last
+            pos[last] = p
+            pos[v] = -1
+            n_free -= 1
+
+    searchlights = []
+    while n_free > 0:
+        center_pos = int(free[np.random.randint(n_free)])
+        center_idx = int(mask_indices[center_pos])
         center_grid = _center_grid_from_index(mask, center_idx)
 
-        # Create spherical ROI
-        roi = spherical_roi(mask, center_grid, radius, fill=1.0, nonzero=nonzero)
+        roi = spherical_roi(mask, center_grid, radius, fill=None, nonzero=nonzero)
+        roi_lookup = lookup[mask.space.grid_to_index(roi.coords)]
+        in_mask = roi_lookup >= 0
+        available = np.zeros(len(roi_lookup), dtype=bool)
+        available[in_mask] = pos[roi_lookup[in_mask]] >= 0
+        if not available.any():
+            claim([center_pos])
+            continue
 
-        # Get indices of all voxels in this searchlight
-        roi_indices = mask.space.grid_to_index(roi.coords)
+        kept = available | (~in_mask & (not nonzero))
+        coords = roi.coords[kept]
+        claim(roi_lookup[available])
 
-        # Remove these indices from remaining set
-        remaining_indices -= set(roi_indices)
-
-        # Create ROIVolWindow
         searchlights.append(
             ROIVolWindow(
-                data=roi.data,
+                data=np.asarray(roi.data, dtype=float)[kept],
                 space=roi.space,
-                coords=roi.coords,
+                coords=coords,
                 parent_index=center_idx,
-                center_index=_find_center_index(roi.coords, center_grid),
+                center_index=_find_center_index(coords, center_grid),
             )
         )
 
@@ -391,8 +417,18 @@ def clustered_searchlight(
         kmeans = KMeans(n_clusters=csize, n_init=10, random_state=0)
         cluster_labels = kmeans.fit_predict(mask_coords)
     else:
-        # Extract cluster labels from provided volume
-        cluster_labels = cvol.data.ravel(order="F")[mask_indices].astype(int)
+        # Cluster labels from the provided volume: a ClusteredNeuroVol keeps
+        # labels for its own mask voxels; any other volume has a label array.
+        if hasattr(cvol, "clusters") and hasattr(cvol, "_mask_indices"):
+            # Only voxels inside the clustered volume's own mask carry a label.
+            in_cvol = np.zeros(int(np.prod(mask.shape)), dtype=bool)
+            in_cvol[cvol._mask_indices] = True
+            label_flat = np.zeros(int(np.prod(mask.shape)), dtype=int)
+            label_flat[cvol._mask_indices] = np.asarray(cvol.clusters, dtype=int)
+            mask_indices = mask_indices[in_cvol[mask_indices]]
+        else:
+            label_flat = np.asarray(cvol.data).ravel(order="F").astype(int)
+        cluster_labels = label_flat[mask_indices]
 
     # Get unique clusters
     unique_clusters = np.unique(cluster_labels)

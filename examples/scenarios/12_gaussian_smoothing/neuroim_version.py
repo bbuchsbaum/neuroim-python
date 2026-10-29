@@ -20,14 +20,11 @@ def smooth_fwhm_mm(
     return gaussian_blur(vol, mask=mask, fwhm_mm=fwhm_mm)
 
 
-def smooth_via_voxel_sigma(
-    vol: DenseNeuroVol, sigma_voxels: float
-) -> DenseNeuroVol:
-    """Smooth with the legacy scalar voxel-space sigma.
+def smooth_via_sigma_mm(vol: DenseNeuroVol, sigma_mm: float) -> DenseNeuroVol:
+    """Smooth with a scalar sigma, which (like neuroim2) is in millimetres.
 
-    Retained in the scenario so the anisotropy attack test can show, on a
-    3 x 3 x 3.5 mm fixture, that a scalar voxel sigma produces measurably
-    anisotropic mm-space smoothing -- which is exactly why the new
-    ``fwhm_mm=`` path exists.
+    Retained so the anisotropy test can show, on a 3 x 3 x 3.5 mm fixture,
+    that ``sigma`` is converted per axis with the voxel spacing. Releases
+    before 0.3.0 read ``sigma`` in voxels and smoothed anisotropically in mm.
     """
-    return gaussian_blur(vol, sigma=sigma_voxels)
+    return gaussian_blur(vol, sigma=sigma_mm)

@@ -171,7 +171,19 @@ def _validate_same_grid(
                 raise ValueError(f"volumes must occupy the {message}") from exc
 
 
-def _normalize_axis(axis: AxisLike = 2, *, along: Optional[int] = None) -> int:
+_PLANE_NAMES = {"sagittal", "sag", "coronal", "cor", "axial", "axi"}
+
+
+def _normalize_axis(
+    axis: AxisLike = 2, *, along: Optional[int] = None, vol=None
+) -> int:
+    """Resolve ``axis``/``along`` to a native array axis.
+
+    Integers and x/y/z (i/j/k) name native voxel axes. Plane names
+    (sagittal/coronal/axial) name anatomical planes and are resolved through
+    the volume's affine, so ``"axial"`` is the axial plane however the data
+    are stored.
+    """
     if along is not None:
         value = int(along) - 1
     elif isinstance(axis, str):
@@ -179,11 +191,30 @@ def _normalize_axis(axis: AxisLike = 2, *, along: Optional[int] = None) -> int:
         if key not in _AXIS_ALIASES:
             raise ValueError("axis must be 0, 1, 2 or x/y/z, sagittal/coronal/axial")
         value = _AXIS_ALIASES[key]
+        space = _space_of(vol) if vol is not None else None
+        if key in _PLANE_NAMES and space is not None:
+            world_axes = _spatial_orientation(space)[:, 0].astype(int)
+            value = int(np.flatnonzero(world_axes == value)[0])
     else:
         value = int(axis)
     if value not in (0, 1, 2):
         raise ValueError("axis must be 0, 1, or 2")
     return value
+
+
+def _slice_title(vol, axis: int, index: int) -> str:
+    """Panel label naming the world axis and slice position, e.g. ``z = -12 mm``."""
+    space = _space_of(vol)
+    if space is None:
+        return f"{_AXIS_NAME[axis]} = {int(index)}"
+    try:
+        world_axis = int(_spatial_orientation(space)[axis, 0])
+    except ValueError:
+        return f"{_AXIS_NAME[axis]} = {int(index)}"
+    center = (np.asarray(space.dim[:3], dtype=float) - 1) / 2
+    center[axis] = index
+    mm = float(space.grid_to_coord(center[None, :])[0, world_axis])
+    return f"{_AXIS_NAME[world_axis]} = {mm:.0f} mm"
 
 
 def _normalize_indices(
@@ -476,6 +507,146 @@ def _resolve_display_limits(values, range_arg: RangeArg = "robust", probs=(0.02,
     return (float(lo), float(hi))
 
 
+def _foreground_threshold(values) -> float:
+    """Otsu threshold separating head/tissue from air (neuroim2 port)."""
+    x = np.asarray(values, dtype=float).ravel()
+    x = x[np.isfinite(x)]
+    if x.size < 2:
+        return float("nan")
+    if x.size > 200_000:
+        x = x[np.linspace(0, x.size - 1, 200_000).astype(int)]
+    lo, hi = float(x.min()), float(x.max())
+    if lo == hi:
+        return float("nan")
+    edges = np.linspace(lo, hi, 257)
+    counts, _ = np.histogram(x, bins=edges)
+    p = counts / counts.sum()
+    mids = 0.5 * (edges[:-1] + edges[1:])
+    w0 = np.cumsum(p)
+    mu = np.cumsum(p * mids)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        between = (mu[-1] * w0 - mu) ** 2 / (w0 * (1 - w0))
+    between[~np.isfinite(between)] = -np.inf
+    return float(edges[int(np.argmax(between)) + 1])
+
+
+def _background_display_limits(
+    values, range_arg: RangeArg = "robust", probs=(0.02, 0.98)
+):
+    """Display window for a structural background (neuroim2 #19).
+
+    For ``"robust"`` the window is computed over foreground (head) voxels, so
+    air does not drag the upper limit down and clip bright tissue in
+    skull-stripped images; air maps to black.
+    """
+    if not (isinstance(range_arg, str) and range_arg.lower() == "robust"):
+        return _resolve_display_limits(values, range_arg, probs=probs)
+    v = np.asarray(values, dtype=float).ravel()
+    v = v[np.isfinite(v)]
+    if v.size == 0:
+        return (0.0, 1.0)
+    thr = _foreground_threshold(v)
+    fg = v[v > thr] if np.isfinite(thr) else v
+    if fg.size < 10:
+        fg = v
+    lo = float(np.quantile(v, probs[0]))
+    if v.min() >= 0:
+        lo = float(v.min())
+    if np.isfinite(thr):
+        air = v[v <= thr]
+        if air.size >= 10:
+            lo = max(lo, min(float(np.quantile(air, 0.9)), lo + (thr - lo) / 4))
+    hi = float(np.quantile(fg, max(probs[1], 0.995)))
+    hi = lo + (hi - lo) * 1.08
+    if not np.isfinite(hi) or hi <= lo:
+        hi = float(v.max())
+    if hi <= lo:
+        hi = lo + 1.0
+    return (float(lo), float(hi))
+
+
+def _nice_ceiling(x: float) -> float:
+    if not np.isfinite(x) or x <= 0:
+        return x
+    p = 10 ** (np.floor(np.log10(x)) - 1)
+    return float(np.ceil(x / p - 1e-9) * p)
+
+
+def _scalar_threshold(threshold) -> float:
+    if threshold is None:
+        return 0.0
+    if np.isscalar(threshold):
+        return float(threshold)
+    return 0.0
+
+
+def _overlay_scale(
+    values,
+    ov_range: RangeArg = "robust",
+    probs=(0.02, 0.98),
+    threshold=None,
+    symmetric: Optional[bool] = None,
+    ov_cap: Optional[float] = None,
+):
+    """Overlay colour limits from the whole map (neuroim2 ``overlay_scale``).
+
+    The scale does not depend on which slices are shown, always contains the
+    threshold, starts at 0 for non-negative maps and rounds the cap up to a
+    readable value. Returns ``(limits, cap, signed, symmetric)``.
+    """
+    v_all = np.asarray(values, dtype=float).ravel()
+    fin = v_all[np.isfinite(v_all)]
+    signed = fin.size > 0 and fin.min() < 0 < fin.max()
+    symmetric = signed if symmetric is None else bool(symmetric)
+    thresh = _scalar_threshold(threshold)
+    auto_range = isinstance(ov_range, str)
+
+    if not auto_range:
+        lim = list(_resolve_display_limits(fin, ov_range, probs=probs))
+    else:
+        mode = str(ov_range).lower()
+        if mode not in {"robust", "data"}:
+            raise ValueError("range must be 'robust', 'data', or a length-2 range")
+        v = fin[fin != 0]
+        if v.size == 0:
+            lim = [0.0, 1.0]
+        elif mode == "data":
+            lim = [float(v.min()), float(v.max())]
+        else:
+            if v.size > 500_000:
+                v = v[np.linspace(0, v.size - 1, 500_000).astype(int)]
+            hi_p = max(probs[1], 0.99)
+            supra = v[np.abs(v) >= thresh] if thresh > 0 else v
+            vv = supra if thresh > 0 and supra.size >= 10 else v
+            lim = [float(np.quantile(vv, 1 - hi_p)), float(np.quantile(vv, hi_p))]
+            if vv.min() >= 0:
+                lim[0] = min(0.0, lim[0])
+            if lim[0] == lim[1]:
+                lim = [float(v.min()), float(v.max())]
+        if thresh > 0 and v.size:
+            if 0 < lim[1] < thresh:
+                lim[1] = max(float(v.max()), thresh * 1.05)
+            if -thresh < lim[0] < 0:
+                lim[0] = min(float(v.min()), -thresh * 1.05)
+        if lim[0] == lim[1]:
+            lim = [lim[0] - 0.5, lim[1] + 0.5]
+
+    cap = abs(float(ov_cap)) if ov_cap is not None else max(abs(lim[0]), abs(lim[1]))
+    if auto_range and ov_cap is None:
+        cap = _nice_ceiling(cap)
+    if thresh > 0 and np.isfinite(cap) and cap <= thresh:
+        cap = thresh * 1.25
+    if symmetric and np.isfinite(cap) and cap > 0:
+        lim = [-cap, cap]
+    elif ov_cap is not None or auto_range:
+        lim[1] = cap
+        if auto_range and lim[0] > 0:
+            lim[0] = 0.0
+    if not np.isfinite(cap) or cap <= 0:
+        cap = 1.0
+    return (float(lim[0]), float(lim[1])), float(cap), bool(signed), bool(symmetric)
+
+
 def _values_for_slices(vol, *, axis: int, indices: Sequence[int]) -> np.ndarray:
     arr = _as_3d_array(vol)
     return np.concatenate([_slice_raw(arr, axis, int(idx)).ravel() for idx in indices])
@@ -489,27 +660,6 @@ def _threshold_mask(values: np.ndarray, threshold) -> np.ndarray:
         return (~np.isfinite(arr)) | (np.abs(arr) < float(threshold))
     lo, hi = np.asarray(threshold, dtype=float)
     return (~np.isfinite(arr)) | ((arr > lo) & (arr < hi))
-
-
-def _overlay_values_for_limits(values: np.ndarray, threshold) -> np.ndarray:
-    arr = np.asarray(values, dtype=float)
-    finite = arr[np.isfinite(arr)]
-    if finite.size == 0:
-        return finite
-
-    visible = finite
-    if threshold is not None:
-        visible = arr[~_threshold_mask(arr, threshold)]
-        visible = visible[np.isfinite(visible)]
-
-    nonzero_visible = visible[visible != 0]
-    if nonzero_visible.size:
-        return nonzero_visible
-    if visible.size:
-        return visible
-
-    nonzero = finite[finite != 0]
-    return nonzero if nonzero.size else finite
 
 
 def _soft_alpha_params(mags, threshold=0.0, cap=None, gamma=None):
@@ -547,7 +697,16 @@ def _alpha_for_overlay(
     threshold,
     cap: float,
     gamma: Optional[float] = None,
+    soft: Optional[Tuple[float, float, float]] = None,
+    floor: Optional[float] = None,
 ) -> np.ndarray:
+    """Per-voxel overlay opacity (neuroim2 ``overlay_alpha_fun``).
+
+    With a threshold, every supra-threshold voxel keeps at least ``floor``
+    opacity (default 0.6) in the graded modes, so nothing that passes the
+    threshold disappears. ``soft`` is the ``(knee, hi, gamma)`` curve fitted
+    once for the whole map; it is only re-fitted here when omitted.
+    """
     arr = np.asarray(values, dtype=float)
     mags = np.abs(arr)
     mode = mode.lower()
@@ -560,27 +719,44 @@ def _alpha_for_overlay(
             else float(max(abs(t) for t in threshold))
         )
     )
+    thresh = thresh if thresh > 0 else 0.0
+    cap = cap if np.isfinite(cap) and cap > 0 else 1.0
+    fl = (0.6 if floor is None else float(floor)) if thresh > 0 else 0.0
 
-    if mode == "binary":
-        alpha = np.ones_like(mags, dtype=float)
-    elif mode == "proportional":
-        denom = cap if np.isfinite(cap) and cap > 0 else 1.0
-        alpha = mags / denom
-    elif mode == "ramp":
-        denom = cap - thresh
-        if not np.isfinite(denom) or denom <= 0:
-            denom = cap if np.isfinite(cap) and cap > 0 else 1.0
-        alpha = (mags - thresh) / denom
-    elif mode == "soft":
-        lo, hi, gamma = _soft_alpha_params(mags, threshold=thresh, cap=cap, gamma=gamma)
-        t = np.clip((mags - lo) / (hi - lo), 0.0, 1.0)
-        alpha = t**gamma
-    else:
-        raise ValueError(
-            "alpha_mode must be 'binary', 'proportional', 'ramp', or 'soft'"
-        )
+    def graded(t):
+        return fl + (1.0 - fl) * np.clip(t, 0.0, 1.0)
 
-    alpha = np.clip(np.nan_to_num(alpha, nan=0.0), 0.0, 1.0)
+    span = max(cap - thresh, 1e-12)
+    visible_floor = thresh
+    with np.errstate(invalid="ignore"):
+        if mode == "binary":
+            alpha = np.ones_like(mags, dtype=float)
+        elif mode == "proportional":
+            alpha = (
+                graded((mags - thresh) / span)
+                if thresh > 0
+                else np.minimum(mags / cap, 1.0)
+            )
+        elif mode == "ramp":
+            alpha = (
+                graded((mags - thresh) / span)
+                if thresh > 0
+                else np.clip(mags / cap, 0.0, 1.0)
+            )
+        elif mode == "soft":
+            if soft is None:
+                soft = _soft_alpha_params(mags, threshold=thresh, cap=cap, gamma=gamma)
+            lo, hi, g = soft
+            t = np.clip((mags - lo) / max(hi - lo, 1e-12), 0.0, 1.0)
+            alpha = fl + (1.0 - fl) * t**g
+            visible_floor = max(thresh, lo)
+        else:
+            raise ValueError(
+                "alpha_mode must be 'binary', 'proportional', 'ramp', or 'soft'"
+            )
+        visible = np.isfinite(mags) & (mags >= visible_floor) & (mags > 0)
+
+    alpha = np.where(visible, np.clip(np.nan_to_num(alpha, nan=0.0), 0.0, 1.0), 0.0)
     alpha[_threshold_mask(arr, threshold)] = 0.0
     return alpha
 
@@ -768,7 +944,7 @@ def plot_neuro_vol(
     in empty background.  Pass ``False`` to keep the full field of view, or a
     float to set the margin fraction.
     """
-    axis = _normalize_axis(axis, along=along)
+    axis = _normalize_axis(axis, along=along, vol=vol)
     data = _as_3d_array(vol)
     indices = _normalize_indices(zlevels, data.shape[axis], n_default=6, name="zlevels")
     crop_margin = _crop_margin(crop)
@@ -778,7 +954,7 @@ def plot_neuro_vol(
     )
     if bgvol is not None:
         _validate_same_grid(vol, bgvol)
-        bg_limits = _resolve_display_limits(
+        bg_limits = _background_display_limits(
             _values_for_slices(bgvol, axis=axis, indices=indices), "robust"
         )
     else:
@@ -796,9 +972,10 @@ def plot_neuro_vol(
         crop_displays.append(bg_display if bgvol is not None else display)
         panel_data = display.data
         panel_alpha = display.alpha
-        if thresh != (0, 0):
+        if thresh[1] > thresh[0]:
+            # As in neuroim2: values *inside* [lo, hi] are made transparent.
             masked = np.ma.masked_where(
-                (panel_data < thresh[0]) | (panel_data > thresh[1]), panel_data
+                (panel_data >= thresh[0]) & (panel_data <= thresh[1]), panel_data
             )
             display = _DisplaySlice(
                 data=masked,
@@ -845,7 +1022,7 @@ def plot_ortho(
     if unit is not None:
         coord_space = unit
     coord = _coord_to_voxel(vol, coords, coord_space)
-    limits = _resolve_display_limits(_as_3d_array(vol), range, probs=probs)
+    limits = _background_display_limits(_as_3d_array(vol), range, probs=probs)
     crop_margin = _crop_margin(crop)
 
     specs = _anatomical_specs(vol, coord)
@@ -915,12 +1092,12 @@ def plot_montage(
     With ``crop=True`` (default) the panels share a single content bounding box
     so the brain fills each cell at a consistent scale.
     """
-    axis = _normalize_axis(axis, along=along)
+    axis = _normalize_axis(axis, along=along, vol=vol)
     data = _as_3d_array(vol)
     indices = _normalize_indices(
         zlevels, data.shape[axis], n_default=n_slices, name="zlevels"
     )
-    limits = _resolve_display_limits(
+    limits = _background_display_limits(
         _values_for_slices(vol, axis=axis, indices=indices), range, probs=probs
     )
     crop_margin = _crop_margin(crop)
@@ -939,7 +1116,7 @@ def plot_montage(
         display = _display_slice(vol, axis=axis, index=int(idx))
         displays.append(display)
         last = _imshow(ax, display, cmap=cmap, limits=limits)
-        ax.set_title(f"{_AXIS_NAME[axis]} = {int(idx)}", fontsize=_TITLE_FONTSIZE)
+        ax.set_title(_slice_title(vol, axis, int(idx)), fontsize=_TITLE_FONTSIZE)
         ax.axis("off")
 
     _crop_montage_axes(axes, displays, len(indices), limits[0], crop_margin)
@@ -983,6 +1160,7 @@ def plot_overlay(
     title: Optional[str] = None,
     colorbar: bool = False,
     crop: Union[bool, float] = True,
+    alpha_floor: Optional[float] = None,
 ) -> Tuple[plt.Figure, np.ndarray]:
     """Overlay a statistical map on a background volume.
 
@@ -990,6 +1168,12 @@ def plot_overlay(
     view.  Supplying ``zlevels`` activates the neuroim2-style slice montage.
     ``crop=True`` (default) zooms each panel to the background anatomy so the
     overlay is shown in context instead of floating in empty field of view.
+
+    The overlay colour scale is computed from the whole map (not just the
+    slices shown), always contains the threshold and starts at 0 for
+    non-negative maps. With a threshold, graded ``alpha_mode`` values keep
+    every supra-threshold voxel at least ``alpha_floor`` opaque (default
+    0.6), and the ``"soft"`` curve is fitted once for the whole map.
     """
     if unit is not None:
         coord_space = unit
@@ -1011,7 +1195,7 @@ def plot_overlay(
         symmetric = ov_symmetric
 
     _validate_same_grid(base_vol, overlay_vol)
-    axis = _normalize_axis(axis, along=along)
+    axis = _normalize_axis(axis, along=along, vol=base_vol)
     crop_margin = _crop_margin(crop)
     base_data = _as_3d_array(base_vol)
     overlay_data = _as_3d_array(overlay_vol)
@@ -1035,35 +1219,25 @@ def plot_overlay(
     bg_vals = np.concatenate(
         [_slice_raw(base_data, ax, idx).ravel() for ax, idx in specs]
     )
-    ov_vals = np.concatenate(
-        [_slice_raw(overlay_data, ax, idx).ravel() for ax, idx in specs]
+    bg_limits = _background_display_limits(bg_vals, bg_range, probs=probs)
+    ov_limits, cap, signed, symmetric = _overlay_scale(
+        overlay_data,
+        ov_range,
+        probs=probs,
+        threshold=threshold,
+        symmetric=symmetric,
+        ov_cap=ov_cap,
     )
-    bg_limits = _resolve_display_limits(bg_vals, bg_range, probs=probs)
-    ov_display_vals = _overlay_values_for_limits(ov_vals, threshold)
-    ov_limits = _resolve_display_limits(ov_display_vals, ov_range, probs=probs)
-
-    finite_ov = ov_vals[np.isfinite(ov_vals)]
-    signed = finite_ov.size > 0 and np.nanmin(finite_ov) < 0 < np.nanmax(finite_ov)
-    if symmetric is None:
-        symmetric = signed
     if signed and isinstance(overlay_cmap, str) and overlay_cmap == "hot":
         overlay_cmap = "blue-red"
-    if symmetric:
-        cap = (
-            abs(float(ov_cap))
-            if ov_cap is not None
-            else max(abs(ov_limits[0]), abs(ov_limits[1]))
+    soft = None
+    if alpha_mode.lower() == "soft":
+        soft = _soft_alpha_params(
+            np.abs(overlay_data),
+            threshold=_scalar_threshold(threshold),
+            cap=cap,
+            gamma=alpha_gamma,
         )
-        if not np.isfinite(cap) or cap <= 0:
-            cap = 1.0
-        ov_limits = (-cap, cap)
-    cap = (
-        abs(float(ov_cap))
-        if ov_cap is not None
-        else max(abs(ov_limits[0]), abs(ov_limits[1]))
-    )
-    if not np.isfinite(cap) or cap <= 0:
-        cap = 1.0
 
     last = None
     base_displays = []
@@ -1079,6 +1253,8 @@ def plot_overlay(
             threshold=threshold,
             cap=cap,
             gamma=alpha_gamma,
+            soft=soft,
+            floor=alpha_floor,
         )
         overlay_display = _display_slice(
             overlay_vol, axis=ax_axis, index=idx, alpha_map=alpha_map
@@ -1093,7 +1269,9 @@ def plot_overlay(
         if zlevels is None:
             ax_obj.set_title(overlay_display.plane, fontsize=_TITLE_FONTSIZE)
         else:
-            ax_obj.set_title(f"{_AXIS_NAME[ax_axis]} = {idx}", fontsize=_TITLE_FONTSIZE)
+            ax_obj.set_title(
+                _slice_title(base_vol, ax_axis, idx), fontsize=_TITLE_FONTSIZE
+            )
         ax_obj.axis("off")
 
     used = len(specs)
@@ -1136,7 +1314,7 @@ def plot_checkerboard(
 ) -> Tuple[plt.Figure, np.ndarray]:
     """Registration-QC checkerboard slices for two aligned 3D volumes."""
     _validate_same_grid(base_vol, overlay_vol)
-    axis = _normalize_axis(axis, along=along)
+    axis = _normalize_axis(axis, along=along, vol=base_vol)
     base = _as_3d_array(base_vol)
     overlay = _as_3d_array(overlay_vol)
     indices = _normalize_indices(zlevels, base.shape[axis], n_default=6, name="zlevels")
@@ -1144,13 +1322,22 @@ def plot_checkerboard(
         raise ValueError("`tile` must be positive")
     crop_margin = _crop_margin(crop)
 
+    # One window per image across all panels, so contrast does not change
+    # from tile to tile.
+    bg_limits = _background_display_limits(
+        _values_for_slices(base_vol, axis=axis, indices=indices), bg_range, probs=probs
+    )
+    ov_limits = _background_display_limits(
+        _values_for_slices(overlay_vol, axis=axis, indices=indices),
+        ov_range,
+        probs=probs,
+    )
+
     fig, axes = _layout(len(indices), int(ncol), figsize)
     displays = []
     for ax_obj, idx in zip(axes, indices):
         base_raw = _slice_raw(base, axis, int(idx))
         overlay_raw = _slice_raw(overlay, axis, int(idx))
-        bg_limits = _resolve_display_limits(base_raw, bg_range, probs=probs)
-        ov_limits = _resolve_display_limits(overlay_raw, ov_range, probs=probs)
         bg01 = np.clip((base_raw - bg_limits[0]) / (bg_limits[1] - bg_limits[0]), 0, 1)
         ov01 = np.clip(
             (overlay_raw - ov_limits[0]) / (ov_limits[1] - ov_limits[0]), 0, 1
@@ -1171,7 +1358,9 @@ def plot_checkerboard(
             )
         displays.append(display)
         _imshow(ax_obj, display, cmap=cmap, limits=(0.0, 1.0))
-        ax_obj.set_title(f"{_AXIS_NAME[axis]} = {int(idx)}", fontsize=_TITLE_FONTSIZE)
+        ax_obj.set_title(
+            _slice_title(base_vol, axis, int(idx)), fontsize=_TITLE_FONTSIZE
+        )
         ax_obj.axis("off")
 
     # The panel is normalised to [0, 1] with background near 0, so a small
@@ -1231,13 +1420,13 @@ def plot_edge_overlay(
     if style not in {"contour", "fill"}:
         raise ValueError("style must be 'contour' or 'fill'")
     _validate_same_grid(base_vol, edge_vol1, edge_vol2)
-    axis = _normalize_axis(axis, along=along)
+    axis = _normalize_axis(axis, along=along, vol=base_vol)
     crop_margin = _crop_margin(crop)
     base = _as_3d_array(base_vol)
     edge1 = _as_3d_array(edge_vol1)
     edge2 = _as_3d_array(edge_vol2)
     indices = _normalize_indices(zlevels, base.shape[axis], n_default=6, name="zlevels")
-    bg_limits = _resolve_display_limits(
+    bg_limits = _background_display_limits(
         np.concatenate([_slice_raw(base, axis, int(i)).ravel() for i in indices]),
         bg_range,
         probs=probs,
@@ -1303,7 +1492,9 @@ def plot_edge_overlay(
                 limits=edge_limits,
                 alpha=float(edge_alpha),
             )
-        ax_obj.set_title(f"{_AXIS_NAME[axis]} = {int(idx)}", fontsize=_TITLE_FONTSIZE)
+        ax_obj.set_title(
+            _slice_title(base_vol, axis, int(idx)), fontsize=_TITLE_FONTSIZE
+        )
         ax_obj.axis("off")
 
     _crop_montage_axes(axes, base_displays, len(indices), bg_limits[0], crop_margin)

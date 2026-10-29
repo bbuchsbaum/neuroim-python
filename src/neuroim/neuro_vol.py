@@ -647,6 +647,7 @@ class DenseNeuroVol(NeuroVol):
             (*self.shape, len(all_vols)),
             spacing=np.append(self.space.spacing, 1.0),
             origin=np.append(self.space.origin, 0.0),
+            trans=self.space.affine,
         )
         return DenseNeuroVec(stacked, vec_space)
 
@@ -964,6 +965,11 @@ def _attach_nibabel_metadata(obj, img) -> None:
     if hasattr(img, "get_sform"):
         _, code = img.get_sform(coded=True)
         obj._nibabel_sform_code = int(code)
+    # nibabel moves scl_slope/scl_inter onto the data proxy and NaNs them in
+    # the loaded header, so record them for writers that re-encode exactly.
+    dataobj = getattr(img, "dataobj", None)
+    if hasattr(dataobj, "slope") and hasattr(dataobj, "inter"):
+        obj._nibabel_slope_inter = (float(dataobj.slope), float(dataobj.inter))
     receipt = _extract_receipt_extension(img)
     if receipt is not None:
         obj.provenance = receipt

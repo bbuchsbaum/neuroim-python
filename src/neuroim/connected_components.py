@@ -11,7 +11,7 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
-from scipy.ndimage import label, maximum_filter
+from scipy.ndimage import find_objects, label, maximum_filter
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 from dataclasses import dataclass
 
@@ -124,19 +124,18 @@ def conn_comp(
     # Find connected components
     labeled_array, num_features = label(mask_data, structure=structure)
 
-    # Create size array
-    size_array = np.zeros_like(labeled_array, dtype=int)
-    voxels_list = []
-
-    # Compute sizes and collect voxel coordinates
-    for i in range(1, num_features + 1):
-        cluster_mask = labeled_array == i
-        size = int(np.sum(cluster_mask))
-        size_array[cluster_mask] = size
-
-        # Get voxel coordinates (grid indices)
-        coords = np.column_stack(np.where(cluster_mask))
-        voxels_list.append(coords)
+    # Sizes and per-cluster voxel coordinates from one stable sort of the
+    # labels (linear in the volume, not one full scan per cluster). Within a
+    # cluster, voxels stay in C order, as np.where would return them.
+    flat = labeled_array.ravel()
+    counts = np.bincount(flat, minlength=num_features + 1)
+    size_array = counts[labeled_array]
+    size_array[labeled_array == 0] = 0
+    order = np.argsort(flat, kind="stable")[counts[0] :]
+    coords_all = np.column_stack(np.unravel_index(order, labeled_array.shape))
+    voxels_list = np.split(coords_all, np.cumsum(counts[1:])[:-1])
+    if num_features == 0:
+        voxels_list = []
 
     # Create ClusteredNeuroVol for index
     mask_vol = LogicalNeuroVol(mask_data, x.space)
@@ -359,8 +358,7 @@ def _compute_cluster_table(
 
         # Per-cluster mean and per-cluster peak (largest |value|, retain
         # sign from original data so two-tailed maps don't lose direction).
-        cluster_mask = labeled_array == i
-        cluster_values = data[cluster_mask]
+        cluster_values = data[tuple(np.asarray(voxels).T)]
         mean_value = float(np.mean(cluster_values))
         peak_local_idx = int(np.argmax(np.abs(cluster_values)))
         peak_value = float(cluster_values[peak_local_idx])
@@ -425,26 +423,35 @@ def _find_local_maxima(
 
     maxima_list = []
 
-    # Process each cluster
-    num_clusters = np.max(labeled_array)
-    for i in range(1, num_clusters + 1):
-        cluster_mask = labeled_array == i
+    # Process each cluster inside its bounding box (grown by one voxel so the
+    # 3x3x3 maximum filter sees the same -inf surround as on the full volume).
+    data_all = np.asarray(vol.data)
+    shape = labeled_array.shape
+    for i, box in enumerate(find_objects(labeled_array), start=1):
+        if box is None:
+            continue
+        box = tuple(
+            slice(max(sl.start - 1, 0), min(sl.stop + 1, n))
+            for sl, n in zip(box, shape)
+        )
+        offset = np.array([sl.start for sl in box])
+        cluster_mask = labeled_array[box] == i
 
         # Extract cluster data
-        cluster_data = np.where(cluster_mask, vol.data, -np.inf)
+        cluster_data = np.where(cluster_mask, data_all[box], -np.inf)
 
         # Find local maxima using maximum filter
         local_max = maximum_filter(cluster_data, size=3)
         maxima_mask = (cluster_data == local_max) & cluster_mask
 
         # Get maxima coordinates
-        maxima_coords = np.column_stack(np.where(maxima_mask))
+        maxima_coords = np.column_stack(np.where(maxima_mask)) + offset
 
         if len(maxima_coords) == 0:
             continue
 
         # Get values at maxima
-        maxima_values = vol.data[maxima_mask]
+        maxima_values = data_all[box][maxima_mask]
 
         # Sort by value (descending)
         # Handle boolean data

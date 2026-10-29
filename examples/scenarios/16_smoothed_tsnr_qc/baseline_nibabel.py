@@ -9,7 +9,6 @@ import nibabel as nib
 import numpy as np
 from scipy import ndimage
 
-
 _FWHM_TO_SIGMA = 1.0 / (2.0 * math.sqrt(2.0 * math.log(2.0)))
 
 
@@ -44,8 +43,6 @@ def smoothed_tsnr_qc(
 
     voxel_sizes_mm = np.abs(np.diag(np.asarray(bold_img.affine)[:3, :3]))
     sigma_voxels = (fwhm_mm * _FWHM_TO_SIGMA) / voxel_sizes_mm
-    smoothed = ndimage.gaussian_filter(tsnr, sigma=sigma_voxels, truncate=4.0)
-
     smooth_mask = mask
     if smoothing_mask_img is not None:
         smooth_mask = np.asarray(smoothing_mask_img.dataobj, dtype=bool)
@@ -53,7 +50,14 @@ def smoothed_tsnr_qc(
             raise ValueError(
                 f"smoothing mask shape {smooth_mask.shape} != tSNR shape {tsnr.shape}"
             )
-    smoothed = np.where(smooth_mask, smoothed, tsnr)
+    # Smooth within the mask: blur(x * m) / blur(m), so the zero tSNR outside
+    # the mask does not drag edge voxels down.
+    weights = smooth_mask.astype(np.float64)
+    blur = dict(sigma=sigma_voxels, truncate=4.0, mode="constant")
+    num = ndimage.gaussian_filter(np.where(smooth_mask, tsnr, 0.0), **blur)
+    den = ndimage.gaussian_filter(weights, **blur)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        smoothed = np.where(smooth_mask, num / den, tsnr)
 
     img = nib.Nifti1Image(smoothed.astype(np.float32), bold_img.affine)
     summary = {
@@ -65,4 +69,3 @@ def smoothed_tsnr_qc(
         "provenance_chain": None,
     }
     return img, summary
-

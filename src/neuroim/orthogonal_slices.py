@@ -99,6 +99,28 @@ def extract_orthogonal_slices(
     return result
 
 
+_PLANE_WORLD_AXIS = {"sagittal": 0, "coronal": 1, "axial": 2}
+
+
+def _plane_native_axis(vol: NeuroVol, plane: str) -> int:
+    """Native voxel axis whose slices form ``plane`` under the volume affine."""
+    from nibabel.orientations import io_orientation
+
+    if plane not in _PLANE_WORLD_AXIS:
+        raise ValueError(f"Invalid slice type: {plane}")
+    world_axes = io_orientation(np.asarray(vol.space.affine, dtype=float))[:, 0]
+    return int(np.flatnonzero(world_axes == _PLANE_WORLD_AXIS[plane])[0])
+
+
+def _plane_slice(vol: NeuroVol, world_point: np.ndarray, plane: str) -> NeuroSlice:
+    axis = _plane_native_axis(vol, plane)
+    grid_point = vol.space.coord_to_grid(np.asarray(world_point).reshape(1, -1))[0]
+    index = int(np.round(grid_point[axis]))
+    if index < 0 or index >= vol.shape[axis]:
+        raise ValueError(f"world point lies outside the volume along the {plane} axis")
+    return extract_slice(vol, index, axis)
+
+
 def extract_axial_slice(vol: NeuroVol, world_point: np.ndarray) -> NeuroSlice:
     """Extract an axial slice at the given world-space point.
     
@@ -122,12 +144,9 @@ def extract_axial_slice(vol: NeuroVol, world_point: np.ndarray) -> NeuroSlice:
     The axial slice is extracted along the z-axis (inferior-superior axis),
     showing the x-y plane (left-right and anterior-posterior).
     """
-    # Convert world to grid coordinates
-    grid_point = vol.space.coord_to_grid(world_point.reshape(1, -1))[0]
-    
-    # Extract slice along z-axis (axis=2)
-    z_index = int(grid_point[2])
-    return extract_slice(vol, z_index, 2)
+    # The axial plane is found through the affine, so this works however
+    # the data are stored (not just for RAS/LPI-ordered arrays).
+    return _plane_slice(vol, world_point, "axial")
 
 
 def extract_sagittal_slice(vol: NeuroVol, world_point: np.ndarray) -> NeuroSlice:
@@ -154,12 +173,9 @@ def extract_sagittal_slice(vol: NeuroVol, world_point: np.ndarray) -> NeuroSlice
     The sagittal slice is extracted along the x-axis (left-right axis),
     showing the y-z plane (anterior-posterior and inferior-superior).
     """
-    # Convert world to grid coordinates
-    grid_point = vol.space.coord_to_grid(world_point.reshape(1, -1))[0]
-    
-    # Extract slice along x-axis (axis=0)
-    x_index = int(grid_point[0])
-    return extract_slice(vol, x_index, 0)
+    # The sagittal plane is found through the affine, so this works however
+    # the data are stored (not just for RAS/LPI-ordered arrays).
+    return _plane_slice(vol, world_point, "sagittal")
 
 
 def extract_coronal_slice(vol: NeuroVol, world_point: np.ndarray) -> NeuroSlice:
@@ -186,12 +202,9 @@ def extract_coronal_slice(vol: NeuroVol, world_point: np.ndarray) -> NeuroSlice:
     The coronal slice is extracted along the y-axis (anterior-posterior axis),
     showing the x-z plane (left-right and inferior-superior).
     """
-    # Convert world to grid coordinates
-    grid_point = vol.space.coord_to_grid(world_point.reshape(1, -1))[0]
-    
-    # Extract slice along y-axis (axis=1)
-    y_index = int(grid_point[1])
-    return extract_slice(vol, y_index, 1)
+    # The coronal plane is found through the affine, so this works however
+    # the data are stored (not just for RAS/LPI-ordered arrays).
+    return _plane_slice(vol, world_point, "coronal")
 
 
 def get_slice_orientation(vol: NeuroVol, slice_type: str) -> str:
@@ -217,21 +230,15 @@ def get_slice_orientation(vol: NeuroVol, slice_type: str) -> str:
     - Sagittal in LPI: shows Posterior-Anterior and Inferior-Superior
     - Coronal in LPI: shows Left-Right and Inferior-Superior
     """
-    # Get the axis names from the volume's space
+    from nibabel.orientations import io_orientation
     from .axis import axis_names
+
     axes = axis_names(vol.space.axes)
-    
-    if slice_type == 'axial':
-        # Axial shows x-y plane (dimensions 0 and 1)
-        return f"{axes[0]}-{axes[1]}"
-    elif slice_type == 'sagittal':
-        # Sagittal shows y-z plane (dimensions 1 and 2)
-        return f"{axes[1]}-{axes[2]}"
-    elif slice_type == 'coronal':
-        # Coronal shows x-z plane (dimensions 0 and 2)
-        return f"{axes[0]}-{axes[2]}"
-    else:
-        raise ValueError(f"Invalid slice type: {slice_type}")
+    normal = _plane_native_axis(vol, slice_type)
+    world_axes = io_orientation(np.asarray(vol.space.affine, dtype=float))[:, 0]
+    # In-plane native axes, ordered by the world axis they run along (x, y, z).
+    in_plane = sorted((a for a in range(3) if a != normal), key=lambda a: world_axes[a])
+    return f"{axes[in_plane[0]]}-{axes[in_plane[1]]}"
 
 
 def get_world_bounds_for_slice(
@@ -257,29 +264,23 @@ def get_world_bounds_for_slice(
     max_bounds : np.ndarray
         Maximum world coordinates for the slice
     """
-    # Get volume bounds
-    bounds = vol.space.bounds()
-    min_bounds = bounds[0].copy()
-    max_bounds = bounds[1].copy()
-    
+    # Per-axis world extent of the voxel centres (corners can be flipped).
+    corners = vol.space.bounds()[:, :3]
+    min_bounds = corners.min(axis=0)
+    max_bounds = corners.max(axis=0)
+
     if slice_index is not None:
-        # Get the axis for this slice type
-        if slice_type == 'axial':
-            axis = 2  # z-axis
-        elif slice_type == 'sagittal':
-            axis = 0  # x-axis
-        elif slice_type == 'coronal':
-            axis = 1  # y-axis
-        else:
+        world_axis = _PLANE_WORLD_AXIS.get(slice_type)
+        if world_axis is None:
             raise ValueError(f"Invalid slice type: {slice_type}")
-        
-        # Convert slice index to world coordinate
+        native = _plane_native_axis(vol, slice_type)
+
+        # World coordinate of the slice along the plane's normal
         grid_point = np.zeros(3)
-        grid_point[axis] = slice_index
+        grid_point[native] = slice_index
         world_coord = vol.space.grid_to_coord(grid_point.reshape(1, -1))[0]
-        
-        # Set bounds for the specific slice
-        min_bounds[axis] = world_coord[axis]
-        max_bounds[axis] = world_coord[axis]
-    
+
+        min_bounds[world_axis] = world_coord[world_axis]
+        max_bounds[world_axis] = world_coord[world_axis]
+
     return min_bounds, max_bounds

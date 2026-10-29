@@ -199,5 +199,6 @@ def dot_reduce(vec: NeuroVec, weights: np.ndarray) -> DenseNeuroVol:
         dim=vec.shape[:3],
         spacing=vec.spacing[:3],
         origin=vec.origin[:3],
+        trans=vec.space.affine,
     )
     return DenseNeuroVol(result, vol_space)
