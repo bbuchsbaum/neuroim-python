@@ -9,6 +9,7 @@ from neuroim import (
     split_scale, partition, map_values, centroids
 )
 from neuroim import SparseNeuroVec
+from neuroim.roi import ROIVec
 
 
 class TestSplitBlocksEdgeCases:
@@ -38,8 +39,8 @@ class TestSplitClustersEdgeCases:
     def test_split_clusters_neurovec(self):
         """Test split_clusters with NeuroVec input."""
         # Create 4D NeuroVec data with 10 time points
-        vec_space = NeuroSpace(dim=[10, 5, 5, 5])  # time × x × y × z
-        vec_data = np.random.randn(10, 5, 5, 5)
+        vec_space = NeuroSpace(dim=[5, 5, 5, 10])  # x × y × z × time
+        vec_data = np.random.randn(5, 5, 5, 10)
         vec = DenseNeuroVec(vec_data, vec_space)
         
         # Create cluster labels matching spatial dimensions
@@ -49,12 +50,16 @@ class TestSplitClustersEdgeCases:
         cluster_data[3:5, 3:5, 3:5] = 2
         cluster_vol = DenseNeuroVol(cluster_data, cluster_space)
         
-        # This should extract mean time series for each cluster
+        # One ROIVec of time series (time x voxels) per cluster, as neuroim2
         rois = split_clusters(vec, cluster_vol)
-        
+
         assert len(rois) == 2
         for roi in rois:
-            assert isinstance(roi, ROIVol)
+            assert isinstance(roi, ROIVec)
+            assert roi.data.shape == (10, len(roi.coords))
+            np.testing.assert_array_equal(
+                roi.data[:, 0], vec_data[tuple(roi.coords[0])]
+            )
 
 
 class TestSplitFillEdgeCases:
@@ -187,8 +192,8 @@ class TestMapValuesEdgeCases:
         
         result = map_values(custom_vol, lookup)
         
-        # Should return same type
-        assert isinstance(result, CustomNeuroVol)
+        # A float DenseNeuroVol, as neuroim2's map_values
+        assert isinstance(result, DenseNeuroVol)
         assert np.all(result.data[custom_vol.data == 1.0] == 10.0)
 
 

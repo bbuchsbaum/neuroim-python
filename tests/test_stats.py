@@ -139,13 +139,17 @@ class TestSplitFill:
         assert set(result.keys()) == {1, 2, 3}
         
         # Check each split
-        assert result[1].shape[0] == 3  # 3 volumes
-        assert result[2].shape[0] == 3  # 3 volumes
-        assert result[3].shape[0] == 4  # 4 volumes
-        
-        # All should have same spatial dimensions
-        for vec in result.values():
-            assert vec.shape[1:] == self.vec.shape[1:]
+        # Time is the last axis
+        assert result[1].shape[3] == 3  # 3 volumes
+        assert result[2].shape[3] == 3  # 3 volumes
+        assert result[3].shape[3] == 4  # 4 volumes
+
+        # All should have same spatial dimensions, and the level's volumes
+        for level, vec in result.items():
+            assert vec.shape[:3] == self.vec.shape[:3]
+            np.testing.assert_array_equal(
+                vec.data, self.vec.data[..., self.factor == level]
+            )
     
     def test_split_fill_error(self):
         """Test error conditions."""
@@ -332,12 +336,12 @@ class TestMapValues:
         
         result = map_values(sparse_vol, self.lookup)
         
-        assert isinstance(result, SparseNeuroVol)
-        assert np.array_equal(result.indices, sparse_vol.indices)
-        
-        # Check mapping
+        # Dense result: every voxel is looked up; unmapped (here the implicit
+        # zeros) become 0, as in neuroim2
+        assert isinstance(result, DenseNeuroVol)
         expected = np.array([10.0, 20.0, 30.0, 10.0, 20.0])
-        assert np.array_equal(result.data, expected)
+        assert np.array_equal(result.values()[indices], expected)
+        assert result.values()[5:].sum() == 0
 
 
 class TestCentroids:

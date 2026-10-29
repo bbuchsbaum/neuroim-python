@@ -346,7 +346,12 @@ class ClusteredNeuroVec:
         # the result a 2-D (1, 1) matrix so the shape contract holds for N=1.
         matrix = np.atleast_2d(matrix)
 
-        params = ConnectomeParams(method_name="connectome", metric=metric)
+        # The Receipt keeps only method_name, so a non-default metric is
+        # encoded there (like contrast[...]) to keep the two distinguishable.
+        method_name = (
+            "connectome" if metric == "correlation" else f"connectome[{metric}]"
+        )
+        params = ConnectomeParams(method_name=method_name, metric=metric)
         if isinstance(self.provenance, Receipt):
             receipt = chain_receipt(self, params=params, n_voxels=self.n_clusters)
         else:

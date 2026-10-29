@@ -8,7 +8,7 @@ representations and NeuroVec objects.
 import numpy as np
 from typing import Tuple, Union
 
-from .neuro_vol import NeuroVol, DenseNeuroVol
+from .neuro_vol import NeuroVol, DenseNeuroVol, _linear_indices
 from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_space import NeuroSpace
 
@@ -33,16 +33,26 @@ def linear_access(vol_or_vec: Union[NeuroVol, NeuroVec], indices: np.ndarray) ->
     np.ndarray
         Extracted values.
     """
-    indices = np.asarray(indices, dtype=int)
+    if not isinstance(vol_or_vec, (NeuroVol, NeuroVec)):
+        raise TypeError(f"Expected NeuroVol or NeuroVec, got {type(vol_or_vec)}")
+    n_spatial = int(np.prod(vol_or_vec.shape[:3]))
+    # Validated 0-based indices: no silent wrap-around of negatives, no
+    # truncation of non-integers; a scalar is treated as a length-1 array.
+    scalar = np.ndim(indices) == 0
+    indices = _linear_indices(np.atleast_1d(indices), n_spatial)
 
     if isinstance(vol_or_vec, NeuroVec):
-        # Use the series() method which accepts linear indices
-        return vol_or_vec.series(indices)
-    elif isinstance(vol_or_vec, NeuroVol):
-        flat = vol_or_vec.as_dense().data.ravel(order='F')
-        return flat[indices]
+        dense = (
+            vol_or_vec.data
+            if isinstance(vol_or_vec, DenseNeuroVec)
+            else vol_or_vec.to_dense().data
+        )
+        # (n_timepoints, n_indices); a scalar index gives one series
+        out = dense.reshape(n_spatial, -1, order="F")[indices].T
+        return out[:, 0] if scalar else out
     else:
-        raise TypeError(f"Expected NeuroVol or NeuroVec, got {type(vol_or_vec)}")
+        flat = vol_or_vec.as_dense().data.ravel(order='F')
+        return flat[indices][0] if scalar else flat[indices]
 
 
 def matricized_access(vec: NeuroVec, row_indices: np.ndarray, col_indices: np.ndarray) -> np.ndarray:
@@ -65,8 +75,10 @@ def matricized_access(vec: NeuroVec, row_indices: np.ndarray, col_indices: np.nd
     np.ndarray
         2D array of shape ``(len(row_indices), len(col_indices))``.
     """
-    row_indices = np.asarray(row_indices, dtype=int)
-    col_indices = np.asarray(col_indices, dtype=int)
+    row_indices = _linear_indices(np.atleast_1d(row_indices), int(vec.shape[3]))
+    col_indices = _linear_indices(
+        np.atleast_1d(col_indices), int(np.prod(vec.shape[:3]))
+    )
 
     # Get the full time x space matrix
     if isinstance(vec, DenseNeuroVec):
