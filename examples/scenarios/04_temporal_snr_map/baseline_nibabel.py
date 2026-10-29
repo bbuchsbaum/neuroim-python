@@ -29,7 +29,8 @@ def temporal_snr_map(
         raise ValueError(f"expected 4D BOLD, got {data.ndim}D")
     if mask.shape != data.shape[:3]:
         raise ValueError(
-            f"mask shape {mask.shape} does not match BOLD spatial shape {data.shape[:3]}"
+            f"mask shape {mask.shape} does not match BOLD spatial shape "
+            f"{data.shape[:3]}"
         )
     if not np.allclose(mask_img.affine, bold_img.affine):
         raise ValueError("mask affine does not match BOLD affine")

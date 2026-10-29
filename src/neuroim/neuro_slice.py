@@ -6,7 +6,7 @@
 import numpy as np
 from typing import Tuple, Union, Optional
 from .neuro_space import NeuroSpace
-from .axis import AxisSet2D, NamedAxis, drop_axis
+
 
 class NeuroSlice:
     """A 2D slice of neuroimaging data.
@@ -31,13 +31,15 @@ class NeuroSlice:
             # Reshape 1D array to 2D
             if data.size != np.prod(space.dim):
                 raise ValueError(
-                    f"Data length {data.size} must match space dimensions {np.prod(space.dim)}"
+                    f"Data length {data.size} must match space dimensions "
+                    f"{np.prod(space.dim)}"
                 )
             data = data.reshape(tuple(space.dim), order="F")
         elif data.ndim == 2:
             if data.shape != tuple(space.dim):
                 raise ValueError(
-                    f"Data shape {data.shape} must match space dimensions {tuple(space.dim)}"
+                    f"Data shape {data.shape} must match space dimensions "
+                    f"{tuple(space.dim)}"
                 )
         else:
             raise ValueError("Data must be 1D or 2D array")
@@ -52,30 +54,22 @@ class NeuroSlice:
 
     @property
     def dim(self) -> np.ndarray:
-        """Dimensions of the slice.
-
-        """
+        """Dimensions of the slice."""
         return self.space.dim
 
     @property
     def spacing(self) -> np.ndarray:
-        """Voxel dimensions.
-
-        """
+        """Voxel dimensions."""
         return self.space.spacing
 
     @property
     def origin(self) -> np.ndarray:
-        """Origin coordinates.
-
-        """
+        """Origin coordinates."""
         return self.space.origin
 
     @property
     def axes(self):
-        """Axes of the slice.
-
-        """
+        """Axes of the slice."""
         return self.space.axes
 
     def __getitem__(self, key):
@@ -177,10 +171,9 @@ class NeuroSlice:
         return self.space.index_to_grid(idx)
 
     def values(self) -> np.ndarray:
-        """Get the data values as a 1D array.
-
-        """
+        """Get the data values as a 1D array."""
         return self.data.ravel(order="F")
+
 
 def neuroslice(
     data: Union[np.ndarray, list],
@@ -221,6 +214,7 @@ def neuroslice(
         # Reshape back maintaining the data
         slice_data = slice_flat.reshape(tuple(space.dim), order="F")
         return NeuroSlice(slice_data, space)
+
 
 def slice(vol, zlevel: int, along: int) -> NeuroSlice:
     """Extract a 2D slice from a 3D volume.
@@ -263,6 +257,7 @@ def slice(vol, zlevel: int, along: int) -> NeuroSlice:
     slice_space = vol.space.drop_dim(along)
 
     return NeuroSlice(slice_data, slice_space)
+
 
 def slices(vol):
     """Extract all 2D slices from a 3D volume.

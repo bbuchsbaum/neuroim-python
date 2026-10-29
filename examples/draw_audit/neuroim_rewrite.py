@@ -29,7 +29,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional, Tuple
 
-import nibabel as nib
 import numpy as np
 
 import neuroim as ni
@@ -81,7 +80,9 @@ def correlate_roi_with_regressor(
 
     # Project back to the volume.  The space comes from ``extract.space`` —
     # the same contract the extraction was validated against.
-    corr_3d = np.full(tuple(int(d) for d in extract.space.dim[:3]), np.nan, dtype=np.float64)
+    corr_3d = np.full(
+        tuple(int(d) for d in extract.space.dim[:3]), np.nan, dtype=np.float64
+    )
     corr_3d[extract.coords[:, 0], extract.coords[:, 1], extract.coords[:, 2]] = corrs
     corr_vol = ni.NeuroVol.from_array(corr_3d, space=extract.space)
 

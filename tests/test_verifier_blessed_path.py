@@ -40,7 +40,6 @@ import neuroim as ni
 from neuroim import verify as _verify
 from neuroim.roi import ROICoords
 
-
 # ----------------------------------------------------------------------
 # VERIFIER_MANIFEST
 # ----------------------------------------------------------------------
@@ -111,7 +110,8 @@ VERIFIER_MANIFEST: dict[str, dict[str, Any]] = {
     # carrier exists to compare.
     "neuroim.searchlight": {
         "status": "exempt",
-        "reason": "low-level iterator over one mask; searchlight_apply owns data/mask gating.",
+        "reason": "low-level iterator over one mask; searchlight_apply owns data/mask "
+        "gating.",
     },
     "neuroim.searchlight_apply": {"status": "verified"},
     # Spatial filter: gaussian_blur(vol, mask=...) invokes
@@ -252,9 +252,7 @@ def test_no_new_unmanaged_mask_carrying_surface():
     ``status='gap' / 'exempt'`` with a ``reason``.
     """
     surfaces = _enumerate_public_surfaces()
-    candidates = [
-        qname for qname, fn in surfaces if _surface_takes_data_and_mask(fn)
-    ]
+    candidates = [qname for qname, fn in surfaces if _surface_takes_data_and_mask(fn)]
     unmanaged = sorted(set(candidates) - set(VERIFIER_MANIFEST))
     if unmanaged:
         pytest.fail(
@@ -350,13 +348,16 @@ def _invocation_for(qualified_name: str, vec, vol, mask, roi) -> Optional[Callab
 
 
 _VERIFIED_SURFACES = sorted(
-    qname for qname, entry in VERIFIER_MANIFEST.items()
+    qname
+    for qname, entry in VERIFIER_MANIFEST.items()
     if entry.get("status") == "verified"
 )
 
 
 @pytest.mark.parametrize("qualified_name", _VERIFIED_SURFACES)
-def test_verifier_invoked_on_blessed_surface(qualified_name, matched_fixtures, monkeypatch):
+def test_verifier_invoked_on_blessed_surface(
+    qualified_name, matched_fixtures, monkeypatch
+):
     """Every ``verified`` surface must call ``verify.assert_same_space``.
 
     Failure mode: a refactor silently drops the verifier call (the exact
@@ -386,6 +387,7 @@ def test_verifier_invoked_on_blessed_surface(qualified_name, matched_fixtures, m
     monkeypatch.setattr(_verify, "assert_same_space", _spy)
     import neuroim.neuro_vec as _nv
     import neuroim.roi as _roi
+
     for mod in (_nv, _roi):
         if hasattr(mod, "assert_same_space"):
             monkeypatch.setattr(mod, "assert_same_space", _spy, raising=False)

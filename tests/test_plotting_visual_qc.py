@@ -12,12 +12,11 @@ import numpy as np
 import pytest
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
-from neuroim.neuro_space import NeuroSpace
-from neuroim.neuro_vol import DenseNeuroVol
-from neuroim.plotting import _display_slice, plot_montage, plot_ortho
-
+from neuroim.neuro_space import NeuroSpace  # noqa: E402
+from neuroim.neuro_vol import DenseNeuroVol  # noqa: E402
+from neuroim.plotting import _display_slice, plot_montage, plot_ortho  # noqa: E402
 
 _ORIENTATION_SCRIPT = r"""
 if (!requireNamespace("neuroim2", quietly = TRUE)) {

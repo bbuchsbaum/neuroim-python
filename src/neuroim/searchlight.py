@@ -10,7 +10,6 @@ import numpy as np
 from typing import Iterator, Union, List, Optional
 from joblib import Parallel, delayed
 from .neuro_vol import NeuroVol, LogicalNeuroVol
-from .neuro_space import NeuroSpace
 from .roi import ROIVolWindow, ROIVol, spherical_roi
 from .utils import LazyList
 

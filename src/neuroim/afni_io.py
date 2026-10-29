@@ -207,14 +207,22 @@ def read_niml_data(fconn: BinaryIO, meta: Dict[str, str]) -> np.ndarray:
     if form == "binary.lsbfirst":
         # NIML doubles are 8 bytes (neuroim2's readBin(size = 4) misreads them)
         dtype = np.dtype({"int": "<i4", "float": "<f4", "double": "<f8"}[typ])
-        values = np.frombuffer(fconn.read(nvals * dtype.itemsize), dtype=dtype, count=nvals)
+        values = np.frombuffer(
+            fconn.read(nvals * dtype.itemsize), dtype=dtype, count=nvals
+        )
         if values.size != nvals:
-            raise ValueError(f"NIML data block is truncated: expected {nvals}, got {values.size}")
+            raise ValueError(
+                f"NIML data block is truncated: expected {nvals}, got {values.size}"
+            )
     elif form == "binary.msbfirst":
         dtype = np.dtype({"int": ">i4", "float": ">f4", "double": ">f8"}[typ])
-        values = np.frombuffer(fconn.read(nvals * dtype.itemsize), dtype=dtype, count=nvals)
+        values = np.frombuffer(
+            fconn.read(nvals * dtype.itemsize), dtype=dtype, count=nvals
+        )
         if values.size != nvals:
-            raise ValueError(f"NIML data block is truncated: expected {nvals}, got {values.size}")
+            raise ValueError(
+                f"NIML data block is truncated: expected {nvals}, got {values.size}"
+            )
     else:
         payload = bytearray()
         while True:
@@ -227,11 +235,15 @@ def read_niml_data(fconn: BinaryIO, meta: Dict[str, str]) -> np.ndarray:
             payload.extend(ch)
         tokens = payload.decode("utf-8", errors="replace").split()
         if len(tokens) < nvals:
-            raise ValueError(f"NIML data block is truncated: expected {nvals}, got {len(tokens)}")
+            raise ValueError(
+                f"NIML data block is truncated: expected {nvals}, got {len(tokens)}"
+            )
         if typ == "int":
             values = np.asarray([int(tok) for tok in tokens[:nvals]], dtype=np.int32)
         else:
-            values = np.asarray([float(tok) for tok in tokens[:nvals]], dtype=np.float64)
+            values = np.asarray(
+                [float(tok) for tok in tokens[:nvals]], dtype=np.float64
+            )
 
     return np.asarray(values).reshape((nvols, nels), order="F")
 
@@ -251,13 +263,18 @@ def _consume_niml_close_tag(fconn: BinaryIO) -> None:
 def parse_niml_next(fconn: BinaryIO) -> Dict[str, Any]:
     """Parse the next NIML element from a binary stream."""
     header = parse_niml_header(fconn)
-    if header.get("attr") is not None and header.get("label") in {"SPARSE_DATA", "INDEX_LIST"}:
+    if header.get("attr") is not None and header.get("label") in {
+        "SPARSE_DATA",
+        "INDEX_LIST",
+    }:
         header["data"] = read_niml_data(fconn, header["attr"])
     _consume_niml_close_tag(fconn)
     return header
 
 
-def parse_niml_file(file_name: Union[str, Path], maxels: int = 10000) -> List[Dict[str, Any]]:
+def parse_niml_file(
+    file_name: Union[str, Path], maxels: int = 10000
+) -> List[Dict[str, Any]]:
     """Parse a NIML file into a list of element dictionaries.
 
     This mirrors neuroim2's lightweight ``parse_niml_file()`` behavior.  It is
@@ -333,9 +350,12 @@ def afni_tr_seconds(header: Dict[str, Any]) -> float | None:
 # ORIENT_SPECIFIC code for (DICOM axis, step > 0). DICOM +x = Left,
 # +y = Posterior, +z = Superior; codes 0 R2L, 1 L2R, 2 P2A, 3 A2P, 4 I2S, 5 S2I.
 _ORIENT_CODE = {
-    (0, True): 0, (0, False): 1,
-    (1, True): 3, (1, False): 2,
-    (2, True): 4, (2, False): 5,
+    (0, True): 0,
+    (0, False): 1,
+    (1, True): 3,
+    (1, False): 2,
+    (2, True): 4,
+    (2, False): 5,
 }
 
 

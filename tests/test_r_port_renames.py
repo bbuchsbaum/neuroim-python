@@ -19,8 +19,6 @@ from neuroim import (
     DenseNeuroVec,
     DenseNeuroVol,
     NeuroSpace,
-    SparseNeuroVec,
-    SparseNeuroVol,
 )
 
 
@@ -48,9 +46,7 @@ def test_neurovol_to_dense_alias_exists_and_matches_as_dense():
 
 def test_neurovol_to_sparse_alias_exists_and_matches_as_sparse():
     vol = _make_dense_vol()
-    np.testing.assert_array_equal(
-        vol.to_sparse().data, vol.as_sparse().data
-    )
+    np.testing.assert_array_equal(vol.to_sparse().data, vol.as_sparse().data)
 
 
 def test_neurovol_to_logical_alias_exists_and_matches_as_logical():
@@ -73,6 +69,4 @@ def test_neurovec_to_dense_alias_matches_as_dense():
 
 def test_neurovec_to_sparse_alias_matches_as_sparse():
     vec = _make_dense_vec()
-    np.testing.assert_array_equal(
-        vec.to_sparse().data, vec.as_sparse().data
-    )
+    np.testing.assert_array_equal(vec.to_sparse().data, vec.as_sparse().data)

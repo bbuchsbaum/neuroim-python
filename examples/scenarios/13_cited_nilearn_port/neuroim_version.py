@@ -39,9 +39,9 @@ def _pearson_seed_to_voxels(
     seed = np.asarray(seed_ts, dtype=np.float64)
     voxels = np.asarray(voxel_by_time, dtype=np.float64)
     seed_z = (seed - seed.mean()) / seed.std(ddof=1)
-    voxels_z = (
-        voxels - voxels.mean(axis=1, keepdims=True)
-    ) / voxels.std(axis=1, keepdims=True, ddof=1)
+    voxels_z = (voxels - voxels.mean(axis=1, keepdims=True)) / voxels.std(
+        axis=1, keepdims=True, ddof=1
+    )
     n = seed_z.size
     return (voxels_z @ seed_z) / (n - 1)
 

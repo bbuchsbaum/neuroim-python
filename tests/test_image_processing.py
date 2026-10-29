@@ -15,8 +15,6 @@ from neuroim import (
     guided_filter,
     bilateral_filter,
 )
-import tempfile
-import nibabel as nib
 
 
 class TestImageProcessing:
@@ -276,7 +274,7 @@ class TestImageProcessing:
             return np.sqrt(grad_x**2 + grad_y**2 + grad_z**2)
 
         edges_original = edge_strength(vol.data)
-        edges_gauss_light = edge_strength(gauss_light.data)
+        edge_strength(gauss_light.data)
         edges_gauss_heavy = edge_strength(gauss_heavy.data)
         edges_guided = edge_strength(guided.data)
 
@@ -318,7 +316,7 @@ class TestImageProcessing:
 
         # Test different processing methods
         smoothed = gaussian_blur(vol, sigma=1.5)
-        edge_preserved = guided_filter(vol, radius=3, epsilon=0.3)
+        guided_filter(vol, radius=3, epsilon=0.3)
 
         # Smoothing should produce reasonable output
         # The smoothed volume should have similar mean but reduced dynamic range

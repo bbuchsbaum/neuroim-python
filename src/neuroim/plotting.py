@@ -20,7 +20,6 @@ from nibabel.orientations import io_orientation
 from .neuro_slice import NeuroSlice
 from .neuro_vol import NeuroVol
 
-
 AxisLike = Union[int, str]
 RangeArg = Union[str, Tuple[float, float], Sequence[float], None]
 CmapLike = Union[str, Sequence[str], Colormap]

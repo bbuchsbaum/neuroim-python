@@ -7,10 +7,13 @@ Applies lazy transformations over vector-valued neuroimaging data.
 """
 
 import numpy as np
-from typing import Optional, Callable, Union, Tuple
+from typing import TYPE_CHECKING, Optional, Callable, Union, Tuple
 from .neuro_vec import NeuroVec
-from .neuro_space import NeuroSpace
-from .neuro_vol import NeuroVol, DenseNeuroVol
+from .neuro_vol import DenseNeuroVol
+
+if TYPE_CHECKING:
+    from .neuro_vec import DenseNeuroVec, SparseNeuroVec
+
 
 class MappedNeuroVec(NeuroVec):
     """A mapped 4D neuroimaging vector.
@@ -203,11 +206,13 @@ class MappedNeuroVec(NeuroVec):
             f"  Dimension : {' X '.join(map(str, self.shape))}\n"
             f"  Spacing   : {' X '.join(map(str, self.space.spacing))}\n"
             f"  Origin    : {', '.join(map(str, self.space.origin))}\n"
-            f"  Map Func  : {self.map_fun.__name__ if hasattr(self.map_fun, '__name__') else 'custom'}\n"
+            f"  Map Func  : {getattr(self.map_fun, '__name__', 'custom')}\n"
             f"  Has Inverse: {self.inverse_fun is not None}"
         )
 
+
 # Common mapping functions
+
 
 def scale_mapper(scale: float, center: float = 0) -> Tuple[Callable, Callable]:
     """Create scale mapping functions.
@@ -233,6 +238,7 @@ def scale_mapper(scale: float, center: float = 0) -> Tuple[Callable, Callable]:
 
     return forward, inverse
 
+
 def log_mapper(base: float = np.e, offset: float = 0) -> Tuple[Callable, Callable]:
     """Create logarithmic mapping functions.
 
@@ -257,6 +263,7 @@ def log_mapper(base: float = np.e, offset: float = 0) -> Tuple[Callable, Callabl
 
     return forward, inverse
 
+
 def threshold_mapper(threshold: float, below_value: float = 0) -> Callable:
     """Create threshold mapping function.
 
@@ -279,6 +286,7 @@ def threshold_mapper(threshold: float, below_value: float = 0) -> Callable:
         return result
 
     return forward
+
 
 def mapped_neurovecseq(
     vecs: list, map_fun: Callable, inverse_fun: Optional[Callable] = None

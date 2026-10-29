@@ -46,13 +46,13 @@ def temporal_snr_after_slice(
         # Manual re-wrap so the rest of the pipeline has a typed input.
         # A fix for PAIN-13 should make this branch dead code.
         import numpy as np
+
         sliced_arr = np.asarray(sliced)
         spatial = bold.spatial_space
         from neuroim.axis import AxisSet4D, NamedAxis
+
         t_axis = NamedAxis("t", int(sliced_arr.shape[-1]))
-        axes_4d = AxisSet4D(
-            spatial.axes.i, spatial.axes.j, spatial.axes.k, t_axis
-        )
+        axes_4d = AxisSet4D(spatial.axes.i, spatial.axes.j, spatial.axes.k, t_axis)
         new_space = ni.NeuroSpace(
             dim=[int(d) for d in sliced_arr.shape],
             spacing=[float(s) for s in spatial.spacing] + [1.0],

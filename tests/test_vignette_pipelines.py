@@ -1,14 +1,24 @@
 """Test that Pipelines vignette functionality works in Python."""
+
 import numpy as np
 
 # Test imports
 try:
-    from neuroim import (DenseNeuroVol, NeuroSpace, conn_comp, split_clusters, searchlight, searchlight_coords, SparseNeuroVol)
+    from neuroim import (
+        DenseNeuroVol,
+        NeuroSpace,
+        conn_comp,
+        split_clusters,
+        searchlight,
+        SparseNeuroVol,
+    )
     from neuroim.neuro_vec import neurovec
-    from neuroim.stats import split_blocks, partition
+    from neuroim.stats import partition
+
     print("✓ Basic imports work")
 except ImportError as e:
     print(f"✗ Import error: {e}")
+
 
 def test_connected_components():
     """Test connected components analysis."""
@@ -25,8 +35,8 @@ def test_connected_components():
     # Find connected components
     comp = conn_comp(vol, threshold=0.8)
 
-    assert hasattr(comp, 'index')
-    assert hasattr(comp, 'size')
+    assert hasattr(comp, "index")
+    assert hasattr(comp, "size")
     # Check number of components from voxels list
     n_components = len(comp.voxels)
     assert n_components >= 3  # Should find at least 3 components
@@ -39,6 +49,7 @@ def test_connected_components():
     assert len(means) == n_components
     print("✓ Split clusters works")
 
+
 def test_searchlight_statistics():
     """Test searchlight with statistics."""
     # Create volume with noise
@@ -48,6 +59,7 @@ def test_searchlight_statistics():
 
     # Create mask
     from neuroim import LogicalNeuroVol
+
     mask = LogicalNeuroVol(np.ones_like(data, dtype=bool), space)
 
     # Compute local SD
@@ -64,14 +76,13 @@ def test_searchlight_statistics():
 
     # Create sparse output
     sd_vol = SparseNeuroVol(
-        data=np.array(sd_values),
-        space=vol.space,
-        indices=np.array(indices)
+        data=np.array(sd_values), space=vol.space, indices=np.array(indices)
     )
 
     assert len(sd_values) == 20
     assert sd_vol.shape == vol.shape
     print("✓ Searchlight statistics works")
+
 
 def test_slice_processing():
     """Test processing slices."""
@@ -88,6 +99,7 @@ def test_slice_processing():
     # Should show increasing trend
     assert slice_means[-1] > slice_means[0]
     print("✓ Slice processing works")
+
 
 def test_4d_processing():
     """Test processing 4D data."""
@@ -116,6 +128,7 @@ def test_4d_processing():
     assert all(s == 0 for s in sd_vec)
     print("✓ 4D volume processing works")
 
+
 def test_voxel_time_series():
     """Test processing voxel time series."""
     # Create 4D data with structure
@@ -124,8 +137,7 @@ def test_voxel_time_series():
 
     # Method 1: numpy operations
     mean_vol_data = np.mean(vec.data, axis=3)
-    mean_vol1 = DenseNeuroVol(mean_vol_data,
-                             NeuroSpace(dim=mean_vol_data.shape))
+    mean_vol1 = DenseNeuroVol(mean_vol_data, NeuroSpace(dim=mean_vol_data.shape))
 
     # Method 2: voxel iteration (just test a few)
     mean_values = []
@@ -137,10 +149,11 @@ def test_voxel_time_series():
 
     # Check they match for tested voxels
     # Reshape mean_values to compare
-    mean_array = np.array(mean_values).reshape(3, 3, 3, order='C')
+    mean_array = np.array(mean_values).reshape(3, 3, 3, order="C")
     mean_vol_subset = mean_vol1.data[:3, :3, :3]
     assert np.allclose(mean_array, mean_vol_subset)
     print("✓ Voxel time series processing works")
+
 
 def test_knn_smoothing():
     """Test k-nearest neighbor smoothing concept."""
@@ -150,6 +163,7 @@ def test_knn_smoothing():
 
     # Create mask
     from neuroim import LogicalNeuroVol
+
     mask = LogicalNeuroVol(np.ones_like(data, dtype=bool), space)
 
     # Process a few searchlights
@@ -161,10 +175,10 @@ def test_knn_smoothing():
         roi_coords = roi.coords
         roi_values = vol.data[roi_coords[:, 0], roi_coords[:, 1], roi_coords[:, 2]]
 
-        if hasattr(roi, 'center_index') and len(roi_values) > k:
+        if hasattr(roi, "center_index") and len(roi_values) > k:
             center_val = roi_values[roi.center_index]
             distances = np.abs(roi_values - center_val)
-            k_nearest_idx = np.argsort(distances)[1:k+1]
+            k_nearest_idx = np.argsort(distances)[1 : k + 1]
             smoothed_values.append(np.mean(roi_values[k_nearest_idx]))
         else:
             smoothed_values.append(np.mean(roi_values))
@@ -174,6 +188,7 @@ def test_knn_smoothing():
 
     assert len(smoothed_values) == 10
     print("✓ K-NN smoothing concept works")
+
 
 def test_partition():
     """Test partition function."""
@@ -194,6 +209,7 @@ def test_partition():
         print("✓ Partition works")
     except Exception as e:
         print(f"✗ Partition failed: {e}")
+
 
 def test_custom_pipeline():
     """Test building a custom pipeline."""
@@ -221,7 +237,9 @@ def test_custom_pipeline():
                 # Simple smoothing
                 cluster_mean = np.mean(cluster.data)
                 coords = cluster.coords
-                result_data[coords[:, 0], coords[:, 1], coords[:, 2]] = cluster_mean * 0.8
+                result_data[coords[:, 0], coords[:, 1], coords[:, 2]] = (
+                    cluster_mean * 0.8
+                )
 
         return DenseNeuroVol(result_data, vol.space)
 
@@ -231,6 +249,7 @@ def test_custom_pipeline():
     # Should have reduced noise
     assert np.std(denoised.data) < np.std(vol.data)
     print("✓ Custom pipeline works")
+
 
 if __name__ == "__main__":
     print("Testing Pipelines vignette functionality...")

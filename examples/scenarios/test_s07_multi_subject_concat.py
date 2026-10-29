@@ -122,9 +122,7 @@ def test_baseline_catches_mismatched_affine(subject_a, subject_b_shifted):
         np.asarray(subject_b_shifted.space.trans)[:4, :4],
     )
     with pytest.raises(ValueError, match="affine"):
-        baseline_nibabel.concat_subjects_and_mean(
-            [bold_a_nib, bold_b_nib], mask_nib
-        )
+        baseline_nibabel.concat_subjects_and_mean([bold_a_nib, bold_b_nib], mask_nib)
 
 
 # ---------------------------------------------------------------------------

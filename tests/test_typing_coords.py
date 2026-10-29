@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from neuroim.protocols import VoxelCoord, WorldCoord, voxel_coord, world_coord
+from neuroim.protocols import voxel_coord, world_coord
 
 
 class TestVoxelCoord:

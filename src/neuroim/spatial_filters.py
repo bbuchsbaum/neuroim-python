@@ -8,7 +8,6 @@ from scipy import ndimage
 from typing import Union, Optional
 from .neuro_vol import NeuroVol, DenseNeuroVol, LogicalNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec
-from .kernel import Kernel, gaussian_kernel
 
 
 def _positive_finite_scalar(value, name: str) -> float:

@@ -19,9 +19,9 @@ PKG_DIR = Path(__file__).resolve().parents[1] / "src" / "neuroim"
 
 def test_no_package_local_typing_module():
     """``neuroim.typing`` must not be importable as a submodule."""
-    assert (PKG_DIR / "typing.py").exists() is False, (
-        "src/neuroim/typing.py reintroduced — it shadows stdlib typing"
-    )
+    assert (
+        PKG_DIR / "typing.py"
+    ).exists() is False, "src/neuroim/typing.py reintroduced — it shadows stdlib typing"
     assert importlib.util.find_spec("neuroim.typing") is None
 
 
@@ -52,7 +52,8 @@ def test_stdlib_typing_wins_with_package_dir_on_syspath():
         "import sys; sys.path.insert(0, r'%s')\n"
         "import typing\n"
         "assert hasattr(typing, 'TYPE_CHECKING'), 'not stdlib typing'\n"
-        "assert 'neuroim' not in (getattr(typing, '__file__', '') or ''), typing.__file__\n"
+        "assert 'neuroim' not in (getattr(typing, '__file__', '') or ''), "
+        "typing.__file__\n"
         "from typing import Any, Protocol  # would crash if shadowed\n"
         "print('ok')\n"
     ) % PKG_DIR

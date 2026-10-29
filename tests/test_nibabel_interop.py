@@ -9,7 +9,6 @@ import pytest
 import neuroim as ni
 from neuroim import NeuroSpace, NeuroVec, NeuroVol
 
-
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "golden_tests" / "fixtures"
 TINY_BOLD = FIXTURE_DIR / "tiny_bold.nii.gz"
 TINY_MASK = FIXTURE_DIR / "tiny_mask.nii.gz"

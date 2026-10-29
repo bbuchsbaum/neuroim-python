@@ -15,38 +15,50 @@ from neuroim.neuro_hypervec import DenseNeuroHyperVec
 
 
 def _vol():
-    return DenseNeuroVol(np.arange(64, dtype=float).reshape(4, 4, 4),
-                         NeuroSpace((4, 4, 4), (1, 1, 1)))
+    return DenseNeuroVol(
+        np.arange(64, dtype=float).reshape(4, 4, 4), NeuroSpace((4, 4, 4), (1, 1, 1))
+    )
 
 
 def _vec():
-    return DenseNeuroVec(np.zeros((4, 4, 4, 3), dtype=float),
-                         NeuroSpace((4, 4, 4, 3), (1, 1, 1, 1)))
+    return DenseNeuroVec(
+        np.zeros((4, 4, 4, 3), dtype=float), NeuroSpace((4, 4, 4, 3), (1, 1, 1, 1))
+    )
 
 
 def _hypervec():
-    return DenseNeuroHyperVec(np.zeros((4, 4, 4, 3, 2), dtype=float),
-                              NeuroSpace((4, 4, 4, 3, 2), (1, 1, 1, 1, 1)))
+    return DenseNeuroHyperVec(
+        np.zeros((4, 4, 4, 3, 2), dtype=float),
+        NeuroSpace((4, 4, 4, 3, 2), (1, 1, 1, 1, 1)),
+    )
 
 
-@pytest.mark.parametrize("factory,accessor,natural_shape", [
-    (_vol, ".as_array()", (4, 4, 4)),
-    (_vec, ".data", (4, 4, 4, 3)),
-    (_hypervec, ".data", (4, 4, 4, 3, 2)),
-])
+@pytest.mark.parametrize(
+    "factory,accessor,natural_shape",
+    [
+        (_vol, ".as_array()", (4, 4, 4)),
+        (_vec, ".data", (4, 4, 4, 3)),
+        (_hypervec, ".data", (4, 4, 4, 3, 2)),
+    ],
+)
 def test_np_asarray_refuses_explicitly(factory, accessor, natural_shape):
     obj = factory()
-    with pytest.raises(TypeError, match=r"does not implicitly convert to a NumPy array"):
+    with pytest.raises(
+        TypeError, match=r"does not implicitly convert to a NumPy array"
+    ):
         np.asarray(obj)
     with pytest.raises(TypeError, match=re_escape(accessor)):
         np.array(obj)
 
 
-@pytest.mark.parametrize("factory,accessor,natural_shape", [
-    (_vol, ".as_array()", (4, 4, 4)),
-    (_vec, ".data", (4, 4, 4, 3)),
-    (_hypervec, ".data", (4, 4, 4, 3, 2)),
-])
+@pytest.mark.parametrize(
+    "factory,accessor,natural_shape",
+    [
+        (_vol, ".as_array()", (4, 4, 4)),
+        (_vec, ".data", (4, 4, 4, 3)),
+        (_hypervec, ".data", (4, 4, 4, 3, 2)),
+    ],
+)
 def test_refusal_names_a_rank_faithful_accessor(factory, accessor, natural_shape):
     """The accessor the refusal points to must return the natural-rank
     ndarray — not a reshaped view. Catches the .as_matrix() defect:
@@ -67,6 +79,7 @@ def test_refusal_names_a_rank_faithful_accessor(factory, accessor, natural_shape
 
 def re_escape(s: str) -> str:
     import re
+
     return re.escape(s)
 
 

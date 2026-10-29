@@ -54,7 +54,6 @@ from neuroim.results import (
 )
 from neuroim.verify import assert_same_space
 
-
 # Plain classes with __slots__ rather than ``@dataclass`` because this
 # module is loaded via ``importlib.util`` from a digit-prefixed directory
 # (see scenarios/conftest.py).  Same Python-3.9 workaround as Scenario 18
@@ -82,9 +81,7 @@ class TypedTemplate:
 
     __slots__ = ("space", "mask")
 
-    def __init__(
-        self, space: "ni.NeuroSpace", mask: "ni.LogicalNeuroVol"
-    ) -> None:
+    def __init__(self, space: "ni.NeuroSpace", mask: "ni.LogicalNeuroVol") -> None:
         self.space = space
         self.mask = mask
 
@@ -93,9 +90,7 @@ def typed_from_nibabel(subjects, template) -> tuple[List[TypedSubject], TypedTem
     """Adapter so the test can drive both lanes from one synthesis call."""
     typed_subjects: List[TypedSubject] = []
     for s in subjects:
-        bold_space = ni.NeuroSpace.from_affine(
-            np.asarray(s.bold.affine), s.bold.shape
-        )
+        bold_space = ni.NeuroSpace.from_affine(np.asarray(s.bold.affine), s.bold.shape)
         bold_vec = ni.DenseNeuroVec(
             np.asarray(s.bold.dataobj, dtype=np.float64), bold_space
         )
@@ -116,9 +111,7 @@ def typed_from_nibabel(subjects, template) -> tuple[List[TypedSubject], TypedTem
     return typed_subjects, TypedTemplate(space=template_space, mask=template_mask)
 
 
-def _template_space_4d(
-    template: TypedTemplate, nt: int
-) -> "ni.NeuroSpace":
+def _template_space_4d(template: TypedTemplate, nt: int) -> "ni.NeuroSpace":
     """Build a 4-D template ``NeuroSpace`` for ``resample_vec`` from the
     template's 3-D space and the subject's number of timepoints.
 
@@ -173,9 +166,7 @@ def group_mean_volumes(maps: Sequence[ni.DenseNeuroVol]) -> ni.DenseNeuroVol:
     for v in maps[1:]:
         assert_same_space(first.space, v.space)
 
-    stacked = np.stack(
-        [np.asarray(v.data, dtype=np.float64) for v in maps], axis=0
-    )
+    stacked = np.stack([np.asarray(v.data, dtype=np.float64) for v in maps], axis=0)
     mean_arr = stacked.mean(axis=0)
     out = ni.DenseNeuroVol(mean_arr, first.space)
 
@@ -189,9 +180,7 @@ def group_mean_volumes(maps: Sequence[ni.DenseNeuroVol]) -> ni.DenseNeuroVol:
         n_voxels=int(np.prod(first.space.dim[:3])),
         params=OpParams(method_name=f"group_mean(n={len(maps)})"),
     )
-    upstreams = [
-        getattr(v, "provenance", None) for v in maps
-    ]
+    upstreams = [getattr(v, "provenance", None) for v in maps]
     upstreams = [r for r in upstreams if isinstance(r, Receipt)]
     if upstreams:
         merged = upstreams[0]

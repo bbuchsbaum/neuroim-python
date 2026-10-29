@@ -4,7 +4,11 @@ import pytest
 import numpy as np
 from neuroim import NeuroSpace, DenseNeuroVol, DenseNeuroVec
 from neuroim.indexing import (
-    linear_access, matricized_access, from_matvec, to_matvec, dot_reduce
+    linear_access,
+    matricized_access,
+    from_matvec,
+    to_matvec,
+    dot_reduce,
 )
 
 
@@ -13,7 +17,7 @@ class TestLinearAccess:
 
     def setup_method(self):
         self.vol_space = NeuroSpace(dim=[4, 5, 6])
-        self.vol_data = np.arange(120, dtype=float).reshape(4, 5, 6, order='F')
+        self.vol_data = np.arange(120, dtype=float).reshape(4, 5, 6, order="F")
         self.vol = DenseNeuroVol(self.vol_data, self.vol_space)
 
         self.vec_space = NeuroSpace(dim=[4, 5, 6, 3])
@@ -23,7 +27,7 @@ class TestLinearAccess:
     def test_vol_linear(self):
         indices = np.array([0, 1, 10, 119])
         result = linear_access(self.vol, indices)
-        expected = self.vol_data.ravel(order='F')[indices]
+        expected = self.vol_data.ravel(order="F")[indices]
         np.testing.assert_array_equal(result, expected)
 
     def test_vec_linear(self):
@@ -42,7 +46,7 @@ class TestMatricizedAccess:
 
     def setup_method(self):
         self.space = NeuroSpace(dim=[4, 5, 6, 3])
-        self.data = np.arange(360, dtype=float).reshape(4, 5, 6, 3, order='F')
+        self.data = np.arange(360, dtype=float).reshape(4, 5, 6, 3, order="F")
         self.vec = DenseNeuroVec(self.data, self.space)
 
     def test_basic(self):
@@ -110,7 +114,7 @@ class TestToMatvec:
         """Voxels should be flattened in Fortran order."""
         mat, _ = to_matvec(self.vec)
         # First row is time=0, flattened in F order
-        np.testing.assert_array_equal(mat[0], self.data[..., 0].ravel(order='F'))
+        np.testing.assert_array_equal(mat[0], self.data[..., 0].ravel(order="F"))
 
 
 class TestDotReduce:

@@ -4,22 +4,21 @@ from neuroim.neuro_vol import DenseNeuroVol, NeuroVol
 from neuroim.neuro_space import NeuroSpace
 from neuroim.axis import AxisSet3D, NamedAxis
 
+
 @pytest.fixture
 def sample_space():
     return NeuroSpace(
         dim=(10, 10, 10),
         spacing=(1, 1, 1),
         origin=(0, 0, 0),
-        axes=AxisSet3D(
-            NamedAxis("x", 1),
-            NamedAxis("y", 1),
-            NamedAxis("z", 1)
-        )
+        axes=AxisSet3D(NamedAxis("x", 1), NamedAxis("y", 1), NamedAxis("z", 1)),
     )
+
 
 @pytest.fixture
 def sample_data():
     return np.random.rand(10, 10, 10)
+
 
 def test_dense_neuro_vol_creation(sample_space, sample_data):
     vol = DenseNeuroVol(sample_data, sample_space)
@@ -28,16 +27,19 @@ def test_dense_neuro_vol_creation(sample_space, sample_data):
     assert vol.shape == (10, 10, 10)
     assert np.allclose(vol.data, sample_data)
 
+
 def test_dense_neuro_vol_creation_with_list(sample_space):
-    data_list = [[[i+j+k for k in range(10)] for j in range(10)] for i in range(10)]
+    data_list = [[[i + j + k for k in range(10)] for j in range(10)] for i in range(10)]
     vol = DenseNeuroVol(data_list, sample_space)
     assert vol.shape == (10, 10, 10)
     assert np.allclose(vol.data, np.array(data_list))
+
 
 def test_dense_neuro_vol_creation_with_wrong_shape(sample_space):
     wrong_data = np.random.rand(5, 5, 5)
     with pytest.raises(ValueError):
         DenseNeuroVol(wrong_data, sample_space)
+
 
 def test_dense_neuro_vol_getitem(sample_space, sample_data):
     vol = DenseNeuroVol(sample_data, sample_space)
@@ -45,12 +47,14 @@ def test_dense_neuro_vol_getitem(sample_space, sample_data):
     assert np.allclose(vol[:, 0, 0], sample_data[:, 0, 0])
     assert np.allclose(vol[..., 0], sample_data[..., 0])
 
+
 def test_dense_neuro_vol_setitem(sample_space, sample_data):
     vol = DenseNeuroVol(sample_data.copy(), sample_space)
     vol[0, 0, 0] = 100
     assert vol[0, 0, 0] == 100
     vol[:, 0, 0] = np.zeros(10)
     assert np.allclose(vol[:, 0, 0], np.zeros(10))
+
 
 def test_dense_neuro_vol_arithmetic(sample_space):
     data1 = np.random.rand(10, 10, 10)
@@ -73,6 +77,7 @@ def test_dense_neuro_vol_arithmetic(sample_space):
     div_result = vol1 / vol2
     assert isinstance(div_result, DenseNeuroVol)
     assert np.allclose(div_result.data, data1 / data2)
+
 
 def test_dense_neuro_vol_scalar_arithmetic(sample_space, sample_data):
     vol = DenseNeuroVol(sample_data, sample_space)
@@ -115,12 +120,16 @@ def test_dense_neuro_vol_reverse_scalar_arithmetic(sample_space, sample_data):
     assert isinstance(div_result, DenseNeuroVol)
     assert np.allclose(div_result.data, scalar / sample_data)
 
+
 def test_dense_neuro_vol_arithmetic_error(sample_space):
     vol1 = DenseNeuroVol(np.random.rand(10, 10, 10), sample_space)
-    vol2 = DenseNeuroVol(np.random.rand(5, 5, 5), NeuroSpace((5, 5, 5), (1, 1, 1), (0, 0, 0)))
+    vol2 = DenseNeuroVol(
+        np.random.rand(5, 5, 5), NeuroSpace((5, 5, 5), (1, 1, 1), (0, 0, 0))
+    )
 
     with pytest.raises(ValueError):
         vol1 + vol2
+
 
 def test_dense_neuro_vol_repr(sample_space, sample_data):
     vol = DenseNeuroVol(sample_data, sample_space)
@@ -131,10 +140,12 @@ def test_dense_neuro_vol_repr(sample_space, sample_data):
     assert "Origin" in repr_str
     # "Axes" is not included in the current repr
 
+
 def test_dense_neuro_vol_label(sample_space, sample_data):
     label = "test_label"
     vol = DenseNeuroVol(sample_data, sample_space, label=label)
     assert vol.label == label
+
 
 def test_dense_neuro_vol_space_attributes(sample_space, sample_data):
     vol = DenseNeuroVol(sample_data, sample_space)
@@ -144,18 +155,24 @@ def test_dense_neuro_vol_space_attributes(sample_space, sample_data):
     assert vol.space.axes.j.axis == sample_space.axes.j.axis
     assert vol.space.axes.k.axis == sample_space.axes.k.axis
 
+
 def test_dense_neuro_vol_factory_function(sample_space, sample_data):
     from neuroim.neuro_vol import neurovol
+
     vol = neurovol(sample_data, sample_space)
     assert isinstance(vol, DenseNeuroVol)
 
+
 def test_dense_neuro_vol_to_sparse(sample_space):
     from neuroim.neuro_vol import SparseNeuroVol
+
     data = np.zeros((10, 10, 10))
     data[0, 0, 0] = 1
     data[5, 5, 5] = 2
     vol = DenseNeuroVol(data, sample_space)
-    sparse_vol = SparseNeuroVol(vol.data[vol.data != 0], vol.space, np.where(vol.data != 0)[0])
+    sparse_vol = SparseNeuroVol(
+        vol.data[vol.data != 0], vol.space, np.where(vol.data != 0)[0]
+    )
     assert isinstance(sparse_vol, SparseNeuroVol)
     assert sparse_vol.nnz == 2
     assert np.allclose(sparse_vol.data, [1, 2])

@@ -1,0 +1,8 @@
+[flake8]
+max-line-length = 88
+extend-ignore = E203,W503
+per-file-ignores =
+    # Public API re-exports
+    src/neuroim/__init__.py:F401
+    # R-style alias names re-exported for compatibility
+    src/neuroim/compat.py:F401,E402

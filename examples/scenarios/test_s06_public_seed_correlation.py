@@ -61,13 +61,9 @@ def test_public_seed_correlation_rejects_mismatched_mask_affine():
     shifted_mask = nib.Nifti1Image(np.asanyarray(mask_img.dataobj), shifted_affine)
 
     with pytest.raises(ValueError, match="affine"):
-        baseline_nibabel.seed_correlation_map(
-            bold_img, shifted_mask, seed_xyz=seed_xyz
-        )
+        baseline_nibabel.seed_correlation_map(bold_img, shifted_mask, seed_xyz=seed_xyz)
     with pytest.raises(ValueError, match="affine"):
-        neuroim_version.seed_correlation_map(
-            bold_img, shifted_mask, seed_xyz=seed_xyz
-        )
+        neuroim_version.seed_correlation_map(bold_img, shifted_mask, seed_xyz=seed_xyz)
 
 
 def test_public_seed_correlation_rejects_oob_seed():

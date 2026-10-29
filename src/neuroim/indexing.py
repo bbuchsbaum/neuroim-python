@@ -13,7 +13,9 @@ from .neuro_vec import NeuroVec, DenseNeuroVec
 from .neuro_space import NeuroSpace
 
 
-def linear_access(vol_or_vec: Union[NeuroVol, NeuroVec], indices: np.ndarray) -> np.ndarray:
+def linear_access(
+    vol_or_vec: Union[NeuroVol, NeuroVec], indices: np.ndarray
+) -> np.ndarray:
     """Extract values using linear (1D) indices into the 3D spatial grid.
 
     For a NeuroVol the returned array has one value per index.
@@ -51,11 +53,13 @@ def linear_access(vol_or_vec: Union[NeuroVol, NeuroVec], indices: np.ndarray) ->
         out = dense.reshape(n_spatial, -1, order="F")[indices].T
         return out[:, 0] if scalar else out
     else:
-        flat = vol_or_vec.as_dense().data.ravel(order='F')
+        flat = vol_or_vec.as_dense().data.ravel(order="F")
         return flat[indices][0] if scalar else flat[indices]
 
 
-def matricized_access(vec: NeuroVec, row_indices: np.ndarray, col_indices: np.ndarray) -> np.ndarray:
+def matricized_access(
+    vec: NeuroVec, row_indices: np.ndarray, col_indices: np.ndarray
+) -> np.ndarray:
     """Extract values using a time x space index pair.
 
     Selects specific time points (rows) and specific voxels (columns) from
@@ -82,9 +86,9 @@ def matricized_access(vec: NeuroVec, row_indices: np.ndarray, col_indices: np.nd
 
     # Get the full time x space matrix
     if isinstance(vec, DenseNeuroVec):
-        mat = vec.data.reshape(-1, vec.shape[3], order='F').T  # (time, voxels)
+        mat = vec.data.reshape(-1, vec.shape[3], order="F").T  # (time, voxels)
     else:
-        mat = vec.as_dense().data.reshape(-1, vec.shape[3], order='F').T
+        mat = vec.as_dense().data.reshape(-1, vec.shape[3], order="F").T
 
     return mat[np.ix_(row_indices, col_indices)]
 
@@ -131,7 +135,7 @@ def from_matvec(mat: np.ndarray, space: NeuroSpace) -> DenseNeuroVec:
     # Reshape: each row is a flattened volume in Fortran order
     data_4d = np.zeros(tuple(int(d) for d in space.dim), dtype=mat.dtype)
     for t in range(n_time):
-        data_4d[..., t] = mat[t].reshape(space.dim[:3], order='F')
+        data_4d[..., t] = mat[t].reshape(space.dim[:3], order="F")
 
     return DenseNeuroVec(data_4d, space)
 
@@ -163,7 +167,7 @@ def to_matvec(vec: NeuroVec) -> Tuple[np.ndarray, NeuroSpace]:
     n_vox = int(np.prod(data.shape[:3]))
     mat = np.zeros((n_time, n_vox), dtype=data.dtype)
     for t in range(n_time):
-        mat[t] = data[..., t].ravel(order='F')
+        mat[t] = data[..., t].ravel(order="F")
 
     return mat, vec.space
 

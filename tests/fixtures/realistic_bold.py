@@ -67,12 +67,9 @@ def make_realistic_bold(
     grid = np.mgrid[:nx, :ny, :nz].astype(float)
     cx, cy, cz = (nx - 1) / 2, (ny - 1) / 2, (nz - 1) / 2
     rx, ry, rz = nx * 0.35, ny * 0.40, nz * 0.40
-    mask_data = (
-        ((grid[0] - cx) / rx) ** 2
-        + ((grid[1] - cy) / ry) ** 2
-        + ((grid[2] - cz) / rz) ** 2
-        <= 1.0
-    )
+    mask_data = ((grid[0] - cx) / rx) ** 2 + ((grid[1] - cy) / ry) ** 2 + (
+        (grid[2] - cz) / rz
+    ) ** 2 <= 1.0
     mask = LogicalNeuroVol(mask_data, mask_space)
 
     flipped_affine = affine.copy()

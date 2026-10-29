@@ -19,7 +19,6 @@ from pathlib import Path
 
 import nibabel as nib
 import numpy as np
-import pytest
 
 import neuroim as ni
 from neuroim.results import (
@@ -66,7 +65,9 @@ def test_extension_bytes_with_corrupt_json_returns_none():
 
 
 def test_to_nibabel_embeds_receipt_extension():
-    vol = ni.DenseNeuroVol(np.ones((3, 3, 3), dtype=np.float64), ni.NeuroSpace((3, 3, 3)))
+    vol = ni.DenseNeuroVol(
+        np.ones((3, 3, 3), dtype=np.float64), ni.NeuroSpace((3, 3, 3))
+    )
     vol.provenance = _sample_receipt()
 
     img = vol.to_nibabel()
@@ -85,7 +86,9 @@ def test_to_nibabel_without_provenance_does_not_add_extension():
 
 def test_disk_round_trip_via_read_image(tmp_path: Path):
     """Write a NeuroVol carrying a Receipt; read it back in a clean state."""
-    vol = ni.DenseNeuroVol(np.arange(27, dtype=np.float64).reshape(3, 3, 3), ni.NeuroSpace((3, 3, 3)))
+    vol = ni.DenseNeuroVol(
+        np.arange(27, dtype=np.float64).reshape(3, 3, 3), ni.NeuroSpace((3, 3, 3))
+    )
     vol.provenance = _sample_receipt()
 
     out = tmp_path / "provenance.nii.gz"

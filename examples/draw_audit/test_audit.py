@@ -61,19 +61,22 @@ def test_happy_path_numeric_parity(fixture, nib_bold, nib_mask):
         fixture.bold, fixture.mask, fixture.regressor
     )
     np.testing.assert_allclose(
-        rewrite_vol.data, base_arr, equal_nan=True, rtol=1e-9, atol=1e-12,
+        rewrite_vol.data,
+        base_arr,
+        equal_nan=True,
+        rtol=1e-9,
+        atol=1e-12,
     )
 
 
-def test_rewrite_returns_typed_result_with_provenance(
-    fixture, nib_bold, nib_mask
-):
+def test_rewrite_returns_typed_result_with_provenance(fixture, nib_bold, nib_mask):
     """The rewrite ships an ROIExtractionResult with a populated Receipt."""
     rewrite_vol, extract = neuroim_rewrite.correlate_roi_with_regressor(
         fixture.bold, fixture.mask, fixture.regressor
     )
     # The output volume is a NeuroVol (typed), not a bare ndarray.
     import neuroim as ni
+
     assert isinstance(rewrite_vol, ni.NeuroVol)
     # The intermediate extraction carries provenance.
     assert extract.provenance.method_name == "series_roi"
@@ -81,10 +84,8 @@ def test_rewrite_returns_typed_result_with_provenance(
     assert extract.provenance.mask_hash != "none"
     # Output volume's space matches the extraction's space.
     from neuroim.results import hash_neurospace
-    assert (
-        hash_neurospace(rewrite_vol.space)
-        == hash_neurospace(extract.space)
-    )
+
+    assert hash_neurospace(rewrite_vol.space) == hash_neurospace(extract.space)
 
 
 # ----------------------------------------------------------------------

@@ -16,14 +16,12 @@ from neuroim import (
     DenseNeuroVol,
     LogicalNeuroVol,
     NeuroSpace,
-    Receipt,
     SearchlightResult,
     hash_ndarray,
     hash_neurospace,
     searchlight_apply,
 )
 from neuroim.results import make_receipt
-
 
 # -----------------------------------------------------------------------------
 # Receipt determinism
@@ -137,9 +135,7 @@ def test_searchlight_legacy_vs_result_match_numerically():
 
     legacy_data = np.asarray(legacy.data)
     projected = result.map_to_volume()
-    np.testing.assert_allclose(
-        np.asarray(projected.data), legacy_data, equal_nan=True
-    )
+    np.testing.assert_allclose(np.asarray(projected.data), legacy_data, equal_nan=True)
 
 
 def test_searchlight_result_centers_align_with_finite_values():
@@ -148,7 +144,10 @@ def test_searchlight_result_centers_align_with_finite_values():
     mask = LogicalNeuroVol(mask_data, space)
 
     result = searchlight_apply(
-        mask, radius=2.0, method=lambda a: float(np.asarray(a).mean()), return_legacy=False
+        mask,
+        radius=2.0,
+        method=lambda a: float(np.asarray(a).mean()),
+        return_legacy=False,
     )
 
     assert result.centers.shape[1] == 3
@@ -161,9 +160,7 @@ def test_searchlight_result_centers_align_with_finite_values():
 def test_searchlight_result_to_nibabel_preserves_affine():
     pytest.importorskip("nibabel")
     space = NeuroSpace(dim=(5, 5, 5), spacing=(2.0, 2.0, 2.0))
-    mask = LogicalNeuroVol(
-        _make_mask_at_center((5, 5, 5), (2, 2, 2), radius=1), space
-    )
+    mask = LogicalNeuroVol(_make_mask_at_center((5, 5, 5), (2, 2, 2), radius=1), space)
     result = searchlight_apply(
         mask, radius=2.0, method=lambda a: 1.0, return_legacy=False
     )
@@ -176,9 +173,7 @@ def test_searchlight_default_returns_searchlight_result():
     the legacy ndarray-projection requires an explicit opt-in under
     DeprecationWarning."""
     space = NeuroSpace(dim=(4, 4, 4), spacing=(2.0, 2.0, 2.0))
-    mask = LogicalNeuroVol(
-        _make_mask_at_center((4, 4, 4), (2, 2, 2), radius=1), space
-    )
+    mask = LogicalNeuroVol(_make_mask_at_center((4, 4, 4), (2, 2, 2), radius=1), space)
     out = searchlight_apply(mask, radius=2.0, method=lambda a: 0.0)
     assert isinstance(out, SearchlightResult)
 
@@ -187,9 +182,7 @@ def test_searchlight_explicit_legacy_still_returns_densevol_with_warning():
     """Back-compat is preserved when the caller explicitly opts in; the
     DeprecationWarning is the migration signal."""
     space = NeuroSpace(dim=(4, 4, 4), spacing=(2.0, 2.0, 2.0))
-    mask = LogicalNeuroVol(
-        _make_mask_at_center((4, 4, 4), (2, 2, 2), radius=1), space
-    )
+    mask = LogicalNeuroVol(_make_mask_at_center((4, 4, 4), (2, 2, 2), radius=1), space)
     with pytest.warns(DeprecationWarning, match="return_legacy=True is deprecated"):
         out = searchlight_apply(
             mask, radius=2.0, method=lambda a: 0.0, return_legacy=True
@@ -211,7 +204,9 @@ def _make_roi_extraction_fixture():
     vec = DenseNeuroVec(data, space_4d)
 
     mask_data = np.ones((8, 8, 8), dtype=bool)
-    mask = LogicalNeuroVol(mask_data, NeuroSpace(dim=(8, 8, 8), spacing=(2.0, 2.0, 2.0)))
+    mask = LogicalNeuroVol(
+        mask_data, NeuroSpace(dim=(8, 8, 8), spacing=(2.0, 2.0, 2.0))
+    )
     roi = spherical_roi(mask, centroid=(4, 4, 4), radius=2)
     return vec, roi
 

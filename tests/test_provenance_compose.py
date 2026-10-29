@@ -101,6 +101,7 @@ def test_concat_then_series_roi_with_mismatched_space_raises():
     # Manually rewrite the upstream Receipt's input_space_hash to simulate
     # a tampered or stale pipeline.
     from dataclasses import replace
+
     cat.provenance = replace(cat.provenance, input_space_hash="tampered")
 
     mask = LogicalNeuroVol(

@@ -1,13 +1,15 @@
-"""NeuroBucket - A sequence of labeled NeuroVol objects forming a named 4D representation.
+"""NeuroBucket - A sequence of labeled NeuroVol objects forming a named 4D
+representation.
 
 Groups labeled spatial volumes into a named 4D-style collection.
 """
 
 import numpy as np
-from typing import List, Optional, Union
+from typing import List, Union
 
 from .neuro_space import NeuroSpace
 from .neuro_vol import NeuroVol
+
 
 class NeuroBucket:
     """A sequence of labeled NeuroVol objects forming a named 4D representation.
@@ -39,7 +41,8 @@ class NeuroBucket:
         for i, vol in enumerate(data):
             if vol.shape != tuple(space.dim):
                 raise ValueError(
-                    f"Volume {i} shape {vol.shape} does not match space {tuple(space.dim)}"
+                    f"Volume {i} shape {vol.shape} does not match space "
+                    f"{tuple(space.dim)}"
                 )
 
         self.labels = list(labels)

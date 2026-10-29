@@ -34,7 +34,9 @@ def test_compat_vector_wrappers_delegate_to_methods():
         compat.series(vec, np.array([[0, 0, 0]])).ravel(),
         vec.series(np.array([[0, 0, 0]])).ravel(),
     )
-    np.testing.assert_array_equal(compat.series_roi(vec, roi), vec.series_roi(roi).values)
+    np.testing.assert_array_equal(
+        compat.series_roi(vec, roi), vec.series_roi(roi).values
+    )
     assert len(compat.vols(vec)) == 3
     assert compat.sub_vector(vec, [0, 2]).shape == (2, 2, 2, 2)
     np.testing.assert_array_equal(

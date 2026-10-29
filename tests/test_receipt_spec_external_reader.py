@@ -18,7 +18,6 @@ import pytest
 import neuroim as ni
 from neuroim.results import Receipt, make_receipt
 
-
 # ---------------------------------------------------------------------------
 # Reference reader — copied verbatim from docs/spec/receipt-nifti-extension.md.
 # Do NOT use any neuroim symbol inside this function; the whole point is that
@@ -34,7 +33,7 @@ def read_neuroim_receipt(path):
             continue
         text = bytes(ext.get_content()).rstrip(b"\x00").decode("utf-8", "replace")
         if text.startswith("neuroim/receipt/v1:"):
-            return json.loads(text[len("neuroim/receipt/v1:"):])
+            return json.loads(text[len("neuroim/receipt/v1:") :])
     return None
 
 
@@ -127,7 +126,8 @@ def test_reference_reader_returns_none_when_no_extension(tmp_path: Path):
 
 
 def test_reference_reader_ignores_foreign_comment_extensions(tmp_path: Path):
-    """Other tools' 'comment' (ecode 6) extensions must not be mistaken for a receipt."""
+    """Other tools' 'comment' (ecode 6) extensions must not be mistaken for a
+    receipt."""
     from nibabel.nifti1 import Nifti1Extension
 
     img = nib.Nifti1Image(np.zeros((3, 3, 3)), np.eye(4))
@@ -172,7 +172,7 @@ def test_v2_marker_is_ignored_by_v1_reader(tmp_path: Path):
 
     img = nib.Nifti1Image(np.zeros((3, 3, 3)), np.eye(4))
     img.header.extensions.append(
-        Nifti1Extension(6, b"neuroim/receipt/v2:{\"future\": true}")
+        Nifti1Extension(6, b'neuroim/receipt/v2:{"future": true}')
     )
     out = tmp_path / "v2_marker.nii.gz"
     nib.save(img, str(out))

@@ -100,7 +100,9 @@ def test_neuroim_rejects_mismatched_affine_atlas(fixture, atlas, condition):
         neuroim_version.block_parcel_contrast(fixture.bold, typed_rotated, condition)
 
 
-def test_baseline_accepts_same_shape_mismatched_affine_atlas(atlas, condition, nib_bold):
+def test_baseline_accepts_same_shape_mismatched_affine_atlas(
+    atlas, condition, nib_bold
+):
     rotated = make_rotated_atlas(atlas)
     labels, effects, effect_map = baseline_nibabel.block_parcel_contrast(
         nib_bold,
@@ -128,10 +130,7 @@ def test_target_roi_parcel_lands_in_high_effect_tail(fixture, atlas, condition):
     result = neuroim_version.block_parcel_contrast(fixture.bold, typed_atlas, condition)
 
     target_labels = np.asarray(
-        [
-            atlas.data[int(i), int(j), int(k)]
-            for i, j, k in fixture.target_roi_centers
-        ],
+        [atlas.data[int(i), int(j), int(k)] for i, j, k in fixture.target_roi_centers],
         dtype=np.int32,
     )
     target_labels = target_labels[target_labels != 0]

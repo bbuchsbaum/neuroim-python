@@ -9,7 +9,6 @@ from pathlib import Path
 import neuroim as ni
 from neuroim.results import RECEIPT_NIFTI_PREFIX, Receipt, make_receipt
 
-
 SPEC_PATH = Path(__file__).resolve().parents[1] / "docs/spec/receipt-nifti-extension.md"
 
 RECEIPT_V1_FIELDS = (
@@ -45,7 +44,10 @@ def _schema_fields_from_spec() -> tuple[str, ...]:
 
 def test_receipt_v1_marker_is_public_contract():
     assert RECEIPT_NIFTI_PREFIX == "neuroim/receipt/v1:"
-    assert "Content prefix | the literal ASCII string `neuroim/receipt/v1:`" in _spec_text()
+    assert (
+        "Content prefix | the literal ASCII string `neuroim/receipt/v1:`"
+        in _spec_text()
+    )
     assert "A future v2 receipt" in _spec_text()
 
 

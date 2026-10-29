@@ -48,7 +48,6 @@ import pytest
 import neuroim as ni
 from neuroim.results import RECEIPT_NIFTI_PREFIX, Receipt, make_receipt
 
-
 # ----------------------------------------------------------------------
 # WORLD_COORD_MANIFEST
 # ----------------------------------------------------------------------
@@ -118,7 +117,9 @@ def _surface_takes_world_coord(callable_obj: Callable, qualified_name: str) -> b
         sig = inspect.signature(callable_obj)
     except (TypeError, ValueError):
         return False
-    return any(_is_world_coord_param(p.name, p.annotation) for p in sig.parameters.values())
+    return any(
+        _is_world_coord_param(p.name, p.annotation) for p in sig.parameters.values()
+    )
 
 
 # Classes whose methods we walk for world-coord surfaces.  Mirrors the
@@ -185,7 +186,9 @@ def test_no_new_unmanaged_world_coord_surface():
     default) or ``status='exempt' / 'gap'`` with a documented reason.
     """
     surfaces = _enumerate_world_coord_surfaces()
-    candidates = [qname for qname, fn in surfaces if _surface_takes_world_coord(fn, qname)]
+    candidates = [
+        qname for qname, fn in surfaces if _surface_takes_world_coord(fn, qname)
+    ]
     unmanaged = sorted(set(candidates) - set(WORLD_COORD_MANIFEST))
     if unmanaged:
         pytest.fail(
@@ -231,7 +234,8 @@ def _oob_invocation_for(qualified_name: str, vec, oob_xyz) -> Optional[Callable]
 
 
 _VERIFIED_WORLD_SURFACES = sorted(
-    qname for qname, entry in WORLD_COORD_MANIFEST.items()
+    qname
+    for qname, entry in WORLD_COORD_MANIFEST.items()
     if entry.get("status") == "verified"
 )
 
@@ -260,7 +264,9 @@ def test_world_coord_surface_raises_on_oob_by_default(
     # Error message should name the OOB condition; do not pin exact wording
     # but require something the user can grep on.
     message = str(excinfo.value).lower()
-    assert any(tok in message for tok in ("outside", "out of bounds", "oob", "bounds")), (
+    assert any(
+        tok in message for tok in ("outside", "out of bounds", "oob", "bounds")
+    ), (
         f"{qualified_name} raised on OOB world coord {case_name}={oob_xyz} but"
         f" the message did not name the OOB condition: {excinfo.value!r}"
     )
@@ -302,9 +308,7 @@ def _roi_space_with_affine(affine: np.ndarray) -> ni.NeuroSpace:
         ),
     ],
 )
-def test_series_roi_rejects_dim_agreeing_affine_attacks(
-    small_vec, case_name, affine
-):
+def test_series_roi_rejects_dim_agreeing_affine_attacks(small_vec, case_name, affine):
     """PAIN-5 must reject more than the original LR-flip fixture.
 
     These ROIs have the same integer grid dimensions as ``small_vec`` but a
@@ -395,7 +399,8 @@ def _multi_input_invocation(qualified_name: str, primary, secondary):
 
 
 _VERIFIED_MULTI_INPUT_SURFACES = sorted(
-    qname for qname, entry in MULTI_INPUT_MANIFEST.items()
+    qname
+    for qname, entry in MULTI_INPUT_MANIFEST.items()
     if entry.get("status") == "verified"
 )
 
@@ -424,7 +429,9 @@ def mismatched_concat_pair():
     shifted[0, 3] = 0.5
     space_b = ni.NeuroSpace(dim=[8, 8, 4, 3], trans=shifted)
     data = np.zeros((8, 8, 4, 3), dtype=np.float32)
-    return ni.DenseNeuroVec(data.copy(), space_a), ni.DenseNeuroVec(data.copy(), space_b)
+    return ni.DenseNeuroVec(data.copy(), space_a), ni.DenseNeuroVec(
+        data.copy(), space_b
+    )
 
 
 def _pair_for_multi_input_surface(qualified_name: str, dense_pair):
@@ -468,7 +475,9 @@ def test_multi_input_op_accepts_matched_pair(qualified_name, matched_concat_pair
     Sanity check that the test fixture isn't accidentally tripping the
     rejection path (which would mask a future regression).
     """
-    primary, secondary = _pair_for_multi_input_surface(qualified_name, matched_concat_pair)
+    primary, secondary = _pair_for_multi_input_surface(
+        qualified_name, matched_concat_pair
+    )
     invocation = _multi_input_invocation(qualified_name, primary, secondary)
     if invocation is None:
         pytest.skip(
@@ -502,11 +511,8 @@ def test_multi_input_op_accepts_matched_pair(qualified_name, matched_concat_pair
 # round-trip, and assert the contract.
 
 from neuroim.results import (  # noqa: E402  (after other imports by design)
-    RECEIPT_NIFTI_PREFIX,
-    Receipt,
     ROIExtractionResult,
     SearchlightResult,
-    make_receipt,
 )
 
 
@@ -599,7 +605,9 @@ def _enumerate_write_back_surfaces() -> list[str]:
         # Anchor on the defining class to avoid each subclass producing a
         # separate entry for an inherited method.
         method = obj.to_nibabel
-        defining_qualname = getattr(method, "__qualname__", f"{obj.__name__}.to_nibabel")
+        defining_qualname = getattr(
+            method, "__qualname__", f"{obj.__name__}.to_nibabel"
+        )
         module = getattr(method, "__module__", obj.__module__)
         found.append(f"{module}.{defining_qualname}")
 
@@ -610,7 +618,9 @@ def _enumerate_write_back_surfaces() -> list[str]:
         if not hasattr(cls, "to_nibabel"):
             continue
         method = cls.to_nibabel
-        defining_qualname = getattr(method, "__qualname__", f"{cls.__name__}.to_nibabel")
+        defining_qualname = getattr(
+            method, "__qualname__", f"{cls.__name__}.to_nibabel"
+        )
         module = getattr(method, "__module__", cls.__module__)
         found.append(f"{module}.{defining_qualname}")
 
@@ -662,9 +672,10 @@ def test_write_back_embeds_receipt_extension(qualified_name):
         ext
         for ext in extensions
         if int(ext.get_code()) == 6
-        and bytes(ext.get_content()).rstrip(b"\x00").decode("utf-8", "replace").startswith(
-            RECEIPT_NIFTI_PREFIX
-        )
+        and bytes(ext.get_content())
+        .rstrip(b"\x00")
+        .decode("utf-8", "replace")
+        .startswith(RECEIPT_NIFTI_PREFIX)
     ]
     assert len(receipt_exts) == 1, (
         f"{qualified_name} produced {len(receipt_exts)} receipt extensions "
@@ -696,5 +707,6 @@ def test_write_back_disk_round_trip_rehydrates_receipt(tmp_path, qualified_name)
     )
     assert recovered.provenance == original, (
         f"{qualified_name}: rehydrated Receipt differs from the original "
-        f"that was attached before to_nibabel(): {recovered.provenance!r} vs {original!r}"
+        f"that was attached before to_nibabel(): {recovered.provenance!r} vs "
+        f"{original!r}"
     )

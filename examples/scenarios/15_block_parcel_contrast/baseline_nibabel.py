@@ -51,5 +51,8 @@ def block_parcel_contrast(
         effects[col] = effect
         effect_map[atlas == label] = effect
 
-    return labels, effects, nib.Nifti1Image(effect_map.astype(np.float32), bold_img.affine)
-
+    return (
+        labels,
+        effects,
+        nib.Nifti1Image(effect_map.astype(np.float32), bold_img.affine),
+    )

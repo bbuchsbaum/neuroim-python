@@ -180,9 +180,7 @@ def test_connectome_reducer_matches_manual_corrcoef(fixture, atlas):
     parcels = fixture.bold.parcel_means(atlas)
     typed = parcels.connectome()
     manual = np.corrcoef(
-        np.column_stack(
-            [parcels.cluster_timeseries(c) for c in parcels.cluster_ids]
-        ),
+        np.column_stack([parcels.cluster_timeseries(c) for c in parcels.cluster_ids]),
         rowvar=False,
     )
     np.testing.assert_allclose(typed.matrix, manual, rtol=1e-12, atol=1e-12)

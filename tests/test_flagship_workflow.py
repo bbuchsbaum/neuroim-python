@@ -10,14 +10,14 @@ import numpy as np
 
 import neuroim as ni
 
-
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "golden_tests" / "fixtures"
 BOLD_PATH = FIXTURE_DIR / "tiny_bold.nii.gz"
 MASK_PATH = FIXTURE_DIR / "tiny_mask.nii.gz"
 
 
 def test_flagship_workflow_uses_neuroim_as_public_surface():
-    """A user enters through neuroim, gets typed spatial analysis, and exits to NIfTI."""
+    """A user enters through neuroim, gets typed spatial analysis, and exits to
+    NIfTI."""
     bold = ni.io.read_image(BOLD_PATH)
     mask = ni.io.read_image(MASK_PATH)
 

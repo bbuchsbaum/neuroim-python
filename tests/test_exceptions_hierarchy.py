@@ -55,7 +55,13 @@ def test_space_mismatch_is_typed_and_backcompatible():
     with pytest.raises(SpaceMismatchError, match=r"NeuroSpace mismatch in spatial dim"):
         a.space.compatible_with(b_space)
     # Old code: the documented built-in still catches it, message unchanged.
-    with pytest.raises(ValueError, match=r"NeuroSpace mismatch in spatial dim: left=\(4, 4, 4\), right=\(5, 5, 5\)"):
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"NeuroSpace mismatch in spatial dim: "
+            r"left=\(4, 4, 4\), right=\(5, 5, 5\)"
+        ),
+    ):
         a.space.compatible_with(b_space)
     # And the marker base catches it.
     with pytest.raises(NeuroimError):
@@ -116,18 +122,30 @@ def test_no_drift_every_spec_row_has_a_wired_class():
     longer has a NeuroimError subclass that inherits it.
     """
     text = SPEC.read_text()
-    builtins_seen = set(re.findall(r"\|\s*`(ValueError|IndexError|AttributeError)`\s*\|", text))
+    builtins_seen = set(
+        re.findall(r"\|\s*`(ValueError|IndexError|AttributeError)`\s*\|", text)
+    )
     assert builtins_seen, "spec table parse produced no exception rows"
     by_builtin = {
-        ValueError: [SpaceMismatchError, MaskMismatchError, WorldOutOfBoundsError,
-                     BackendDriftError, InvalidSpaceError, InvalidArgumentError],
+        ValueError: [
+            SpaceMismatchError,
+            MaskMismatchError,
+            WorldOutOfBoundsError,
+            BackendDriftError,
+            InvalidSpaceError,
+            InvalidArgumentError,
+        ],
         IndexError: [OutOfBoundsError],
         AttributeError: [ImmutableError],
     }
-    name_to_cls = {"ValueError": ValueError, "IndexError": IndexError,
-                   "AttributeError": AttributeError}
+    name_to_cls = {
+        "ValueError": ValueError,
+        "IndexError": IndexError,
+        "AttributeError": AttributeError,
+    }
     for name in builtins_seen:
         builtin = name_to_cls[name]
         klasses = by_builtin[builtin]
-        assert all(issubclass(k, builtin) and issubclass(k, NeuroimError)
-                   for k in klasses)
+        assert all(
+            issubclass(k, builtin) and issubclass(k, NeuroimError) for k in klasses
+        )

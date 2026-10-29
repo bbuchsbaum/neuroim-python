@@ -7,12 +7,13 @@ Statistical helpers for neuroimaging volumes and vector series.
 """
 
 import numpy as np
-from typing import List, Tuple, Dict, Callable, Optional, Union
+from typing import List, Dict, Callable, Optional, Union
 from .neuro_vol import NeuroVol, DenseNeuroVol, SparseNeuroVol, LogicalNeuroVol
 from .neuro_vec import NeuroVec, DenseNeuroVec, _scale_along
 from .neuro_space import NeuroSpace
 from .roi import ROIVec, ROIVol
 from .clustered_neuro_vol import ClusteredNeuroVol
+
 
 def split_blocks(
     x: Union[NeuroVol, NeuroVec],
@@ -58,9 +59,9 @@ def split_blocks(
         else:
             all_indices = np.arange(int(np.prod(spatial_shape)))
         n_voxels = len(all_indices)
-        block_ids = np.repeat(
-            np.arange(nblocks), int(np.ceil(n_voxels / nblocks))
-        )[:n_voxels]
+        block_ids = np.repeat(np.arange(nblocks), int(np.ceil(n_voxels / nblocks)))[
+            :n_voxels
+        ]
         indices = all_indices
 
     if indices is None or block_ids is None:
@@ -135,6 +136,7 @@ def split_blocks(
 
     return blocks
 
+
 def split_clusters(
     x: Union[NeuroVol, NeuroVec],
     clusters: Union[ClusteredNeuroVol, NeuroVol, None] = None,
@@ -189,9 +191,7 @@ def split_clusters(
         mask_idx = np.flatnonzero(mask_arr.ravel(order="F"))
         # Simple partition into k roughly equal groups of mask voxels
         n_vox = len(mask_idx)
-        return [
-            _roi(mask_idx[i * n_vox // k : (i + 1) * n_vox // k]) for i in range(k)
-        ]
+        return [_roi(mask_idx[i * n_vox // k : (i + 1) * n_vox // k]) for i in range(k)]
 
     if clusters is None:
         raise ValueError("Must provide clusters or (mask, k)")
@@ -220,6 +220,7 @@ def split_clusters(
         rois.append(_roi(np.flatnonzero(in_cluster & (label_flat == label))))
 
     return rois
+
 
 def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
     """Split a NeuroVec by factor levels and fill a new NeuroVec.
@@ -299,6 +300,7 @@ def split_fill(x: NeuroVec, fac: np.ndarray) -> Dict[int, NeuroVec]:
 
     return result
 
+
 def split_reduce(
     x: NeuroVec, fac: np.ndarray, FUN: Callable[[np.ndarray], float]
 ) -> NeuroVol:
@@ -375,8 +377,6 @@ def split_reduce(
                 out_data[coords] = np.mean(reduced_values)
     else:
         # Handle sparse case
-        from .neuro_vec import SparseNeuroVec
-
         # For sparse, process each stored voxel
         out_indices = []
         out_values = []
@@ -404,6 +404,7 @@ def split_reduce(
             return DenseNeuroVol(np.zeros(vol_space.dim), vol_space)
 
     return DenseNeuroVol(out_data, vol_space)
+
 
 def split_scale(
     x: NeuroVec, fac: np.ndarray, center: bool = True, scale: bool = True
@@ -485,6 +486,7 @@ def split_scale(
             scaled_data, x.space, x.mask, x.label, orientation="time_x_voxels"
         )
 
+
 def partition(
     x: NeuroVol, k: int, method: str = "kmeans", mask: Optional[LogicalNeuroVol] = None
 ) -> ClusteredNeuroVol:
@@ -547,6 +549,7 @@ def partition(
     else:
         raise ValueError(f"Unknown method: {method}")
 
+
 def map_values(x: NeuroVol, lookup: Dict[float, float]) -> NeuroVol:
     """Map values in a volume using a lookup table.
 
@@ -576,6 +579,7 @@ def map_values(x: NeuroVol, lookup: Dict[float, float]) -> NeuroVol:
     for old_val, new_val in lookup.items():
         mapped_data[source == old_val] = new_val
     return DenseNeuroVol(mapped_data, x.space)
+
 
 def centroids(
     x: ClusteredNeuroVol, method: str = "center_of_mass"

@@ -15,7 +15,6 @@ from neuroim.roi import (
     square_roi,
 )
 
-
 Builder = Callable[..., object]
 
 

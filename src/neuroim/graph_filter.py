@@ -6,9 +6,8 @@ enhancement for neuroimaging data using sparse adjacency matrices.
 
 import numpy as np
 from scipy import sparse
-from typing import Optional, Union
-from .neuro_vol import NeuroVol, DenseNeuroVol, LogicalNeuroVol
-from .neuro_vec import NeuroVec, DenseNeuroVec
+from .neuro_vol import DenseNeuroVol, LogicalNeuroVol
+from .neuro_vec import DenseNeuroVec
 from .neuro_space import NeuroSpace
 
 
@@ -72,9 +71,7 @@ def cgb_make_graph(vol_or_space, mask=None):
     idx_vol[tuple(coords.T)] = np.arange(n_voxels)
 
     # 6-connectivity offsets (face-adjacent)
-    offsets = [(1, 0, 0), (-1, 0, 0),
-               (0, 1, 0), (0, -1, 0),
-               (0, 0, 1), (0, 0, -1)]
+    offsets = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
 
     rows = []
     cols = []
@@ -83,17 +80,22 @@ def cgb_make_graph(vol_or_space, mask=None):
         nbr = coords + np.array([dx, dy, dz])
         # Check bounds
         valid = (
-            (nbr[:, 0] >= 0) & (nbr[:, 0] < nx) &
-            (nbr[:, 1] >= 0) & (nbr[:, 1] < ny) &
-            (nbr[:, 2] >= 0) & (nbr[:, 2] < nz)
+            (nbr[:, 0] >= 0)
+            & (nbr[:, 0] < nx)
+            & (nbr[:, 1] >= 0)
+            & (nbr[:, 1] < ny)
+            & (nbr[:, 2] >= 0)
+            & (nbr[:, 2] < nz)
         )
         nbr_valid = nbr[valid]
         # Check that neighbor is in mask
         nbr_idx = idx_vol[nbr_valid[:, 0], nbr_valid[:, 1], nbr_valid[:, 2]]
         in_mask = nbr_idx >= 0
-        src_idx = idx_vol[coords[valid][in_mask, 0],
-                          coords[valid][in_mask, 1],
-                          coords[valid][in_mask, 2]]
+        src_idx = idx_vol[
+            coords[valid][in_mask, 0],
+            coords[valid][in_mask, 1],
+            coords[valid][in_mask, 2],
+        ]
         rows.append(src_idx)
         cols.append(nbr_idx[in_mask])
 
@@ -184,7 +186,7 @@ def cgb_smooth(vol, fwhm, mask=None):
 
     # Build Gaussian-weighted adjacency.
     # For 6-connected graph all edges have unit voxel distance.
-    gauss_weight = np.exp(-1.0 / (2.0 * sigma ** 2))
+    gauss_weight = np.exp(-1.0 / (2.0 * sigma**2))
     W = graph.astype(float) * gauss_weight
 
     # Add self-connections with weight 1
@@ -257,7 +259,7 @@ def cgb_smooth_loro(vec, fwhm, run_labels, mask=None):
         mask_arr = np.ones(vec.shape[:3], dtype=bool)
 
     # Build normalised weight matrix
-    gauss_weight = np.exp(-1.0 / (2.0 * sigma ** 2))
+    gauss_weight = np.exp(-1.0 / (2.0 * sigma**2))
     W = graph.astype(float) * gauss_weight
     W = W + sparse.eye(n, dtype=float)
     row_sums = np.asarray(W.sum(axis=1)).ravel()

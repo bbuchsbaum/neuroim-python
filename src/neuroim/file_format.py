@@ -9,9 +9,12 @@ File-format descriptors used by neuroim image I/O.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Union, Any, List
+from typing import TYPE_CHECKING, Optional, Union, Any, List
 import re
 import numpy as np
+
+if TYPE_CHECKING:
+    from .meta_info import FileMetaInfo, NIFTIMetaInfo, AFNIMetaInfo
 
 try:
     import nibabel as nib
@@ -19,6 +22,7 @@ try:
     HAS_NIBABEL = True
 except ImportError:
     HAS_NIBABEL = False
+
 
 class FileFormat(ABC):
     """Abstract base class for neuroimaging file formats.
@@ -222,12 +226,10 @@ class FileFormat(ABC):
             Metadata object
 
         """
-        pass
+
 
 class NIFTIFormat(FileFormat):
-    """NIfTI file format support.
-
-    """
+    """NIfTI file format support."""
 
     def read_meta_info(self, file_name: Union[str, Path]) -> "NIFTIMetaInfo":
         """Read NIfTI metadata using nibabel."""
@@ -277,10 +279,9 @@ class NIFTIFormat(FileFormat):
 
         return meta_info
 
-class AFNIFormat(FileFormat):
-    """AFNI file format support.
 
-    """
+class AFNIFormat(FileFormat):
+    """AFNI file format support."""
 
     def read_meta_info(self, file_name: Union[str, Path]) -> "AFNIMetaInfo":
         """Read AFNI metadata from ``.HEAD`` and paired ``.BRIK``."""
@@ -332,9 +333,7 @@ class AFNIFormat(FileFormat):
             brick_types = [int(t) for t in brick_type_raw]
         except (TypeError, ValueError):
             raise ValueError("Invalid BRICK_TYPES in AFNI header")
-        data_type_map = {
-            0: "UINT8", 1: "INT16", 2: "INT32", 3: "FLOAT32", 4: "FLOAT64"
-        }
+        data_type_map = {0: "UINT8", 1: "INT16", 2: "INT32", 3: "FLOAT32", 4: "FLOAT64"}
         unsupported = sorted(set(brick_types) - set(AFNI_BRICK_DTYPES))
         if unsupported:
             raise ValueError(f"Unsupported BRICK_TYPE in AFNI header: {unsupported[0]}")
@@ -381,6 +380,7 @@ class AFNIFormat(FileFormat):
             label=labels,
             afni_header=afni_header,
         )
+
 
 # Format constants matching R implementation
 NIFTI = NIFTIFormat(
@@ -430,6 +430,7 @@ AFNI_GZ = AFNIFormat(
     data_encoding="gzip",
     data_extension="BRIK.gz",
 )
+
 
 def find_descriptor(file_name: Union[str, Path]) -> Optional[FileFormat]:
     """Find the appropriate file format descriptor for a file.

@@ -35,11 +35,9 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-import nibabel as nib
 import numpy as np
 import pytest
 
-import neuroim as ni
 from neuroim.results import Receipt
 
 from fixtures.realistic_bold import make_realistic_bold, to_nibabel
@@ -98,9 +96,7 @@ def test_baseline_and_neuroim_correlation_maps_agree(fixture, nib_pair):
     base_arr = np.asarray(base.dataobj, dtype=np.float64)
     rew_arr = np.asarray(rew.data, dtype=np.float64)
     mask = np.asarray(fixture.mask.data, dtype=bool)
-    np.testing.assert_allclose(
-        base_arr[mask], rew_arr[mask], rtol=1e-10, atol=1e-10
-    )
+    np.testing.assert_allclose(base_arr[mask], rew_arr[mask], rtol=1e-10, atol=1e-10)
 
 
 def test_output_affine_matches_bold(fixture, nib_pair):

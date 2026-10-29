@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from neuroim import NeuroSpace, DenseNeuroVol, DenseNeuroVec, SparseNeuroVol
+from neuroim import NeuroSpace, DenseNeuroVol, DenseNeuroVec
 from neuroim.operations import concat, scale_series, mapf, downsample
 
 
@@ -99,7 +99,7 @@ class TestMapf:
     def test_mapf_vol_square(self):
         result = mapf(self.vol, np.square)
         assert isinstance(result, DenseNeuroVol)
-        np.testing.assert_allclose(result.data, self.vol_data ** 2)
+        np.testing.assert_allclose(result.data, self.vol_data**2)
 
     def test_mapf_vol_abs(self):
         result = mapf(self.vol, np.abs)

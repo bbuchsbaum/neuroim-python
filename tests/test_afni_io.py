@@ -8,7 +8,7 @@ from typing import Optional, Sequence
 import numpy as np
 import pytest
 
-from neuroim import (write_vol, write_vec)
+from neuroim import write_vol, write_vec
 from neuroim.io import read_meta_info, read_header
 from neuroim.io import read_vol, read_vec
 from neuroim import DenseNeuroVol, DenseNeuroVec, NeuroSpace
@@ -89,9 +89,7 @@ def _write_afni_pair(
         head_txt += (
             "type = float-attribute\n"
             "name = IJK_TO_DICOM\n"
-            f"count = {ijk_count}\n"
-            + " ".join(f"{x}" for x in ijk_to_dicom)
-            + "\n\n"
+            f"count = {ijk_count}\n" + " ".join(f"{x}" for x in ijk_to_dicom) + "\n\n"
         )
     head_txt += (
         "type = string-attribute\n"
@@ -143,7 +141,9 @@ def test_read_meta_info_afni_missing_ijk_to_dicom(tmp_path):
         include_ijk_to_dicom=False,
     )
 
-    with pytest.raises(ValueError, match="Invalid IJK_TO_DICOM transformation in AFNI header"):
+    with pytest.raises(
+        ValueError, match="Invalid IJK_TO_DICOM transformation in AFNI header"
+    ):
         read_meta_info(head)
 
 
@@ -156,7 +156,9 @@ def test_read_meta_info_afni_short_ijk_to_dicom(tmp_path):
         ijk_to_dicom=[2.0, 0.0, 0.0, 10.0, 0.0, -2.0],
     )
 
-    with pytest.raises(ValueError, match="Invalid IJK_TO_DICOM transformation in AFNI header"):
+    with pytest.raises(
+        ValueError, match="Invalid IJK_TO_DICOM transformation in AFNI header"
+    ):
         read_meta_info(head)
 
 
@@ -166,10 +168,25 @@ def test_read_meta_info_afni_nan_ijk_to_dicom(tmp_path):
         tmp_path,
         "nan_ijk+orig",
         data,
-        ijk_to_dicom=[2.0, 0.0, 0.0, 10.0, 0.0, float("nan"), 0.0, 20.0, 0.0, 0.0, 3.0, 30.0],
+        ijk_to_dicom=[
+            2.0,
+            0.0,
+            0.0,
+            10.0,
+            0.0,
+            float("nan"),
+            0.0,
+            20.0,
+            0.0,
+            0.0,
+            3.0,
+            30.0,
+        ],
     )
 
-    with pytest.raises(ValueError, match="Invalid IJK_TO_DICOM transformation in AFNI header"):
+    with pytest.raises(
+        ValueError, match="Invalid IJK_TO_DICOM transformation in AFNI header"
+    ):
         read_meta_info(head)
 
 
@@ -181,7 +198,9 @@ def test_read_meta_info_afni_zero_volume_dimension(tmp_path):
         data,
     )
 
-    with pytest.raises(ValueError, match="AFNI dataset must have at least 3 dimensions"):
+    with pytest.raises(
+        ValueError, match="AFNI dataset must have at least 3 dimensions"
+    ):
         read_meta_info(head)
 
 
@@ -223,7 +242,9 @@ def test_read_vol_afni_4d_index_and_scaling(tmp_path):
 
 def test_read_vec_afni_indices_and_gzip(tmp_path):
     base = np.arange(4 * 3 * 2 * 3, dtype=np.float32).reshape((4, 3, 2, 3), order="F")
-    head = _write_afni_pair(tmp_path, "vec+orig", base, float_facs=[1.0, 2.0, 3.0], gzip_data=True)
+    head = _write_afni_pair(
+        tmp_path, "vec+orig", base, float_facs=[1.0, 2.0, 3.0], gzip_data=True
+    )
 
     vec = read_vec(head, indices=[0, 2])
     expected = np.stack([base[..., 0] * 1.0, base[..., 2] * 3.0], axis=3)
@@ -248,7 +269,9 @@ def test_read_vol_afni_respects_ijk_to_dicom_orientation(tmp_path):
 
 def test_write_read_vol_afni_roundtrip(tmp_path):
     data = np.arange(4 * 3 * 2, dtype=np.float32).reshape((4, 3, 2), order="F")
-    space = NeuroSpace(dim=data.shape, spacing=(2.0, 2.0, 3.0), origin=(10.0, 20.0, 30.0))
+    space = NeuroSpace(
+        dim=data.shape, spacing=(2.0, 2.0, 3.0), origin=(10.0, 20.0, 30.0)
+    )
     vol = DenseNeuroVol(data, space)
     head = tmp_path / "wr_vol+orig.HEAD"
 
@@ -258,12 +281,16 @@ def test_write_read_vol_afni_roundtrip(tmp_path):
 
     np.testing.assert_allclose(loaded.data, data)
     assert tuple(hdr["dim"][:3]) == data.shape
-    np.testing.assert_allclose(np.asarray(hdr["spacing"])[:3], np.asarray([2.0, 2.0, 3.0]))
+    np.testing.assert_allclose(
+        np.asarray(hdr["spacing"])[:3], np.asarray([2.0, 2.0, 3.0])
+    )
 
 
 def test_write_read_vol_afni_defaults_to_compatible_dtype(tmp_path):
     data = np.arange(4 * 3 * 2, dtype=np.int16).reshape((4, 3, 2), order="F")
-    space = NeuroSpace(dim=data.shape, spacing=(2.0, 2.0, 3.0), origin=(10.0, 20.0, 30.0))
+    space = NeuroSpace(
+        dim=data.shape, spacing=(2.0, 2.0, 3.0), origin=(10.0, 20.0, 30.0)
+    )
     vol = DenseNeuroVol(data, space)
     head = tmp_path / "wr_vol_default_afni+orig.HEAD"
 
@@ -278,7 +305,9 @@ def test_write_read_vol_afni_defaults_to_compatible_dtype(tmp_path):
 
 def test_write_read_vec_afni_gz_roundtrip(tmp_path):
     data = np.arange(4 * 3 * 2 * 2, dtype=np.float32).reshape((4, 3, 2, 2), order="F")
-    space = NeuroSpace(dim=data.shape, spacing=(2.0, 2.0, 3.0, 1.0), origin=(10.0, 20.0, 30.0, 0.0))
+    space = NeuroSpace(
+        dim=data.shape, spacing=(2.0, 2.0, 3.0, 1.0), origin=(10.0, 20.0, 30.0, 0.0)
+    )
     vec = DenseNeuroVec(data, space)
     head = tmp_path / "wr_vec+orig.HEAD"
 
@@ -291,7 +320,9 @@ def test_write_read_vec_afni_gz_roundtrip(tmp_path):
 
 
 def test_parse_niml_element_attributes():
-    parsed = parse_niml_element('SPARSE_DATA ni_type="2*float" ni_dimen="3" ni_form="text"')
+    parsed = parse_niml_element(
+        'SPARSE_DATA ni_type="2*float" ni_dimen="3" ni_form="text"'
+    )
 
     assert parsed["label"] == "SPARSE_DATA"
     assert parsed["attr"] == {
@@ -304,8 +335,8 @@ def test_parse_niml_element_attributes():
 def test_parse_niml_file_ascii_sparse_data(tmp_path):
     niml = tmp_path / "sparse.niml"
     niml.write_text(
-        "<AFNI_dataset ni_form=\"text\">\n"
-        "<SPARSE_DATA ni_type=\"2*float\" ni_dimen=\"3\" ni_form=\"text\">\n"
+        '<AFNI_dataset ni_form="text">\n'
+        '<SPARSE_DATA ni_type="2*float" ni_dimen="3" ni_form="text">\n'
         "1\n2\n3\n4\n5\n6\n"
         "</SPARSE_DATA>\n"
         "</AFNI_dataset>\n",
@@ -316,7 +347,9 @@ def test_parse_niml_file_ascii_sparse_data(tmp_path):
 
     assert parsed[0]["label"] == "AFNI_dataset"
     assert parsed[1]["label"] == "SPARSE_DATA"
-    np.testing.assert_allclose(parsed[1]["data"], np.array([[1, 3, 5], [2, 4, 6]], dtype=float))
+    np.testing.assert_allclose(
+        parsed[1]["data"], np.array([[1, 3, 5], [2, 4, 6]], dtype=float)
+    )
 
 
 def test_parse_niml_file_binary_lsbfirst_index_list(tmp_path):
@@ -332,4 +365,6 @@ def test_parse_niml_file_binary_lsbfirst_index_list(tmp_path):
     parsed = parse_niml_file(niml)
 
     assert parsed[1]["label"] == "INDEX_LIST"
-    np.testing.assert_array_equal(parsed[1]["data"], np.array([[1, 3], [2, 4]], dtype=np.int32))
+    np.testing.assert_array_equal(
+        parsed[1]["data"], np.array([[1, 3], [2, 4]], dtype=np.int32)
+    )

@@ -117,9 +117,7 @@ def test_sigma_is_millimetres_on_anisotropic_voxels(fixture):
     every axis, so the voxel-space spread shrinks along the coarser z axis.
     """
     spacing = np.asarray(fixture.bold.space.spacing[:3], dtype=float)
-    assert spacing[2] != spacing[0], (
-        f"fixture is not anisotropic: spacing={spacing!r}"
-    )
+    assert spacing[2] != spacing[0], f"fixture is not anisotropic: spacing={spacing!r}"
 
     nx, ny, nz = 32, 32, 24
     delta = np.zeros((nx, ny, nz), dtype=np.float64)
@@ -146,9 +144,7 @@ def test_fwhm_mm_path_is_isotropic_in_mm_on_anisotropic_voxels(fixture):
     delta[nx // 2, ny // 2, nz // 2] = 1.0
     vol = ni.DenseNeuroVol(delta, fixture.mask.space)
 
-    smoothed = np.asarray(
-        rewrite.smooth_fwhm_mm(vol, fwhm_mm=6.0).data
-    )
+    smoothed = np.asarray(rewrite.smooth_fwhm_mm(vol, fwhm_mm=6.0).data)
     spread_x_mm = _axis_spread_voxels(smoothed, 0) * spacing[0]
     spread_z_mm = _axis_spread_voxels(smoothed, 2) * spacing[2]
     # Allow a small tolerance for the integer-voxel discretisation of the

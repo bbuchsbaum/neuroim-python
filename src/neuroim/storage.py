@@ -7,7 +7,6 @@ from typing import Any, Optional, Protocol, Union, runtime_checkable
 
 import numpy as np
 
-
 IndexLike = Union[int, np.ndarray]
 
 

@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Sequence
 
+import numpy as np
+
 import neuroim as ni
 from neuroim.results import ROIExtractionResult
 

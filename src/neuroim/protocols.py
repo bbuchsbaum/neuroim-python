@@ -37,7 +37,6 @@ from typing import (
 import numpy as np
 from numpy.typing import NDArray
 
-
 # --- Coordinate primitives --------------------------------------------------
 
 VoxelCoord = NewType("VoxelCoord", NDArray[np.integer])

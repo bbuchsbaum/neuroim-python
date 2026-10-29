@@ -18,6 +18,7 @@ What it does, hermetically:
 Run via ``make verify-install`` (also chained from ``make
 verify-evidence``). Exit 0 = clean install proven, non-zero = broken.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -37,14 +38,21 @@ def _find_interpreter() -> str | None:
     conforming one rather than assume ``sys.executable`` qualifies."""
     if sys.version_info[:2] >= MIN_PY:
         return sys.executable
-    for name in ("python3.13", "python3.12", "python3.11", "python3.10",
-                 "python3", "python"):
+    for name in (
+        "python3.13",
+        "python3.12",
+        "python3.11",
+        "python3.10",
+        "python3",
+        "python",
+    ):
         exe = shutil.which(name)
         if not exe:
             continue
         r = subprocess.run(
             [exe, "-c", "import sys;print('%d.%d' % sys.version_info[:2])"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if r.returncode == 0:
             try:
@@ -54,6 +62,7 @@ def _find_interpreter() -> str | None:
             if (major, minor) >= MIN_PY:
                 return exe
     return None
+
 
 SMOKE = (
     "import numpy as np, neuroim as ni; "
@@ -72,9 +81,11 @@ def _run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
 def main() -> int:
     interp = _find_interpreter()
     if interp is None:
-        print(f"FAIL: no Python >= {MIN_PY[0]}.{MIN_PY[1]} found to build "
-              "the clean venv (the package requires it). Install a "
-              "conforming interpreter or run via one.")
+        print(
+            f"FAIL: no Python >= {MIN_PY[0]}.{MIN_PY[1]} found to build "
+            "the clean venv (the package requires it). Install a "
+            "conforming interpreter or run via one."
+        )
         return 1
 
     with tempfile.TemporaryDirectory(prefix="neuroim-cleaninstall-") as tmp:
@@ -90,8 +101,7 @@ def main() -> int:
             py = venv / "Scripts" / "python.exe"
 
         print("[2/3] pip install . (declared dependencies only)")
-        r = _run([str(py), "-m", "pip", "install", "-q",
-                  "--upgrade", "pip"])
+        r = _run([str(py), "-m", "pip", "install", "-q", "--upgrade", "pip"])
         if r.returncode != 0:
             print(r.stderr.strip())
             return 1
@@ -103,8 +113,7 @@ def main() -> int:
         print("[3/3] import neuroim + typed-object smoke")
         r = _run([str(py), "-c", SMOKE])
         if r.returncode != 0:
-            print("CLEAN-INSTALL IMPORT FAILED:\n"
-                  + (r.stderr or r.stdout).strip())
+            print("CLEAN-INSTALL IMPORT FAILED:\n" + (r.stderr or r.stdout).strip())
             return 1
         print(r.stdout.strip())
 

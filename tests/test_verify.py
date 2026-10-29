@@ -21,11 +21,9 @@ from neuroim import (
     Receipt,
     SearchlightResult,
     spherical_roi,
-    searchlight_apply,
     verify,
 )
 from neuroim.results import ROIExtractionResult, make_receipt
-
 
 # ----------------------------------------------------------------------
 # Receipt.diff
@@ -141,13 +139,19 @@ def test_require_compatible_on_roi_extraction_result():
     space_b = NeuroSpace(dim=(4, 4, 4), spacing=(3.0, 3.0, 3.0))
     rec_a = make_receipt(input_space=space_a, mask_data=np.ones((4, 4, 4), dtype=bool))
     res_a = ROIExtractionResult(
-        values=np.zeros((1, 1)), coords=np.zeros((1, 3), dtype=int),
-        space=space_a, mask_hash=rec_a.mask_hash, provenance=rec_a,
+        values=np.zeros((1, 1)),
+        coords=np.zeros((1, 3), dtype=int),
+        space=space_a,
+        mask_hash=rec_a.mask_hash,
+        provenance=rec_a,
     )
     rec_b = make_receipt(input_space=space_b, mask_data=np.ones((4, 4, 4), dtype=bool))
     res_b = ROIExtractionResult(
-        values=np.zeros((1, 1)), coords=np.zeros((1, 3), dtype=int),
-        space=space_b, mask_hash=rec_b.mask_hash, provenance=rec_b,
+        values=np.zeros((1, 1)),
+        coords=np.zeros((1, 3), dtype=int),
+        space=space_b,
+        mask_hash=rec_b.mask_hash,
+        provenance=rec_b,
     )
     with pytest.raises(ValueError):
         res_a.require_compatible(res_b)
@@ -231,8 +235,12 @@ def test_assert_same_space_via_result_dot_space_works_for_4d_vs_3d():
     space_3d = NeuroSpace(dim=(8, 8, 4), spacing=(2.0, 2.0, 2.0))
     rec = make_receipt(input_space=space_3d, mask_data=np.ones((8, 8, 4), dtype=bool))
     res_3d = SearchlightResult(
-        values=np.zeros(0), centers=np.zeros((0, 3), dtype=int),
-        space=space_3d, radius=2.0, shape="sphere", provenance=rec,
+        values=np.zeros(0),
+        centers=np.zeros((0, 3), dtype=int),
+        space=space_3d,
+        radius=2.0,
+        shape="sphere",
+        provenance=rec,
     )
     # Either side can be the 4-D one; both directions must accept.
     verify.assert_same_space(space_4d, res_3d)

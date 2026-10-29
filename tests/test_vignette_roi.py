@@ -1,16 +1,26 @@
 """Test that ROI vignette functionality works in Python."""
+
 import numpy as np
 
 # Test imports
 try:
-    from neuroim import (DenseNeuroVol, NeuroSpace, spherical_roi,
-                          square_roi, cuboid_roi, ClusteredNeuroVol,
-                          searchlight, searchlight_coords)
+    from neuroim import (
+        DenseNeuroVol,
+        NeuroSpace,
+        spherical_roi,
+        square_roi,
+        cuboid_roi,
+        ClusteredNeuroVol,
+        searchlight,
+        searchlight_coords,
+    )
     from neuroim.roi import spherical_roi_set
     from neuroim.searchlight import random_searchlight, clustered_searchlight
+
     print("✓ Basic imports work")
 except ImportError as e:
     print(f"✗ Import error: {e}")
+
 
 def test_spherical_roi():
     """Test creating spherical ROIs."""
@@ -30,6 +40,7 @@ def test_spherical_roi():
     sphere2 = spherical_roi(vol, [10, 10, 10], radius=3)
     assert np.all(sphere2.data == 1)  # Should have original values
     print("✓ Spherical ROI without fill works")
+
 
 def test_world_coordinates():
     """Test ROI creation with world coordinates."""
@@ -55,6 +66,7 @@ def test_world_coordinates():
     assert np.allclose(center_of_mass, rpoint, atol=2)
     print("✓ World coordinate ROI works")
 
+
 def test_roi_to_sparse():
     """Test converting ROI to sparse volume."""
     # Create test volume
@@ -72,6 +84,7 @@ def test_roi_to_sparse():
     assert np.sum(sparse_vol.data) == np.sum(sphere.data)
     print("✓ ROI to sparse conversion works")
 
+
 def test_other_roi_shapes():
     """Test square and cuboid ROIs."""
     data = np.zeros((20, 20, 20))
@@ -83,7 +96,7 @@ def test_other_roi_shapes():
         square = square_roi(vol, centroid=[10, 10, 10], surround=3, fixdim=2, fill=1)
         assert len(square) == 49  # 7x7 square
         print("✓ Square ROI works")
-    except:
+    except Exception:
         print("✗ Square ROI not implemented")
 
     # Cuboid ROI
@@ -96,8 +109,9 @@ def test_other_roi_shapes():
         cuboid = cuboid_roi(vol, centroid=[10, 10, 10], surround=[1, 2, 3], fill=1)
         assert len(cuboid) == 3 * 5 * 7  # 3x5x7
         print("✓ Asymmetric cuboid works")
-    except:
+    except Exception:
         print("✗ Cuboid ROI not implemented")
+
 
 def test_multiple_rois():
     """Test creating multiple ROIs."""
@@ -115,8 +129,9 @@ def test_multiple_rois():
         assert roi_list[1].data[0] == 200
         assert roi_list[2].data[0] == 300
         print("✓ Multiple ROI creation works")
-    except:
+    except Exception:
         print("✗ spherical_roi_set not fully working")
+
 
 def test_searchlight():
     """Test searchlight functionality."""
@@ -126,6 +141,7 @@ def test_searchlight():
 
     # Create mask
     from neuroim import LogicalNeuroVol
+
     mask = LogicalNeuroVol(vol.data > -0.5, space)
 
     # Basic searchlight
@@ -142,6 +158,7 @@ def test_searchlight():
     assert len(means) == 10
     print("✓ Searchlight works")
 
+
 def test_searchlight_coords():
     """Test searchlight coordinates only."""
     data = np.random.randn(10, 10, 10)
@@ -150,6 +167,7 @@ def test_searchlight_coords():
 
     # Create mask
     from neuroim import LogicalNeuroVol
+
     mask = LogicalNeuroVol(vol.data > -0.5, space)
 
     # Get coordinates
@@ -165,6 +183,7 @@ def test_searchlight_coords():
 
     print("✓ Searchlight coords works")
 
+
 def test_random_searchlight():
     """Test random searchlight."""
     data = np.random.randn(15, 15, 15)
@@ -173,14 +192,16 @@ def test_random_searchlight():
 
     # Create mask
     from neuroim import LogicalNeuroVol
+
     mask = LogicalNeuroVol(vol.data > -0.5, space)
 
     try:
         rois = list(random_searchlight(mask, radius=3))
         assert len(rois) > 0
         print("✓ Random searchlight works")
-    except:
+    except Exception:
         print("✗ Random searchlight not implemented")
+
 
 def test_clustered_searchlight():
     """Test clustered searchlight."""
@@ -210,6 +231,7 @@ def test_clustered_searchlight():
         print("✓ Clustered searchlight works")
     except Exception as e:
         print(f"✗ Clustered searchlight failed: {e}")
+
 
 if __name__ == "__main__":
     print("Testing ROI vignette functionality...")

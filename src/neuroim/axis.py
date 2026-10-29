@@ -3,6 +3,7 @@ from typing import List, Union
 
 import numpy as np
 
+
 def _readonly_direction(
     direction: Union[int, float, List[float], np.ndarray],
 ) -> np.ndarray:
@@ -12,6 +13,7 @@ def _readonly_direction(
         arr = np.array(direction, copy=True)
     arr.setflags(write=False)
     return arr
+
 
 @dataclass(frozen=True)
 class NamedAxis:
@@ -47,6 +49,7 @@ class NamedAxis:
     def __hash__(self):
         return hash((self.axis, self.direction.dtype.str, self.direction.tobytes()))
 
+
 # Anatomical axis constants (matching R's neuroim2)
 LEFT_RIGHT = NamedAxis("Left-to-Right", [1, 0, 0])
 RIGHT_LEFT = NamedAxis("Right-to-Left", [-1, 0, 0])
@@ -59,6 +62,7 @@ SUP_INF = NamedAxis("Superior-to-Inferior", [0, 0, -1])
 TIME = NamedAxis("Time", 1)
 NullAxis = NamedAxis("None", 0)
 TimeAxis = TIME  # Alias for compatibility
+
 
 class AxisSet:
     """Base class for axis sets.
@@ -84,6 +88,7 @@ class AxisSet:
     def __len__(self):
         return self.ndim
 
+
 class AxisSetND(AxisSet):
     """Generic axis set for ndim > 5."""
 
@@ -100,6 +105,7 @@ class AxisSetND(AxisSet):
     def __repr__(self):
         return f"AxisSetND(ndim={self.ndim}, axes={[ax.axis for ax in self.axes]})"
 
+
 class AxisSet1D(AxisSet):
     """1D axis set."""
 
@@ -113,6 +119,7 @@ class AxisSet1D(AxisSet):
 
     def __iter__(self):
         yield self.i
+
 
 class AxisSet2D(AxisSet):
     """2D axis set."""
@@ -129,6 +136,7 @@ class AxisSet2D(AxisSet):
     def __iter__(self):
         yield self.i
         yield self.j
+
 
 class AxisSet3D(AxisSet):
     """3D axis set."""
@@ -172,15 +180,18 @@ class AxisSet3D(AxisSet):
         else:
             raise ValueError(f"Invalid dimnum {dimnum} for AxisSet3D")
 
+
 class AxisSet4D(AxisSet):
     """4D axis set."""
 
-    def __init__(self, i: NamedAxis, j: NamedAxis, k: NamedAxis, l: NamedAxis):
+    def __init__(
+        self, i: NamedAxis, j: NamedAxis, k: NamedAxis, l: NamedAxis  # noqa: E741
+    ):
         super().__init__(4)
         self.i = i
         self.j = j
         self.k = k
-        self.l = l
+        self.l = l  # noqa: E741
         self._freeze()
 
     def __repr__(self):
@@ -192,17 +203,23 @@ class AxisSet4D(AxisSet):
         yield self.k
         yield self.l
 
+
 class AxisSet5D(AxisSet):
     """5D axis set."""
 
     def __init__(
-        self, i: NamedAxis, j: NamedAxis, k: NamedAxis, l: NamedAxis, m: NamedAxis
+        self,
+        i: NamedAxis,
+        j: NamedAxis,
+        k: NamedAxis,
+        l: NamedAxis,  # noqa: E741
+        m: NamedAxis,
     ):
         super().__init__(5)
         self.i = i
         self.j = j
         self.k = k
-        self.l = l
+        self.l = l  # noqa: E741
         self.m = m
         self._freeze()
 
@@ -215,6 +232,7 @@ class AxisSet5D(AxisSet):
         yield self.k
         yield self.l
         yield self.m
+
 
 def axis_set(
     ndim: int, axes: List[Union[str, NamedAxis]] = None
@@ -244,6 +262,7 @@ def axis_set(
     else:
         return AxisSetND(named_axes)
 
+
 def axis_names(
     x: Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND],
 ) -> List[str]:
@@ -251,12 +270,14 @@ def axis_names(
         return [ax.axis for ax in x.axes]
     return [getattr(x, attr).axis for attr in "ijklm"[: x.ndim]]
 
+
 def axis_directions(
     x: Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND],
 ) -> List[int]:
     if isinstance(x, AxisSetND):
         return [ax.direction for ax in x.axes]
     return [getattr(x, attr).direction for attr in "ijklm"[: x.ndim]]
+
 
 def flip_axis(
     x: Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND],
@@ -290,6 +311,7 @@ def flip_axis(
 
     return axis_set(x.ndim, new_axes)
 
+
 def permute_axes(
     x: Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND],
     perm: List[int],
@@ -308,6 +330,7 @@ def permute_axes(
 
     return axis_set(x.ndim, new_axes)
 
+
 def drop_axis(
     x: Union[AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND],
     which: Union[str, int],
@@ -324,6 +347,7 @@ def drop_axis(
 
     return axis_set(x.ndim - 1, new_axes)
 
+
 def add_axis(
     x: Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D, AxisSetND],
     new_axis: str,
@@ -338,6 +362,7 @@ def add_axis(
         raise ValueError(f"Axis {new_axis} already exists")
 
     return axis_set(x.ndim + 1, current_axes + [new_axis])
+
 
 # Predefined 3D orientations (matching R's neuroim2)
 OrientationList3D = {
@@ -382,6 +407,7 @@ OrientationList2D = {
     "SAGITTAL_AI": AxisSet2D(ANT_POST, INF_SUP),
     "SAGITTAL_AS": AxisSet2D(ANT_POST, SUP_INF),
 }
+
 
 def match_axis(axis_char: str) -> NamedAxis:
     """Match axis character to NamedAxis constant.
@@ -430,6 +456,7 @@ def match_axis(axis_char: str) -> NamedAxis:
         raise ValueError(f"Unknown axis character: {axis_char}")
 
     return mapping[axis_key]
+
 
 def find_anatomy_3d(axis_codes: str) -> AxisSet3D:
     """Create AxisSet3D from 3-letter axis code.

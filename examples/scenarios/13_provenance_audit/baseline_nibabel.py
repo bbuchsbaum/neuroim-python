@@ -62,7 +62,9 @@ def write_tsnr_template(
     resampled = np.empty(template_shape + (n_time,), dtype=np.float64)
     for t in range(n_time):
         vol_img = nib.Nifti1Image(native_data[..., t], native_bold_img.affine)
-        resampled_vol = resample_from_to(vol_img, target_3d_template, order=interpolation)
+        resampled_vol = resample_from_to(
+            vol_img, target_3d_template, order=interpolation
+        )
         resampled[..., t] = resampled_vol.get_fdata()
 
     mask_data = np.asarray(template_mask_img.get_fdata(), dtype=bool)

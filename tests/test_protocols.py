@@ -21,7 +21,6 @@ from neuroim.protocols import (
     SupportsSparse,
 )
 
-
 # --- Hand-rolled, ABC-free Protocol citizens --------------------------------
 
 

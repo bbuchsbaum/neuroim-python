@@ -8,7 +8,6 @@ import pytest
 import neuroim as ni
 import neuroim.spatial_filters as spatial_filters
 
-
 FWHM_PER_SIGMA = 2.0 * np.sqrt(2.0 * np.log(2.0))
 
 

@@ -8,8 +8,6 @@ identical data.
 
 from __future__ import annotations
 
-import os
-import tempfile
 from pathlib import Path
 from typing import Callable, Tuple
 
@@ -26,7 +24,6 @@ from neuroim import (
     SparseNeuroVec,
 )
 from neuroim.neuro_vol import DenseNeuroVol
-
 
 SHAPE: Tuple[int, int, int, int] = (8, 8, 4, 10)
 
@@ -57,7 +54,9 @@ def _make_big(arr: np.ndarray, space: NeuroSpace) -> BigNeuroVec:
     return BigNeuroVec(arr.astype(np.float32, copy=True), space)
 
 
-def _make_file_backed(arr: np.ndarray, space: NeuroSpace, tmp_path: Path) -> FileBackedNeuroVec:
+def _make_file_backed(
+    arr: np.ndarray, space: NeuroSpace, tmp_path: Path
+) -> FileBackedNeuroVec:
     import nibabel as nib
 
     affine = np.asarray(space.trans[:4, :4], dtype=float)
@@ -103,7 +102,9 @@ def backend(
 
 
 @pytest.fixture(scope="module")
-def fixture_volume_at_zero(fixture_array: np.ndarray, fixture_space: NeuroSpace) -> DenseNeuroVol:
+def fixture_volume_at_zero(
+    fixture_array: np.ndarray, fixture_space: NeuroSpace
+) -> DenseNeuroVol:
     """The volume at t=0 from the canonical fixture, used for ground-truth."""
     vol_space = NeuroSpace(
         dim=fixture_array.shape[:3],

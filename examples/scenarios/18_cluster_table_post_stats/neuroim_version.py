@@ -62,9 +62,9 @@ def cluster_table_from_stat_map(
     ].copy()
     if min_extent > 0:
         table = table[table["n_voxels"] >= min_extent].reset_index(drop=True)
-    table = table.sort_values(
-        "n_voxels", ascending=False, kind="stable"
-    ).reset_index(drop=True)
+    table = table.sort_values("n_voxels", ascending=False, kind="stable").reset_index(
+        drop=True
+    )
     table.insert(0, "cluster_id", np.arange(1, len(table) + 1, dtype=int))
     return _ClusterTableResult(table=table, provenance=result.provenance)
 
@@ -84,13 +84,7 @@ class _ClusterTableResult:
 
 def typed_from_nibabel(stat_img, mask_img):
     """Adapter so the test can drive both paths from one fixture call."""
-    space = ni.NeuroSpace.from_affine(
-        np.asarray(stat_img.affine), stat_img.shape[:3]
-    )
-    stat_vol = ni.DenseNeuroVol(
-        np.asarray(stat_img.dataobj, dtype=np.float64), space
-    )
-    mask_vol = ni.LogicalNeuroVol(
-        np.asarray(mask_img.dataobj).astype(bool), space
-    )
+    space = ni.NeuroSpace.from_affine(np.asarray(stat_img.affine), stat_img.shape[:3])
+    stat_vol = ni.DenseNeuroVol(np.asarray(stat_img.dataobj, dtype=np.float64), space)
+    mask_vol = ni.LogicalNeuroVol(np.asarray(mask_img.dataobj).astype(bool), space)
     return stat_vol, mask_vol

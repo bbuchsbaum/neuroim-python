@@ -14,6 +14,7 @@ concepts/, spec/, evidence/. Generated (reference/), archived
 
 Exit 0 = clean, 1 = violations. Run: python tools/docs_lint.py
 """
+
 from __future__ import annotations
 
 import re
@@ -34,8 +35,16 @@ AUTHORED = [
 
 # 1. Banned adjectives (word-boundary, case-insensitive).
 BANNED_ADJECTIVES = [
-    "powerful", "easy", "intuitive", "modern", "comprehensive",
-    "seamless", "blazing", "effortless", "cutting-edge", "state-of-the-art",
+    "powerful",
+    "easy",
+    "intuitive",
+    "modern",
+    "comprehensive",
+    "seamless",
+    "blazing",
+    "effortless",
+    "cutting-edge",
+    "state-of-the-art",
 ]
 
 # 2. Identity-by-comparison phrases. Allowed only under evidence/.
@@ -72,12 +81,16 @@ def iter_files():
 
 def strip_code_blocks(text: str) -> str:
     """Blank out fenced code so prose-only rules don't fire on code."""
-    return re.sub(r"```.*?```", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.DOTALL)
+    return re.sub(
+        r"```.*?```", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.DOTALL
+    )
 
 
 def main() -> int:
     adj_re = re.compile(
-        r"(?<![\w-])(" + "|".join(re.escape(a) for a in BANNED_ADJECTIVES) + r")(?![\w-])",
+        r"(?<![\w-])("
+        + "|".join(re.escape(a) for a in BANNED_ADJECTIVES)
+        + r")(?![\w-])",
         re.IGNORECASE,
     )
     cmp_res = [re.compile(p, re.IGNORECASE) for p in COMPARISON_PHRASES]
@@ -92,7 +105,10 @@ def main() -> int:
 
         for i, line in enumerate(prose.splitlines(), 1):
             for m in adj_re.finditer(line):
-                violations.append(f"{rel}:{i}: banned adjective '{m.group(1)}' — state the concrete fact instead")
+                violations.append(
+                    f"{rel}:{i}: banned adjective '{m.group(1)}' — state the concrete "
+                    f"fact instead"
+                )
             if not in_evidence:
                 for cre in cmp_res:
                     m = cre.search(line)
@@ -104,7 +120,9 @@ def main() -> int:
             for mre, good in miss_res:
                 m = mre.search(line)
                 if m:
-                    violations.append(f"{rel}:{i}: '{m.group(0)}' — canonical token is '{good}'")
+                    violations.append(
+                        f"{rel}:{i}: '{m.group(0)}' — canonical token is '{good}'"
+                    )
 
     if violations:
         print("Docs editorial lint: FAIL\n")
@@ -113,7 +131,9 @@ def main() -> int:
         print(f"\n{len(violations)} violation(s).")
         return 1
 
-    print(f"Docs editorial lint: OK ({sum(1 for _ in iter_files())} authored files clean)")
+    print(
+        f"Docs editorial lint: OK ({sum(1 for _ in iter_files())} authored files clean)"
+    )
     return 0
 
 
