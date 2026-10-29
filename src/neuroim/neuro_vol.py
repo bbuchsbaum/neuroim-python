@@ -74,6 +74,12 @@ class NeuroVol(ABC):
         The spatial metadata for the volume
     """
 
+    if TYPE_CHECKING:
+        # Every concrete volume provides ``data`` (an attribute or a property)
+
+        @property
+        def data(self) -> np.ndarray: ...
+
     def __init__(self, space: NeuroSpace):
         if not isinstance(space, NeuroSpace):
             raise TypeError("space must be a NeuroSpace object")
@@ -487,6 +493,8 @@ class DenseNeuroVol(NeuroVol):
         Volume label
     indices : array-like, optional
         If provided, only these indices will be filled with data"""
+
+    data: np.ndarray
 
     def __init__(
         self,

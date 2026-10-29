@@ -3,6 +3,7 @@
 import numpy as np
 from typing import Any, Tuple, Union, Optional, List
 from .axis import (
+    AxisSet,
     AxisSet1D,
     AxisSet2D,
     AxisSet3D,
@@ -40,6 +41,15 @@ class NeuroSpace:
         4x4 transformation matrix (default: created from spacing/origin)
     """
 
+    # Set through object.__setattr__ in __init__ (instances are frozen)
+    dim: np.ndarray
+    spacing: np.ndarray
+    origin: np.ndarray
+    trans: np.ndarray
+    inverse: np.ndarray
+    axes: AxisSet
+    _frozen: bool
+
     @staticmethod
     def _fit_axis_vector(
         values: np.ndarray, ndim: int, fill: float, name: str
@@ -70,7 +80,9 @@ class NeuroSpace:
         spacing: Optional[Union[Tuple[float, ...], List[float], np.ndarray]] = None,
         origin: Optional[Union[Tuple[float, ...], List[float], np.ndarray]] = None,
         axes: Optional[
-            Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D]
+            Union[
+                AxisSet, List[Union[str, NamedAxis]], Tuple[Union[str, NamedAxis], ...]
+            ]
         ] = None,
         trans: Optional[np.ndarray] = None,
     ):
@@ -819,7 +831,9 @@ def neurospace(
     dim: Union[Tuple[int, ...], List[int]],
     spacing: Optional[Union[Tuple[float, ...], List[float]]] = None,
     origin: Optional[Union[Tuple[float, ...], List[float]]] = None,
-    axes: Optional[Union[AxisSet1D, AxisSet2D, AxisSet3D, AxisSet4D, AxisSet5D]] = None,
+    axes: Optional[
+        Union[AxisSet, List[Union[str, NamedAxis]], Tuple[Union[str, NamedAxis], ...]]
+    ] = None,
     trans: Optional[np.ndarray] = None,
 ) -> NeuroSpace:
     """Construct a :class:`NeuroSpace` from spacing/origin/axes or a 4x4 affine."""

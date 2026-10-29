@@ -70,6 +70,10 @@ class AxisSet:
     Describes a coordinated set of named spatial axes.
     """
 
+    # Set through object.__setattr__ (instances are frozen after __init__)
+    ndim: int
+    _frozen: bool
+
     def __init__(self, ndim: int):
         object.__setattr__(self, "_frozen", False)
         object.__setattr__(self, "ndim", ndim)

@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import warnings as _warnings
-from typing import Any, Union, Tuple, List, Optional
+from typing import TYPE_CHECKING, Any, Union, Tuple, List, Optional
 
 from .neuro_space import NeuroSpace
 from .neuro_vol import (
@@ -112,6 +112,12 @@ class NeuroVec(ABC):
     space : NeuroSpace
         4D spatial metadata
     """
+
+    if TYPE_CHECKING:
+        # Every concrete vector provides ``data`` (an attribute or a property)
+
+        @property
+        def data(self) -> np.ndarray: ...
 
     def __init__(self, space: NeuroSpace):
         if space.ndim != 4:
@@ -855,6 +861,8 @@ class DenseNeuroVec(NeuroVec):
     label : str, optional
         Vector label"""
 
+    data: np.ndarray
+
     def __init__(self, data, space: NeuroSpace, label: str = ""):
         super().__init__(space)
 
@@ -1266,6 +1274,8 @@ class SparseNeuroVec(NeuroVec):
         when the number of voxels equals the number of time points the layout
         is ambiguous, so ``"auto"`` assumes time x voxels and warns -- pass
         ``orientation`` explicitly to avoid a silent transpose."""
+
+    data: np.ndarray
 
     def __init__(
         self,
